@@ -158,15 +158,78 @@ function renderNews() {
       </div></div>`).join("") : `<p class="muted">Không có tin phù hợp.</p>`}</div>`;
 }
 
+// Có cấu hình Supabase: dữ liệu nằm trong bucket riêng tư, chỉ thành viên đã đăng nhập đọc được.
+// Không có: đọc thư mục data/ trên máy (chạy thử).
+const CFG = window.APP_CONFIG || {};
+const sb = CFG.supabaseUrl && window.supabase ? window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey) : null;
+
+async function getJSON(path) {
+  if (!sb) return (await fetch(`data/${path}?t=${Date.now()}`)).json();
+  const { data, error } = await sb.storage.from("data").download(path);
+  if (error) throw error;
+  return JSON.parse(await data.text());
+}
+
 async function load(day) {
-  const url = day ? `data/history/${day}.json` : "data/latest.json";
-  const res = await fetch(`${url}?t=${Date.now()}`);
-  DATA = await res.json();
+  DATA = await getJSON(day ? `history/${day}.json` : "latest.json");
   $("#updated").textContent = `Cập nhật: ${timeVN(DATA.generated_at)}${DATA.ai_enabled ? "" : " · chưa bật AI"}`;
   renderOverview();
   renderWatch();
   renderScreen();
   renderNews();
+}
+
+function setLocked(locked) {
+  document.body.classList.toggle("locked", locked);
+  $("#login").hidden = !locked;
+  $("#tabs").hidden = locked;
+  $("#logout").hidden = locked || !sb;
+  $("#history").hidden = locked;
+}
+
+async function showApp() {
+  setLocked(false);
+  try {
+    const days = await getJSON("history.json");
+    $("#history").innerHTML = `<option value="">Mới nhất</option>` + days.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join("");
+  } catch {
+    $("#history").hidden = true;
+  }
+  try {
+    await load();
+  } catch (err) {
+    console.error(err);
+    $("#updated").textContent = "Chưa có dữ liệu. Hãy chạy workflow \"Cập nhật dữ liệu\" trên GitHub Actions.";
+  }
+}
+
+function showLogin() {
+  setLocked(true);
+  $("#updated").textContent = "Dành cho thành viên được mời";
+}
+
+async function sendLoginLink(e) {
+  e.preventDefault();
+  const msg = $("#login-msg");
+  const btn = $("#login-form button");
+  btn.disabled = true;
+  msg.className = "small";
+  msg.textContent = "Đang gửi…";
+  const { error } = await sb.auth.signInWithOtp({
+    email: $("#login-email").value.trim(),
+    // Không tạo tài khoản mới: chỉ email đã được mời mới đăng nhập được
+    options: { shouldCreateUser: false, emailRedirectTo: location.origin + location.pathname },
+  });
+  btn.disabled = false;
+  if (error) {
+    msg.className = "small err";
+    msg.textContent = /signups not allowed|not found/i.test(error.message)
+      ? "Email này chưa được mời. Hãy liên hệ quản trị viên."
+      : `Không gửi được link: ${error.message}`;
+  } else {
+    msg.className = "small ok";
+    msg.textContent = "Đã gửi! Hãy mở email và bấm vào link để đăng nhập.";
+  }
 }
 
 async function init() {
@@ -177,19 +240,22 @@ async function init() {
       $(`#${btn.dataset.tab}`).classList.add("active");
     }));
   ["#news-q", "#news-sent", "#news-imp"].forEach((sel) => $(sel).addEventListener("input", renderNews));
+  $("#history").addEventListener("change", (e) => load(e.target.value));
 
-  try {
-    const days = await (await fetch(`data/history.json?t=${Date.now()}`)).json();
-    $("#history").innerHTML = `<option value="">Mới nhất</option>` + days.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join("");
-    $("#history").addEventListener("change", (e) => load(e.target.value));
-  } catch {
-    $("#history").hidden = true;
-  }
-  try {
-    await load();
-  } catch (err) {
-    $("#updated").textContent = "Chưa có dữ liệu. Hãy chạy workflow \"Cập nhật dữ liệu\" trên GitHub Actions.";
-  }
+  if (!sb) return showApp();
+
+  $("#login-form").addEventListener("submit", sendLoginLink);
+  $("#logout").addEventListener("click", () => sb.auth.signOut());
+  let signedIn = false;
+  sb.auth.onAuthStateChange((_event, session) => {
+    if (session && !signedIn) {
+      signedIn = true;
+      showApp();
+    } else if (!session) {
+      signedIn = false;
+      showLogin();
+    }
+  });
 }
 
 init();

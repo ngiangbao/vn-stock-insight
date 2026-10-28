@@ -15,10 +15,11 @@
         <p class="muted" id="updated">Đang tải…</p>
       </div>
       <div class="top-right">
-        <select id="history" aria-label="Xem ngày"></select>
+        <select id="history" aria-label="Xem ngày" hidden></select>
+        <button id="logout" class="btn-ghost" hidden>Đăng xuất</button>
       </div>
     </div>
-    <nav class="wrap tabs" role="tablist">
+    <nav class="wrap tabs" role="tablist" id="tabs" hidden>
       <button class="tab active" data-tab="overview">Tổng quan</button>
       <button class="tab" data-tab="watch">Theo dõi</button>
       <button class="tab" data-tab="screen">Bộ lọc</button>
@@ -27,6 +28,17 @@
   </header>
 
   <main class="wrap">
+    <section id="login" class="login" hidden>
+      <div class="card">
+        <h2>Đăng nhập</h2>
+        <p class="muted small">Trang này chỉ dành cho thành viên được mời. Nhập email đã được mời, bạn sẽ nhận một đường link đăng nhập.</p>
+        <form id="login-form">
+          <input id="login-email" type="email" required placeholder="email@vidu.com" autocomplete="email">
+          <button type="submit" class="btn">Gửi link đăng nhập</button>
+        </form>
+        <p id="login-msg" class="small"></p>
+      </div>
+    </section>
     <section id="overview" class="panel active"></section>
     <section id="watch" class="panel"></section>
     <section id="screen" class="panel"></section>
@@ -52,6 +64,8 @@
     Dữ liệu giá: DNSE/VNDirect (nghìn đồng). Tin tức: CafeF, Vietstock, VnExpress, VnEconomy, Tin nhanh chứng khoán.
     Phân tích do AI tạo ra, chỉ mang tính tham khảo, không phải khuyến nghị đầu tư.
   </footer>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

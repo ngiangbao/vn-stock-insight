@@ -10,10 +10,10 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["site/**", "!site/data/**"]
+    paths: ["site/**", ".github/workflows/**"]
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
@@ -37,20 +37,23 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: Chạy pipeline
+      - name: Chạy pipeline và tải kết quả lên Supabase
         if: github.event_name != 'push'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python -m pipeline.main
 
-      - name: Lưu dữ liệu vào repo
-        if: github.event_name != 'push'
+      # Dữ liệu chỉ nằm trong Supabase (riêng tư), không đưa lên trang công khai
+      - name: Chuẩn bị trang web
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add site/data
-          git diff --cached --quiet || git commit -m "Cập nhật dữ liệu $(TZ=Asia/Ho_Chi_Minh date '+%Y-%m-%d %H:%M')"
-          git push
+          rm -rf site/data
+          printf 'window.APP_CONFIG = { supabaseUrl: "%s", supabaseAnonKey: "%s" };\n' \
+            "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > site/config.js
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

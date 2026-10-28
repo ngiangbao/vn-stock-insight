@@ -32,6 +32,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body {
   margin: 0;
   background: var(--bg);
@@ -65,6 +66,7 @@ select, input {
 main { padding-top: 20px; padding-bottom: 24px; }
 .panel { display: none; }
 .panel.active { display: block; }
+body.locked .panel { display: none; }
 
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
 .grid { display: grid; gap: 14px; }
@@ -107,6 +109,17 @@ td.sig { white-space: normal; min-width: 220px; font-size: 13px; }
 .news-item:last-child { border-bottom: 0; }
 .news-meta { font-size: 12px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
 .news-sum { margin: 4px 0 0; font-size: 14px; }
+
+.top-right { display: flex; gap: 8px; align-items: center; }
+.btn, .btn-ghost {
+  font: inherit; font-weight: 600; border-radius: 8px; padding: 7px 14px; cursor: pointer;
+}
+.btn { background: var(--accent); color: #fff; border: 1px solid var(--accent); }
+.btn-ghost { background: none; color: var(--muted); border: 1px solid var(--border); }
+.login { max-width: 420px; margin: 48px auto; }
+.login form { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+#login-msg.ok { color: var(--up); }
+#login-msg.err { color: var(--down); }
 
 .notice { border-left: 3px solid var(--flat); padding: 10px 14px; background: var(--flat-bg); border-radius: 6px; font-size: 14px; }
 footer { padding-bottom: 28px; }

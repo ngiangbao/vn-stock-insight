@@ -4,14 +4,13 @@ Chạy: python -m pipeline.main [--no-ai]
 """
 
 import argparse
-import json
 import os
 import time
 from pathlib import Path
 
 import yaml
 
-from pipeline import market, news
+from pipeline import market, news, storage
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "site" / "data"
@@ -93,18 +92,9 @@ def main() -> None:
         "analyses": analyses,
         "news": items,
     }
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(output, ensure_ascii=False, separators=(",", ":"))
-    (DATA_DIR / "latest.json").write_text(payload, encoding="utf-8")
-
     # Lưu thêm bản theo ngày để xem lại lịch sử nhận định
-    history_dir = DATA_DIR / "history"
-    history_dir.mkdir(exist_ok=True)
     day = time.strftime("%Y-%m-%d", time.gmtime(time.time() + 7 * 3600))
-    (history_dir / f"{day}.json").write_text(payload, encoding="utf-8")
-    days = sorted((p.stem for p in history_dir.glob("*.json")), reverse=True)
-    (DATA_DIR / "history.json").write_text(json.dumps(days), encoding="utf-8")
-    print(f"[main] Đã ghi {DATA_DIR / 'latest.json'}")
+    storage.save(output, day, DATA_DIR)
 
 
 if __name__ == "__main__":
