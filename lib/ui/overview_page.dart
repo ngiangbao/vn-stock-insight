@@ -428,14 +428,15 @@ class _IndexQuoteCard extends StatelessWidget {
         onTap: () => dash.select(meta.symbol),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
+          // Dòng trên: tên và biến động; dòng dưới: giá và đường biểu đồ kéo dài từ cuối giá đến gần hết ô
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
                       meta.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -445,38 +446,56 @@ class _IndexQuoteCard extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      fmt(quote?.last),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        quote?.change == null
+                            ? 'Chưa có dữ liệu'
+                            : '${quote!.change! >= 0 ? '+' : ''}${fmt(quote.change)}  ·  ${quote.pct! >= 0 ? '+' : ''}${fmt(quote.pct)}%',
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: quote?.change == null
+                              ? cs.onSurfaceVariant
+                              : tone,
+                          fontWeight: FontWeight.w700,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
                       ),
                     ),
-                    Text(
-                      quote?.change == null
-                          ? 'Chưa có dữ liệu'
-                          : '${quote!.change! >= 0 ? '+' : ''}${fmt(quote.change)}  ·  ${quote.pct! >= 0 ? '+' : ''}${fmt(quote.pct)}%',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: quote?.change == null
-                            ? cs.onSurfaceVariant
-                            : tone,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              if (quote != null) ...[
-                const SizedBox(width: 6),
-                SizedBox(width: 64, child: Sparkline(quote.spark, height: 38)),
-              ],
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  // Chiều rộng giá cố định: mọi đường biểu đồ bắt đầu và kết thúc ở cùng một vị trí
+                  SizedBox(
+                    width: 92,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        fmt(quote?.last),
+                        maxLines: 1,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (quote != null) ...[
+                    const SizedBox(width: 16),
+                    Expanded(child: Sparkline(quote.spark, height: 38)),
+                    const SizedBox(width: 4),
+                  ],
+                ],
+              ),
             ],
           ),
         ),

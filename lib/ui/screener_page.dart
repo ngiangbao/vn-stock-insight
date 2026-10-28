@@ -317,14 +317,23 @@ class _IndexMiniCard extends StatelessWidget {
               ),
               Row(
                 children: [
-                  Text(
-                    fmt(quote?.last, 2),
-                    style: Theme.of(context).textTheme.titleMedium,
+                  // Chiều rộng giá cố định: mọi đường biểu đồ bắt đầu và kết thúc cùng một vị trí
+                  SizedBox(
+                    width: 92,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        fmt(quote?.last, 2),
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Sparkline(quote?.spark ?? const [], height: 34),
                   ),
+                  const SizedBox(width: 4),
                 ],
               ),
             ],
