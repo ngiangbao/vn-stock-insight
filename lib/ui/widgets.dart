@@ -209,21 +209,28 @@ class PageFrame extends StatelessWidget {
   }
 }
 
-/// Co giãn toàn bộ giao diện theo chiều rộng cửa sổ: app được dựng như ở cửa sổ rộng [designWidth]
-/// rồi phóng to/thu nhỏ cho vừa, nên bố cục giữ nguyên tỉ lệ ở mọi kích thước.
-/// Màn hình hẹp (điện thoại) giữ nguyên kích thước gốc.
+/// Cỡ giao diện. [manual] = null: tự co giãn nhẹ theo chiều rộng cửa sổ (chuẩn [designWidth],
+/// trong khoảng [minAuto]–[maxAuto]); có giá trị: dùng đúng tỉ lệ đó (0.8 = 80%).
+/// Màn hình hẹp (điện thoại) ở chế độ tự động giữ nguyên kích thước gốc.
 class AutoScale extends StatelessWidget {
-  static const designWidth = 1280.0;
+  static const designWidth = 1600.0, minAuto = 0.85, maxAuto = 1.15;
+  static const presets = [0.8, 0.9, 1.0, 1.1, 1.25];
   final bool enabled;
+  final double? manual;
   final Widget child;
-  const AutoScale({super.key, required this.enabled, required this.child});
+  const AutoScale({super.key, required this.enabled, this.manual, required this.child});
 
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
     final width = mq.size.width;
-    if (!enabled || width < 600) return child;
-    final s = (width / designWidth).clamp(0.75, 2.5);
+    final double s;
+    if (manual != null) {
+      s = manual!;
+    } else {
+      if (!enabled || width < 600) return child;
+      s = (width / designWidth).clamp(minAuto, maxAuto);
+    }
     if ((s - 1).abs() < 0.02) return child;
     final logical = mq.size / s;
     return FittedBox(

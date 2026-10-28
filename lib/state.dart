@@ -132,6 +132,7 @@ class AppState extends ChangeNotifier {
     effort = _prefs.getString('effort') ?? 'medium';
     autoCheckUpdates = _prefs.getBool('autoUpdate') ?? true;
     autoScale = _prefs.getBool('autoScale') ?? true;
+    uiScale = _prefs.getDouble('uiScale');
     for (final p in providers) {
       final url = _prefs.getString('url_${p.id}');
       final model = _prefs.getString('model_${p.id}');
@@ -195,6 +196,15 @@ class AppState extends ChangeNotifier {
   void setAutoScale(bool value) {
     autoScale = value;
     _prefs.setBool('autoScale', value);
+    notifyListeners();
+  }
+
+  /// Cỡ giao diện chọn tay (0.8 = 80%); null = tự động theo cửa sổ.
+  double? uiScale;
+
+  void setUiScale(double? value) {
+    uiScale = value?.clamp(0.6, 1.6).toDouble();
+    uiScale == null ? _prefs.remove('uiScale') : _prefs.setDouble('uiScale', uiScale!);
     notifyListeners();
   }
 

@@ -116,13 +116,34 @@ class _SettingsPageState extends State<SettingsPage> {
           selected: {state.themeMode},
           onSelectionChanged: (s) => state.setTheme(s.first),
         ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Tự co giãn theo chiều rộng cửa sổ'),
-          subtitle: const Text('Phóng to/thu nhỏ toàn bộ giao diện khi đổi kích thước cửa sổ'),
-          value: state.autoScale,
-          onChanged: state.setAutoScale,
-        ),
+        const SizedBox(height: 14),
+        Text('Cỡ giao diện', style: text.titleSmall),
+        const SizedBox(height: 6),
+        Wrap(spacing: 6, runSpacing: 6, children: [
+          ChoiceChip(
+            label: const Text('Tự động'),
+            selected: state.uiScale == null,
+            onSelected: (_) => state.setUiScale(null),
+          ),
+          for (final s in AutoScale.presets)
+            ChoiceChip(
+              label: Text('${(s * 100).round()}%'),
+              selected: state.uiScale != null && (state.uiScale! - s).abs() < 0.01,
+              onSelected: (_) => state.setUiScale(s),
+            ),
+          if (state.uiScale != null && !AutoScale.presets.any((s) => (state.uiScale! - s).abs() < 0.01))
+            ChoiceChip(label: Text('${(state.uiScale! * 100).round()}%'), selected: true, onSelected: (_) {}),
+        ]),
+        const SizedBox(height: 4),
+        Text('Phím tắt: Ctrl + / Ctrl − để phóng to/thu nhỏ, Ctrl 0 để trở về Tự động.', style: text.bodySmall),
+        if (state.uiScale == null)
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Tự co giãn nhẹ theo chiều rộng cửa sổ'),
+            subtitle: const Text('Ở chế độ Tự động: giao diện co giãn trong khoảng 85–115% khi đổi kích thước cửa sổ'),
+            value: state.autoScale,
+            onChanged: state.setAutoScale,
+          ),
       ]),
       const SizedBox(height: 14),
       section('AI', [
