@@ -22,19 +22,46 @@ Future<void> main() async {
 }
 
 ThemeData _theme(Brightness brightness) {
-  final scheme = ColorScheme.fromSeed(seedColor: const Color(0xFF2459D6), brightness: brightness);
+  // Bảng màu tài chính: xanh ngọc chuyên nghiệp, nền dịu; xanh/đỏ dành riêng
+  // cho sắc thái tăng giảm giá trong Tone.
+  final scheme = ColorScheme.fromSeed(
+    seedColor: const Color(0xFF087F5B),
+    brightness: brightness,
+    surface: brightness == Brightness.light ? const Color(0xFFF7F9FC) : const Color(0xFF111820),
+  );
+  final outline = brightness == Brightness.light ? const Color(0xFFE1E7ED) : const Color(0xFF2C3742);
+  final textTheme = ThemeData(brightness: brightness).textTheme.apply(
+        bodyColor: scheme.onSurface,
+        displayColor: scheme.onSurface,
+        fontFamily: 'Roboto',
+      );
   return ThemeData(
     colorScheme: scheme,
+    textTheme: textTheme,
     useMaterial3: true,
+    scaffoldBackgroundColor: scheme.surface,
+    appBarTheme: AppBarTheme(
+      backgroundColor: scheme.surface,
+      surfaceTintColor: Colors.transparent,
+      titleTextStyle: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+    ),
     cardTheme: CardThemeData(
+      color: brightness == Brightness.light ? Colors.white : const Color(0xFF18212B),
+      surfaceTintColor: Colors.transparent,
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: scheme.outlineVariant),
+        side: BorderSide(color: outline),
       ),
     ),
-    inputDecorationTheme: const InputDecorationTheme(border: OutlineInputBorder(), isDense: true),
+    dividerTheme: DividerThemeData(color: outline, thickness: 1),
+    inputDecorationTheme: InputDecorationTheme(
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: outline)),
+      isDense: true,
+    ),
+    visualDensity: VisualDensity.standard,
   );
 }
 
