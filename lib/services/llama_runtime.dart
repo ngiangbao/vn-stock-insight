@@ -17,15 +17,20 @@ const _runtimeConfigUrl = 'https://raw.githubusercontent.com/ngiangbao/vn-stock-
 /// Nền tảng có hỗ trợ chạy model trong app hay không (Android chặn chạy file thực thi tải về).
 bool get embeddedSupported => Platform.isLinux || Platform.isMacOS || Platform.isWindows;
 
+/// Tên cuối của đường dẫn, chấp nhận cả `/` và `\` (Windows trả về `\`, đường dẫn tự ghép có thể có `/`).
+String baseName(String path) => path.split(RegExp(r'[\\/]')).where((s) => s.isNotEmpty).last;
+
+String _join(String dir, String name) => '$dir${Platform.pathSeparator}$name';
+
 class LlamaRuntime {
   final Directory baseDir; // thư mục dữ liệu của app
   final Future<String> Function() loadBundledConfig;
 
   LlamaRuntime(this.baseDir, this.loadBundledConfig);
 
-  Directory get _engineDir => Directory('${baseDir.path}/engine');
-  File get _installedFile => File('${_engineDir.path}/installed.json');
-  File get _pidFile => File('${_engineDir.path}/server.pid');
+  Directory get _engineDir => Directory(_join(baseDir.path, 'engine'));
+  File get _installedFile => File(_join(_engineDir.path, 'installed.json'));
+  File get _pidFile => File(_join(_engineDir.path, 'server.pid'));
 
   Process? _process;
   String? _modelPath;
@@ -105,7 +110,7 @@ class LlamaRuntime {
     if (asset == null) throw Exception('Không tìm thấy bản llama.cpp $build cho $v.');
     final digest = (asset['digest'] as String?)?.replaceFirst('sha256:', '');
 
-    final archive = File('${_engineDir.path}/${asset['name']}');
+    final archive = File(_join(_engineDir.path, asset['name'] as String));
     await downloadFile(
       asset['browser_download_url'],
       archive,
@@ -118,7 +123,7 @@ class LlamaRuntime {
 
     onStatus?.call('Đang giải nén engine…', null);
     await stop();
-    final target = Directory('${_engineDir.path}/$build-$v');
+    final target = Directory(_join(_engineDir.path, '$build-$v'));
     if (await target.exists()) await target.delete(recursive: true);
     await target.create(recursive: true);
     // tar có sẵn trên Linux, macOS và Windows 10+ (đọc được cả .zip)
@@ -129,13 +134,18 @@ class LlamaRuntime {
     final exe = Platform.isWindows ? 'llama-server.exe' : 'llama-server';
     final server = await target
         .list(recursive: true)
-        .firstWhere((e) => e is File && e.path.endsWith('${Platform.pathSeparator}$exe'), orElse: () => File(''));
+        .firstWhere((e) => e is File && baseName(e.path) == exe, orElse: () => File(''));
     if (server.path.isEmpty) throw Exception('Gói llama.cpp không có $exe.');
     if (!Platform.isWindows) await Process.run('chmod', ['+x', server.path]);
 
-    // Dọn các bản cũ
+    // Dọn các bản cũ. So sánh theo tên thư mục: trên Windows, đường dẫn liệt kê ra dùng `\`
+    // còn đường dẫn tự ghép có thể khác dạng, so cả chuỗi sẽ xóa nhầm chính bản vừa cài.
+    final keep = baseName(target.path);
     await for (final e in _engineDir.list()) {
-      if (e is Directory && e.path != target.path) await e.delete(recursive: true);
+      if (e is Directory && baseName(e.path) != keep) await e.delete(recursive: true);
+    }
+    if (!await File(server.path).exists()) {
+      throw Exception('Không tìm thấy $exe sau khi cài. Phần mềm diệt virus có thể đã chặn file này.');
     }
     await _installedFile.writeAsString(jsonEncode({'build': build, 'variant': v, 'server': server.path}));
     onStatus?.call('Đã cài llama.cpp $build', 1);
@@ -157,15 +167,23 @@ class LlamaRuntime {
     onStatus?.call('Đang nạp model vào bộ nhớ…', null);
     _log.clear();
     final dir = File(server).parent.path;
-    final proc = await Process.start(
-      server,
-      [
-        '-m', modelPath, '--host', '127.0.0.1', '--port', '$port', //
-        '-c', '$ctx', '--fit', 'on', '--no-webui', '--reasoning', 'off',
-      ],
-      workingDirectory: dir,
-      environment: Platform.isLinux ? {'LD_LIBRARY_PATH': dir} : null,
-    );
+    final Process proc;
+    try {
+      proc = await Process.start(
+        server,
+        [
+          '-m', modelPath, '--host', '127.0.0.1', '--port', '$port', //
+          '-c', '$ctx', '--fit', 'on', '--no-webui', '--reasoning', 'off',
+        ],
+        workingDirectory: dir,
+        environment: Platform.isLinux ? {'LD_LIBRARY_PATH': dir} : null,
+      );
+    } on ProcessException catch (e) {
+      // Engine bị xóa hoặc bị chặn: bỏ thông tin cài đặt để lần sau tự cài lại
+      if (await _installedFile.exists()) await _installedFile.delete();
+      throw Exception('Không chạy được engine llama.cpp (${e.message}). Hãy thử lại để app cài lại engine; '
+          'nếu vẫn lỗi, kiểm tra phần mềm diệt virus có chặn file llama-server không.');
+    }
     _process = proc;
     _modelPath = modelPath;
     _port = port;

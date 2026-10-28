@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vn_stock_insight/ai/providers.dart';
 import 'package:vn_stock_insight/services/hardware.dart';
+import 'package:vn_stock_insight/services/llama_runtime.dart';
 import 'package:vn_stock_insight/services/market.dart';
 import 'package:vn_stock_insight/services/updater.dart';
 
@@ -42,4 +43,14 @@ void main() {
     expect(recommend(models, mac36)?.name, 'lớn');
     expect(models[2].fitFor(laptop), Fit.no);
   });
+
+  test('tên thư mục engine giống nhau dù đường dẫn dùng / hay \\ (lỗi xóa nhầm engine trên Windows)', () {
+    const listed = r'C:\Users\PC\AppData\Roaming\vn.stockinsight\vn_stock_insight\engine\b11624-win-vulkan-x64';
+    const built = r'C:\Users\PC\AppData\Roaming\vn.stockinsight\vn_stock_insight/engine/b11624-win-vulkan-x64';
+    expect(listed == built, isFalse); // so cả chuỗi như trước đây: sai
+    expect(baseName(listed), baseName(built));
+    expect(baseName(r'C:\x\engine\b1-win-cpu-x64\llama-server.exe'), 'llama-server.exe');
+    expect(baseName('/home/u/.local/share/x/engine/b1-ubuntu-x64/'), 'b1-ubuntu-x64');
+  });
 }
+
