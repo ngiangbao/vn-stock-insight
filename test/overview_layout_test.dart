@@ -24,7 +24,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final state = AppState();
-      await state.init(startDashboard: false);
+      await tester.runAsync(() => state.init(startDashboard: false));
 
       final t0 = 1793030400;
       final daily = [

@@ -47,7 +47,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final state = AppState();
-    await state.init(startDashboard: false);
+    await tester.runAsync(() => state.init(startDashboard: false));
     for (final i in Indicator.values) {
       if (!state.chartIndicators.contains(i)) state.toggleIndicator(i);
     }
