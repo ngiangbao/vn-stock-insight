@@ -1,0 +1,135 @@
+name: Build & phát hành
+
+# Tạo tag dạng v1.0.1 (trùng "version" trong pubspec.yaml) và đẩy lên GitHub để build và phát hành
+# cho Windows, macOS, Linux, Android. Chạy tay (workflow_dispatch) thì chỉ build, không phát hành.
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: 3.47.7
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+
+  android:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Khóa ký (nếu đã cấu hình secrets)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.jks
+            printf 'storeFile=release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+              "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > android/key.properties
+          else
+            echo "::warning::Chưa có ANDROID_KEYSTORE_BASE64, APK được ký bằng khóa debug."
+          fi
+      - run: flutter build apk --release
+      - run: |
+          mkdir dist
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/vn-stock-insight-${GITHUB_REF_NAME}-android.apk"
+      - uses: actions/upload-artifact@v4
+        with: { name: android, path: dist/* }
+
+  linux:
+    needs: test
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsecret-1-dev
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter build linux --release
+      - run: |
+          mkdir -p dist pkg/vn-stock-insight
+          cp -r build/linux/x64/release/bundle/. pkg/vn-stock-insight/
+          cp linux/install.sh assets/icon.svg pkg/vn-stock-insight/
+          tar -C pkg -czf "dist/vn-stock-insight-${GITHUB_REF_NAME}-linux-x64.tar.gz" vn-stock-insight
+      - uses: actions/upload-artifact@v4
+        with: { name: linux, path: dist/* }
+
+  windows:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter build windows --release
+      - shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath "dist\vn-stock-insight-$env:GITHUB_REF_NAME-windows-x64.zip"
+      - uses: actions/upload-artifact@v4
+        with: { name: windows, path: dist/* }
+
+  macos:
+    needs: test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter build macos --release
+      - run: |
+          mkdir dist
+          ditto -c -k --keepParent "build/macos/Build/Products/Release/VN Stock Insight.app" \
+            "dist/vn-stock-insight-${GITHUB_REF_NAME}-macos.zip"
+      - uses: actions/upload-artifact@v4
+        with: { name: macos, path: dist/* }
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [android, linux, windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - name: Tạo bản phát hành
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "VN Stock Insight $GITHUB_REF_NAME" --notes "$(cat <<'EOF'
+          Tải bản cho máy của bạn:
+          - Windows: file `-windows-x64.zip`, giải nén rồi chạy `vn_stock_insight.exe`.
+          - macOS: file `-macos.zip`, giải nén, kéo app vào Applications. Lần đầu mở: chuột phải → Open (app chưa được Apple ký).
+          - Linux: file `-linux-x64.tar.gz`, giải nén rồi chạy `./vn-stock-insight/install.sh`.
+          - Android: file `.apk`, mở để cài (cho phép cài từ nguồn không xác định).
+          EOF
+          )"

@@ -1,6 +1,33 @@
-__pycache__/
-*.pyc
-.venv/
-venv/
-.env
-site/data/
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+coverage/
+*.iml
+.idea/
+.vscode/
+.DS_Store
+
+# Android
+android/.gradle/
+android/local.properties
+android/gradlew
+android/gradlew.bat
+android/gradle/wrapper/gradle-wrapper.jar
+android/app/.cxx/
+
+# Khóa ký Android (tạo từ GitHub Secrets khi build)
+android/key.properties
+*.jks
+*.keystore
+
+# macOS / iOS
+macos/Flutter/ephemeral/
+**/Pods/
+**/xcuserdata/
+
+# Linux / Windows
+linux/flutter/ephemeral/
+windows/flutter/ephemeral/

@@ -1,0 +1,256 @@
+// Trạng thái chung của app: cài đặt, dữ liệu thị trường, danh sách theo dõi, kết quả phân tích.
+// Mọi thứ lưu trên máy người dùng; API key lưu trong kho bảo mật của hệ điều hành.
+
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'ai/prompts.dart';
+import 'ai/providers.dart';
+import 'services/fundamentals.dart';
+import 'services/market.dart';
+import 'services/news.dart';
+
+const defaultWatchlist = ['FPT', 'VCB', 'HPG', 'MWG', 'TCB', 'SSI'];
+
+class AppState extends ChangeNotifier {
+  late SharedPreferences _prefs;
+  final _secure = const FlutterSecureStorage();
+  bool secureStorageOk = true;
+
+  // ---------- Cài đặt ----------
+  ThemeMode themeMode = ThemeMode.system;
+  String providerId = 'anthropic';
+  String effort = 'medium';
+  bool autoCheckUpdates = true;
+  final Map<String, String> _baseUrls = {}, _models = {}, _keys = {};
+
+  ProviderPreset get provider => presetById(providerId);
+  String baseUrlOf(String id) => _baseUrls[id] ?? presetById(id).baseUrl;
+  String modelOf(String id) => _models[id] ?? presetById(id).defaultModel;
+  String keyOf(String id) => _keys[id] ?? '';
+
+  AiConfig get aiConfig => AiConfig(provider, baseUrlOf(providerId), modelOf(providerId), keyOf(providerId), effort: effort);
+  String get aiLabel => '${provider.name} · ${modelOf(providerId).isEmpty ? 'chưa chọn model' : modelOf(providerId)}';
+
+  // ---------- Dữ liệu ----------
+  List<String> watchlist = [...defaultWatchlist];
+  Snapshot? index;
+  Map<String, Snapshot> stocks = {};
+  List<NewsItem> news = [];
+  bool loading = false;
+  String? loadError;
+  DateTime? updatedAt;
+
+  Map<String, dynamic>? marketBrief;
+  bool briefLoading = false;
+  String? briefError;
+
+  /// Kết quả phân tích chuyên sâu đã lưu: mã → {created_at, ai, inputs, result}
+  Map<String, Map<String, dynamic>> analyses = {};
+
+  Future<void> init() async {
+    _prefs = await SharedPreferences.getInstance();
+    themeMode = ThemeMode.values.byName(_prefs.getString('theme') ?? 'system');
+    providerId = _prefs.getString('provider') ?? 'anthropic';
+    effort = _prefs.getString('effort') ?? 'medium';
+    autoCheckUpdates = _prefs.getBool('autoUpdate') ?? true;
+    for (final p in providers) {
+      final url = _prefs.getString('url_${p.id}');
+      final model = _prefs.getString('model_${p.id}');
+      if (url != null) _baseUrls[p.id] = url;
+      if (model != null) _models[p.id] = model;
+      final key = await _readKey(p.id);
+      if (key != null) _keys[p.id] = key;
+    }
+    watchlist = _prefs.getStringList('watchlist') ?? [...defaultWatchlist];
+    final saved = _prefs.getString('analyses');
+    if (saved != null) {
+      analyses = (jsonDecode(saved) as Map<String, dynamic>).map((k, v) => MapEntry(k, v as Map<String, dynamic>));
+    }
+    notifyListeners();
+  }
+
+  // Một số máy Linux không có dịch vụ keyring: khi đó lưu tạm trong cài đặt của app.
+  Future<String?> _readKey(String id) async {
+    try {
+      return await _secure.read(key: 'key_$id');
+    } catch (_) {
+      secureStorageOk = false;
+      return _prefs.getString('key_$id');
+    }
+  }
+
+  Future<void> _writeKey(String id, String value) async {
+    try {
+      await _secure.write(key: 'key_$id', value: value);
+    } catch (_) {
+      secureStorageOk = false;
+      await _prefs.setString('key_$id', value);
+    }
+  }
+
+  void setTheme(ThemeMode mode) {
+    themeMode = mode;
+    _prefs.setString('theme', mode.name);
+    notifyListeners();
+  }
+
+  void setProvider(String id) {
+    providerId = id;
+    _prefs.setString('provider', id);
+    notifyListeners();
+  }
+
+  void setEffort(String value) {
+    effort = value;
+    _prefs.setString('effort', value);
+    notifyListeners();
+  }
+
+  void setAutoCheckUpdates(bool value) {
+    autoCheckUpdates = value;
+    _prefs.setBool('autoUpdate', value);
+    notifyListeners();
+  }
+
+  Future<void> setProviderConfig(String id, {String? baseUrl, String? model, String? apiKey}) async {
+    if (baseUrl != null) {
+      _baseUrls[id] = baseUrl.trim();
+      await _prefs.setString('url_$id', baseUrl.trim());
+    }
+    if (model != null) {
+      _models[id] = model.trim();
+      await _prefs.setString('model_$id', model.trim());
+    }
+    if (apiKey != null) {
+      _keys[id] = apiKey.trim();
+      await _writeKey(id, apiKey.trim());
+    }
+    notifyListeners();
+  }
+
+  // ---------- Danh sách theo dõi ----------
+  static final symbolPattern = RegExp(r'^[A-Z0-9]{3,10}$');
+
+  Future<void> addWatch(String symbol) async {
+    if (watchlist.contains(symbol)) return;
+    watchlist = [...watchlist, symbol];
+    await _prefs.setStringList('watchlist', watchlist);
+    notifyListeners();
+    if (!stocks.containsKey(symbol)) {
+      final bars = await fetchBars(symbol);
+      if (bars.length >= 2) {
+        stocks = {...stocks, symbol: analyze(symbol, bars)};
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> removeWatch(String symbol) async {
+    watchlist = watchlist.where((s) => s != symbol).toList();
+    await _prefs.setStringList('watchlist', watchlist);
+    notifyListeners();
+  }
+
+  // ---------- Dữ liệu thị trường ----------
+  Future<void> refresh() async {
+    if (loading) return;
+    loading = true;
+    loadError = null;
+    notifyListeners();
+    try {
+      final symbols = {...vn30, ...watchlist};
+      final results = await Future.wait([
+        fetchMany(symbols),
+        fetchBars('VNINDEX', isIndex: true),
+        fetchNews(symbols),
+      ]);
+      stocks = results[0] as Map<String, Snapshot>;
+      final idx = results[1] as List<Bar>;
+      index = idx.length >= 2 ? analyze('VNINDEX', idx) : null;
+      news = results[2] as List<NewsItem>;
+      updatedAt = DateTime.now();
+      if (stocks.isEmpty) loadError = 'Không lấy được dữ liệu giá. Kiểm tra kết nối mạng.';
+    } catch (e) {
+      loadError = 'Lỗi tải dữ liệu: $e';
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
+  }
+
+  List<Snapshot> get vn30Stocks => [for (final s in vn30) ?stocks[s]];
+
+  // ---------- AI ----------
+  Future<void> runMarketBrief() async {
+    if (index == null) return;
+    briefLoading = true;
+    briefError = null;
+    notifyListeners();
+    try {
+      final movers = vn30Stocks
+          .map((s) => '${s.symbol}: ${s.close} (${s.data['change_1d']}% hôm nay, ${s.data['change_1m']}% 1 tháng)'
+              '${s.signals.isEmpty ? '' : ', tín hiệu: ${s.signals.join(', ')}'}')
+          .join('\n');
+      marketBrief = await generateJson(
+        aiConfig,
+        system: marketSystem,
+        prompt: marketPrompt(index!.toPromptJson(), movers, news.take(30).map((n) => n.toPromptJson()).toList()),
+        schema: marketSchema,
+        schemaName: 'market_brief',
+      );
+    } catch (e) {
+      briefError = e.toString();
+    } finally {
+      briefLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Phân tích chuyên sâu một mã. Ném lỗi để giao diện hiển thị.
+  Future<Map<String, dynamic>> analyzeStock(String symbol) async {
+    final bars = await fetchBars(symbol);
+    if (bars.length < 30) throw AiException('Không tìm thấy dữ liệu giá cho mã $symbol.');
+    final snap = analyze(symbol, bars);
+    stocks = {...stocks, symbol: snap};
+    final inputs = {
+      'technicals': snap.toPromptJson(),
+      'fundamentals': await fetchFundamentals(symbol),
+      'news': newsFor(news, symbol).map((n) => n.toPromptJson()).toList(),
+    };
+    final result = await generateJson(
+      aiConfig,
+      system: stockSystem,
+      prompt: stockPrompt(symbol, inputs),
+      schema: stockSchema,
+      schemaName: 'stock_analysis',
+    );
+    final record = {
+      'symbol': symbol,
+      'created_at': DateTime.now().toIso8601String(),
+      'ai': aiLabel,
+      'inputs': inputs,
+      'result': result,
+    };
+    analyses = {...analyses, symbol: record};
+    // Giữ 40 kết quả gần nhất
+    if (analyses.length > 40) {
+      final keep = analyses.entries.toList()
+        ..sort((a, b) => b.value['created_at'].compareTo(a.value['created_at']));
+      analyses = Map.fromEntries(keep.take(40));
+    }
+    await _prefs.setString('analyses', jsonEncode(analyses));
+    notifyListeners();
+    return record;
+  }
+}
+
+/// Đưa AppState xuống cây widget.
+class AppScope extends InheritedNotifier<AppState> {
+  const AppScope({super.key, required AppState state, required super.child}) : super(notifier: state);
+
+  static AppState of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<AppScope>()!.notifier!;
+}

@@ -1,107 +1,71 @@
 # VN Stock Insight
 
-Trợ lý phân tích cổ phiếu Việt Nam bằng AI. Hệ thống tự gom tin tức, tính chỉ báo kỹ thuật, dùng Claude để tóm tắt tin và phân tích từng mã, rồi đăng kết quả lên một trang web tĩnh (GitHub Pages) mà bạn mở được ở bất cứ đâu.
+App phân tích cổ phiếu Việt Nam bằng AI cho **Windows, macOS, Linux và Android**. App tự lấy giá, chỉ báo kỹ thuật, số liệu tài chính và tin tức, rồi dùng AI do bạn chọn để phân tích chuyên sâu. AI có thể chạy qua API hoặc ngay trên máy bạn. Không cần tài khoản, không có máy chủ trung gian: mọi dữ liệu và API key nằm trên máy bạn.
 
-> Đây là công cụ tham khảo. Hệ thống **không đặt lệnh** và phân tích của AI **không phải khuyến nghị đầu tư**.
+> Công cụ tham khảo. App **không đặt lệnh**, và phân tích của AI **không phải khuyến nghị đầu tư**.
 
-## Cách hoạt động
+## Tính năng
 
-```
-GitHub Actions (8:30, 12:00, 15:15 các ngày giao dịch)
-  │
-  ├─ pipeline/market.py  Giá ngày từ DNSE (dự phòng VNDirect) → MA, RSI, MACD, khối lượng, đỉnh/đáy 52 tuần
-  ├─ pipeline/news.py    Tin RSS 48 giờ gần nhất từ CafeF, Vietstock, VnExpress, VnEconomy, Tin nhanh CK
-  ├─ pipeline/ai.py      Claude Haiku 5.5: phân loại tin, gắn mã, chấm cảm xúc và mức độ quan trọng
-  │                      Claude Opus 5.5: phân tích chi tiết từng mã theo dõi và nhận định thị trường
-  └─ pipeline/storage.py Tải kết quả lên Supabase Storage (bucket riêng tư), kèm bản lưu theo ngày
-        │
-        └─ GitHub Pages: site/index.html
-             Đăng nhập bằng link qua email (chỉ người được mời) → đọc dữ liệu từ Supabase
-             Tổng quan · Theo dõi · Bộ lọc · Tin tức
-```
+- **Tổng quan:** VN-Index, các mã tăng/giảm mạnh nhất rổ VN30, nhận định thị trường bằng AI.
+- **Theo dõi:** tra cứu mã bất kỳ (HOSE, HNX, UPCoM), thêm hoặc gỡ mã khỏi danh sách theo dõi, phân tích chuyên sâu từng mã:
+  - luận điểm đầu tư và điều kiện làm luận điểm sai;
+  - kết quả kinh doanh 8 quý; với ngân hàng thì xem NIM, nợ xấu, CASA;
+  - định giá so với lịch sử, vị thế cạnh tranh;
+  - kỹ thuật (MA, RSI, MACD, Bollinger, Stochastic, ATR, khối lượng);
+  - lịch sự kiện sắp tới, 3 kịch bản, bảng chấm điểm 8 tiêu chí.
+- **Bộ lọc:** bảng kỹ thuật VN30 sắp xếp được, có điểm kỹ thuật tổng hợp.
+- **Tin tức:** tin 48 giờ từ CafeF, Vietstock, VnExpress, VnEconomy, Tin nhanh chứng khoán, gắn mã liên quan.
+- **Giao diện sáng/tối** (hoặc theo hệ thống).
+- **Kiểm tra cập nhật** từ GitHub Releases (tự động khi mở app, hoặc bấm trong Cài đặt).
 
-Mã nguồn công khai, nhưng **dữ liệu phân tích chỉ nằm trong Supabase** và chỉ thành viên được mời mới đọc được.
+Khung phân tích được chuyển thể từ các plugin **equity-research** và **financial-analysis** của Anthropic ([anthropics/financial-services](https://github.com/anthropics/financial-services), Apache-2.0). Xem [`lib/ai/prompts.dart`](lib/ai/prompts.dart).
 
-### Tra cứu và phân tích chuyên sâu theo yêu cầu
+## Nhà cung cấp AI
 
-Trong tab **Theo dõi**, thành viên nhập mã bất kỳ (HOSE, HNX, UPCoM) để chạy phân tích chuyên sâu, thêm mã vào danh sách theo dõi riêng, hoặc gỡ mã khỏi danh sách.
+| Loại | Nhà cung cấp |
+|---|---|
+| Qua API | Claude (Anthropic), OpenAI, Google Gemini, OpenRouter, Groq, Mistral, DeepSeek, xAI Grok, Together AI |
+| Chạy trên máy | LM Studio, Ollama |
+| Tùy chỉnh | Mọi dịch vụ có API tương thích OpenAI (llama.cpp server, vLLM, Azure…) |
 
-```
-Trình duyệt ──(đăng nhập)──▶ Supabase Edge Function "analyze"
-                               ├─ Giá + 10 chỉ báo kỹ thuật (DNSE): MA20/50/200, RSI, MACD, Bollinger, Stochastic, ATR, khối lượng
-                               ├─ Số liệu cơ bản (Vietcap IQ): P/E, P/B, ROE, biên lợi nhuận, nợ, 8 quý KQKD; NIM/NPL/CASA cho ngân hàng
-                               ├─ Tin liên quan 48 giờ (từ dữ liệu pipeline)
-                               └─ Claude Opus 5.5 → báo cáo có cấu trúc, lưu vào bảng stock_analyses
-```
+Cấu hình trong **Cài đặt → AI**: chọn nhà cung cấp, nhập API key (lưu trong kho bảo mật của hệ điều hành), rồi bấm **Tải danh sách** để chọn model.
 
-Báo cáo áp dụng các khung phân tích chuyển thể từ plugin **equity-research** và **financial-analysis** của Anthropic ([anthropics/financial-services](https://github.com/anthropics/financial-services), Apache-2.0): luận điểm đầu tư (thesis tracker), phân tích kết quả kinh doanh, định giá tương đối, vị thế cạnh tranh, lịch sự kiện. Thêm vào đó là bảng chấm điểm 8 tiêu chí và 3 kịch bản. Xem [`supabase/functions/analyze/prompt.ts`](supabase/functions/analyze/prompt.ts).
+### Model trên máy
 
-Kiểm soát chi phí: kết quả được dùng lại cho mọi thành viên trong 6 giờ (`CACHE_HOURS`), và mỗi thành viên chạy mới tối đa 10 lần mỗi 24 giờ (`DAILY_LIMIT`). Mỗi lần chạy mới tốn khoảng vài cent tiền API.
+**Cài đặt → Model trên máy** đánh giá cấu hình máy bạn (RAM, CPU, GPU/VRAM, Apple Silicon) và đề xuất model phù hợp. Mỗi model được gắn nhãn *Chạy tốt*, *Chạy được nhưng chậm*, hoặc *Không đủ bộ nhớ*.
 
-## Cài đặt lần đầu
+- Nếu dùng Ollama, bạn tải model ngay trong app bằng một nút bấm, có thanh tiến độ.
+- Nếu dùng LM Studio, app chép tên model để bạn tìm trong mục Discover.
+- Danh sách đề xuất nằm ở [`assets/models.json`](assets/models.json). App đọc bản mới nhất từ GitHub, nên sửa file này là cập nhật được danh sách cho mọi người dùng.
+- Trên Android, bạn trỏ địa chỉ tới Ollama/LM Studio đang chạy trên máy tính trong cùng mạng Wi-Fi, ví dụ `http://192.168.1.10:11434/v1`.
 
-### 1. Supabase (đăng nhập và lưu dữ liệu, gói miễn phí là đủ)
+## Cài đặt
 
-1. Tạo tài khoản và một project mới tại [supabase.com](https://supabase.com).
-2. **SQL Editor** → dán nội dung file [`supabase/setup.sql`](supabase/setup.sql) → Run.
-3. **Authentication → Sign In / Providers**: **tắt** "Allow new users to sign up". Bước này bắt buộc: nó đảm bảo chỉ người được mời mới có tài khoản.
-4. **Authentication → URL Configuration**: đặt *Site URL* là `https://<tên-github>.github.io/vn-stock-insight/`.
-5. **Project Settings → API**: ghi lại *Project URL*, khóa *anon / publishable* và khóa *service_role / secret*.
+Tải bản mới nhất tại [Releases](https://github.com/ngiangbao/vn-stock-insight/releases):
 
-### 2. GitHub (Settings → Secrets and variables → Actions)
+- **Windows:** `…-windows-x64.zip`, giải nén rồi chạy `vn_stock_insight.exe`.
+- **macOS:** `…-macos.zip`, giải nén rồi kéo vào Applications. Lần đầu mở, chuột phải → Open (app chưa được Apple ký).
+- **Linux:** `…-linux-x64.tar.gz`, giải nén rồi chạy `./vn-stock-insight/install.sh`. Gỡ bằng `install.sh --uninstall`.
+- **Android:** `….apk`, mở file để cài.
 
-| Loại | Tên | Giá trị |
-|---|---|---|
-| Variable | `SUPABASE_URL` | Project URL |
-| Variable | `SUPABASE_ANON_KEY` | Khóa anon / publishable (khóa này công khai được) |
-| Secret | `SUPABASE_SERVICE_KEY` | Khóa service_role / secret (**tuyệt đối không công khai**) |
-| Secret | `ANTHROPIC_API_KEY` | API key lấy tại [platform.claude.com](https://platform.claude.com) |
-| Secret | `SUPABASE_ACCESS_TOKEN` | Access token tạo tại supabase.com → Account → Access Tokens (để GitHub tự triển khai Edge Function) |
-
-Sau khi thêm đủ, vào tab Actions → "Triển khai Edge Function" → Run workflow (về sau, mỗi lần sửa thư mục `supabase/functions` hàm sẽ tự được triển khai lại).
-
-Nếu đã chạy `setup.sql` từ phiên bản trước, hãy chạy lại file này: nó tạo thêm bảng `watchlist` và `stock_analyses`.
-
-### 3. Chạy lần đầu
-
-Tab Actions → "Cập nhật dữ liệu" → Run workflow. Sau đó mở `https://<tên-github>.github.io/vn-stock-insight/`.
-
-Nếu chưa có `ANTHROPIC_API_KEY`, hệ thống vẫn chạy và hiển thị giá, chỉ báo kỹ thuật, tin tức (chưa có phần AI).
-
-## Mời thành viên
-
-Supabase → **Authentication → Users → Invite user** → nhập email. Người được mời nhận email, bấm link là vào được trang. Những lần sau, họ nhập email ở trang đăng nhập để nhận link mới.
-
-Muốn thu hồi quyền: xóa người đó trong danh sách Users. Gói miễn phí của Supabase giới hạn số email gửi mỗi giờ, đủ cho một nhóm nhỏ. Nếu cần gửi nhiều hơn, cấu hình SMTP riêng trong Authentication → Emails.
-
-## Tùy chỉnh
-
-Sửa [`config.yml`](config.yml):
-
-- `watchlist`: các mã được AI phân tích chi tiết.
-- `universe`: rổ cổ phiếu cho bộ lọc kỹ thuật (mặc định VN30).
-- `news_feeds`: nguồn tin RSS.
-- `ai`: model và mức độ suy nghĩ (`analysis_effort`).
-
-Lịch chạy nằm trong [`.github/workflows/update.yml`](.github/workflows/update.yml) (giờ UTC = giờ Việt Nam − 7).
-
-## Chi phí ước tính
-
-Với 6 mã theo dõi, khoảng 250 tin mỗi lần, chạy 3 lần mỗi ngày giao dịch:
-
-- Haiku phân loại tin: rất nhỏ, vài cent mỗi tháng.
-- Opus phân tích 6 mã và nhận định thị trường: là phần chính, khoảng vài USD mỗi tháng tùy độ dài phân tích.
-
-Bạn theo dõi chi phí thực tế ở trang Usage của Claude Console. Muốn giảm, bạn có thể bớt mã trong `watchlist`, hạ `analysis_effort` xuống `medium`, hoặc bớt lịch chạy.
-
-## Chạy trên máy
+## Phát triển
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-export ANTHROPIC_API_KEY=...   # bỏ qua nếu chỉ muốn chạy phần không có AI
-python -m pipeline.main        # hoặc: python -m pipeline.main --no-ai
-python -m http.server 8000 --directory site
+flutter pub get
+flutter run -d linux        # hoặc windows, macos, hoặc thiết bị Android
+flutter test
 ```
 
-Rồi mở http://localhost:8000. Khi chạy trên máy, `site/config.js` để trống nên trang đọc thẳng thư mục `site/data/` và không yêu cầu đăng nhập. Thư mục này không được đưa lên GitHub.
+Phát hành bản mới:
+
+1. Tăng `version` trong `pubspec.yaml`.
+2. Tạo tag trùng tên, ví dụ `git tag v1.0.1 && git push origin v1.0.1`.
+3. GitHub Actions sẽ build cả 4 nền tảng và tạo Release. App đang chạy sẽ thấy bản mới khi kiểm tra cập nhật.
+
+Muốn APK được ký ổn định (để cài bản mới đè lên bản cũ), thêm các secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
+
+## Nguồn dữ liệu
+
+Giá: DNSE (dự phòng VNDirect). Số liệu tài chính: Vietcap IQ. Tin tức: RSS của các báo nói trên. Đây là các API công khai không chính thức, có thể thay đổi bất cứ lúc nào. App chỉ phục vụ mục đích cá nhân.
+
+Bản web cũ (GitHub Pages + Supabase) được lưu ở tag [`web-v1`](https://github.com/ngiangbao/vn-stock-insight/tree/web-v1).

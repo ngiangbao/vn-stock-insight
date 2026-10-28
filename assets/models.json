@@ -1,0 +1,69 @@
+{
+  "_ghi_chu": "Danh sách model đề xuất cho chế độ chạy trên máy. App tải bản mới nhất của file này từ GitHub, nên có thể cập nhật danh sách mà không cần phát hành app mới. size_gb là dung lượng bản lượng tử hóa 4-bit (Q4_K_M) mà Ollama/LM Studio tải mặc định.",
+  "models": [
+    {
+      "name": "Qwen3 4B",
+      "ollama": "qwen3:4b",
+      "search": "qwen3-4b",
+      "size_gb": 2.6,
+      "quality": 2,
+      "note": "Nhỏ, nhanh, tiếng Việt khá. Phù hợp máy yếu hoặc laptop không có GPU rời."
+    },
+    {
+      "name": "Gemma 3 4B",
+      "ollama": "gemma3:4b",
+      "search": "gemma-3-4b",
+      "size_gb": 3.3,
+      "quality": 2,
+      "note": "Nhỏ gọn của Google, viết tiếng Việt tự nhiên."
+    },
+    {
+      "name": "Qwen3 8B",
+      "ollama": "qwen3:8b",
+      "search": "qwen3-8b",
+      "size_gb": 5.2,
+      "quality": 3,
+      "note": "Cân bằng tốt giữa chất lượng và tốc độ. Lựa chọn mặc định cho máy 16 GB RAM."
+    },
+    {
+      "name": "Gemma 3 12B",
+      "ollama": "gemma3:12b",
+      "search": "gemma-3-12b",
+      "size_gb": 8.1,
+      "quality": 4,
+      "note": "Phân tích mạch lạc, tiếng Việt tốt. Cần GPU 12 GB hoặc Apple Silicon 16 GB trở lên để chạy mượt."
+    },
+    {
+      "name": "Qwen3 14B",
+      "ollama": "qwen3:14b",
+      "search": "qwen3-14b",
+      "size_gb": 9.3,
+      "quality": 4,
+      "note": "Suy luận tốt với số liệu tài chính."
+    },
+    {
+      "name": "gpt-oss 20B",
+      "ollama": "gpt-oss:20b",
+      "search": "gpt-oss-20b",
+      "size_gb": 14,
+      "quality": 4,
+      "note": "Model mở của OpenAI, suy luận mạnh, chạy nhanh nhờ kiến trúc MoE."
+    },
+    {
+      "name": "Gemma 3 27B",
+      "ollama": "gemma3:27b",
+      "search": "gemma-3-27b",
+      "size_gb": 17,
+      "quality": 5,
+      "note": "Chất lượng cao nhất trong nhóm Gemma. Cần GPU 24 GB hoặc Apple Silicon 32 GB."
+    },
+    {
+      "name": "Qwen3 30B-A3B",
+      "ollama": "qwen3:30b",
+      "search": "qwen3-30b-a3b",
+      "size_gb": 19,
+      "quality": 5,
+      "note": "Kiến trúc MoE: chất lượng của model lớn nhưng tốc độ gần model nhỏ. Rất hợp Apple Silicon 32 GB+."
+    }
+  ]
+}
