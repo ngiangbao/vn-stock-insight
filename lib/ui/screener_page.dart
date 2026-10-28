@@ -244,18 +244,32 @@ class _MarketIndexStrip extends StatelessWidget {
     height: 102,
     child: LayoutBuilder(
       builder: (context, constraints) {
-        final count = constraints.maxWidth >= 1200 ? 4 : 2;
-        final cardWidth = count == 4 ? (constraints.maxWidth - 36) / 4 : 238.0;
         final cards = [
           for (final meta in indexMetas.where((m) => m.kind != 'derivative'))
             _IndexMiniCard(meta: meta, quote: dash.quotes[meta.symbol]),
         ];
+        const gap = 8.0, minCard = 200.0, pad = 14.0;
+        final inner = constraints.maxWidth - pad * 2;
+        // Đủ chỗ: mọi thẻ chia đều chiều rộng, không cuộn. Quá hẹp mới cuộn ngang.
+        if (inner >= cards.length * minCard + (cards.length - 1) * gap) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(pad, 9, pad, 7),
+            child: Row(
+              children: [
+                for (final (i, card) in cards.indexed) ...[
+                  if (i > 0) const SizedBox(width: gap),
+                  Expanded(child: card),
+                ],
+              ],
+            ),
+          );
+        }
         return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(14, 9, 14, 7),
+          padding: const EdgeInsets.fromLTRB(pad, 9, pad, 7),
           scrollDirection: Axis.horizontal,
           itemBuilder: (context, index) =>
-              SizedBox(width: cardWidth, child: cards[index]),
-          separatorBuilder: (_, _) => const SizedBox(width: 8),
+              SizedBox(width: minCard + 30, child: cards[index]),
+          separatorBuilder: (_, _) => const SizedBox(width: gap),
           itemCount: cards.length,
         );
       },
