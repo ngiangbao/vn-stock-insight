@@ -65,6 +65,39 @@ class OverviewPage extends StatelessWidget {
               _RegionBar(dash),
               _IndexStrip(dash),
               const SizedBox(height: 12),
+              _SectionHeading(
+                title: 'Biểu đồ thị trường',
+                subtitle: 'Chọn một chỉ số ở phía trên để đổi dữ liệu biểu đồ',
+              ),
+              if (wide)
+                SizedBox(
+                  height: 420,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        flex: 7,
+                        child: Column(
+                          children: [
+                            _IndexHeader(dash),
+                            Expanded(child: _ChartCard(dash)),
+                          ],
+                        ),
+                      ),
+                      // Bảng số liệu chi tiết cao bằng biểu đồ nến, lấp đầy phần ngang còn lại
+                      Expanded(flex: 5, child: _SideInfo(dash, fit: true)),
+                    ],
+                  ),
+                )
+              else ...[
+                SizedBox(
+                  height: c.maxWidth < 600 ? 310 : 360,
+                  child: _ChartCard(dash),
+                ),
+                _IndexHeader(dash),
+                _SideInfo(dash),
+              ],
+              const SizedBox(height: 12),
               _MarketMovers(dash),
               const SizedBox(height: 12),
               if (wide)
@@ -87,50 +120,6 @@ class OverviewPage extends StatelessWidget {
                   height: c.maxWidth < 600 ? 430 : 470,
                   child: _HeatCard(dash),
                 ),
-              ],
-              const SizedBox(height: 12),
-              _SectionHeading(
-                title: 'Biểu đồ thị trường',
-                subtitle: 'Chọn một chỉ số ở phía trên để đổi dữ liệu biểu đồ',
-              ),
-              if (wide)
-                SizedBox(
-                  height: 420,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        flex: 7,
-                        child: Column(
-                          children: [
-                            _IndexHeader(dash),
-                            Expanded(child: _ChartCard(dash)),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        flex: 5,
-                        child: Column(
-                          children: [
-                            Expanded(flex: 5, child: _IntradayCard(dash)),
-                            Expanded(
-                              flex: 6,
-                              child: _SideInfo(dash, fit: true),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else ...[
-                SizedBox(
-                  height: c.maxWidth < 600 ? 310 : 360,
-                  child: _ChartCard(dash),
-                ),
-                _IndexHeader(dash),
-                SizedBox(height: 250, child: _IntradayCard(dash)),
-                _SideInfo(dash),
               ],
             ],
           );
@@ -910,8 +899,24 @@ class _HeatFilter<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    // Rộng vừa đủ để hiện đầy đủ chữ của nhãn và của lựa chọn dài nhất, không bị cắt bằng "…"
+    double measure(String t, TextStyle st) => (TextPainter(
+      text: TextSpan(text: t, style: st),
+      maxLines: 1,
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout()).width;
+    const labelStyle = TextStyle(fontSize: 12);
+    const valueStyle = TextStyle(fontSize: 13, fontWeight: FontWeight.w600);
+    final needed =
+        18 +
+        measure(label, labelStyle) +
+        6 +
+        options.map((o) => measure(o.$2, valueStyle)).reduce(math.max) +
+        17 +
+        16;
     return Container(
-      width: width,
+      width: math.max(width, needed),
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 9),
       decoration: BoxDecoration(
@@ -926,7 +931,7 @@ class _HeatFilter<T> extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+              style: labelStyle.copyWith(color: cs.onSurfaceVariant),
             ),
           ),
           const SizedBox(width: 5),
@@ -936,11 +941,7 @@ class _HeatFilter<T> extends StatelessWidget {
                 value: value,
                 isExpanded: true,
                 isDense: true,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: cs.onSurface,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: valueStyle.copyWith(color: cs.onSurface),
                 icon: Icon(
                   Icons.expand_more,
                   size: 17,
@@ -1070,20 +1071,6 @@ double? sessionRef(List<Bar> daily, List<Bar> intraday) {
   final day = vnDate(intraday.last.t);
   final prior = daily.where((b) => vnDate(b.t).compareTo(day) < 0);
   return prior.isEmpty ? null : prior.last.c;
-}
-
-class _IntradayCard extends StatelessWidget {
-  final MarketDashboard dash;
-  const _IntradayCard(this.dash);
-
-  @override
-  Widget build(BuildContext context) => _Panel(
-    padding: const EdgeInsets.fromLTRB(6, 6, 2, 2),
-    child: IntradayChart(
-      bars: dash.intraday,
-      ref: sessionRef(dash.quote?.bars ?? const [], dash.intraday),
-    ),
-  );
 }
 
 String _vol(double? v) => v == null ? '–' : fmt(v, 0);
@@ -1229,18 +1216,99 @@ class _SideInfo extends StatelessWidget {
         child: Padding(padding: const EdgeInsets.all(8), child: content),
       );
     }
+    // Chế độ phóng to: các dòng chia đều chiều cao khung, chữ lớn hơn để lấp đầy bảng
+    final blocks = [
+      if (rows.isNotEmpty) ('TỔNG QUAN', rows),
+      if (fr.isNotEmpty) ('GIAO DỊCH NĐTNN', fr),
+    ];
     return Card(
       margin: const EdgeInsets.all(6),
       clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: LayoutBuilder(
-          builder: (context, c) => FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.topCenter,
-            child: SizedBox(width: c.maxWidth, child: content),
-          ),
-        ),
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final lines = blocks.fold<int>(0, (int n, b) => n + b.$2.length);
+          const headH = 34.0, noteH = 30.0;
+          final double rowH = math.max(
+            26.0,
+            (c.maxHeight - 24 - headH * blocks.length - noteH) /
+                math.max(1, lines),
+          );
+          final size = (rowH * 0.46).clamp(12.0, 16.0);
+          return ListView(
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(12),
+            children: [
+              for (final (title, items) in blocks) ...[
+                SizedBox(
+                  height: headH,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: size,
+                        color: cs.primary,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                  ),
+                ),
+                for (final (k, v, color) in items)
+                  Container(
+                    height: rowH,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(
+                          color: cs.outlineVariant.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          k,
+                          style: TextStyle(
+                            fontSize: size,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              v,
+                              style: TextStyle(
+                                fontSize: size,
+                                fontWeight: FontWeight.w700,
+                                color: color,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+              SizedBox(
+                height: noteH,
+                child: Align(
+                  alignment: Alignment.bottomLeft,
+                  child: Text(
+                    'Dữ liệu: DNSE, Vietcap. Khối ngoại tính theo KL.',
+                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

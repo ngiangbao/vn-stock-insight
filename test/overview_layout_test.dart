@@ -68,6 +68,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       expect(tester.takeException(), isNull);
       if (w >= 1100) {
+        // Biểu đồ thị trường nằm phía trên nên cuộn xuống tới thẻ dòng tiền
+        await tester.scrollUntilVisible(find.text('Dòng tiền'), 240, scrollable: find.byType(Scrollable).first);
         expect(find.text('Dòng tiền'), findsOneWidget);
       } else if (w >= 760) {
         // Medium windows use a vertical layout; scroll to build the later card.
