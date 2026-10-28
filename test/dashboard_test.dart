@@ -42,6 +42,7 @@ double _area(Rect r) => r.width * r.height;
 bool _overlap(Rect a, Rect b) => a.deflate(0.001).overlaps(b.deflate(0.001));
 
 void main() {
+  worldIndexTests();
   group('treemap', () {
     test('squarify: tổng diện tích đúng, tỉ lệ theo trọng số, không chồng lấn', () {
       final w = <double>[40, 25, 15, 10, 6, 4];
@@ -255,6 +256,48 @@ void main() {
       expect(rows.map((r) => r.$1), isNot(contains('KL khớp')));
       expect(rows.map((r) => r.$1), contains('Tổng KL'));
       expect(foreignRows(null, const Color(0xFF00FF00), const Color(0xFFFF0000)), isEmpty);
+    });
+  });
+}
+
+void worldIndexTests() {
+  group('chỉ số thế giới và phái sinh', () {
+    test('đọc nến ngày từ Yahoo, bỏ ngày thiếu giá', () {
+      final bars = parseYahooBars({
+        'chart': {
+          'result': [
+            {
+              'timestamp': [1793000000, 1793086400, 1793172800],
+              'indicators': {
+                'quote': [
+                  {
+                    'open': [10.0, null, 12.0],
+                    'high': [11.0, null, 13.0],
+                    'low': [9.0, null, 11.0],
+                    'close': [10.5, null, 12.5],
+                    'volume': [100, null, 300],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+      expect(bars.length, 2);
+      expect(bars.last.c, 12.5);
+      expect(parseYahooBars({'chart': {'result': null}}), isEmpty);
+    });
+
+    test('khu vực chọn đúng danh sách chỉ số', () {
+      expect(metasOfRegion('vn').map((m) => m.symbol), containsAll(['VNINDEX', 'VN30F2M', 'VN30F1Q', 'VN30F2Q']));
+      expect(metasOfRegion('us').map((m) => m.symbol), ['^GSPC', '^IXIC', '^DJI']);
+      expect(metasOfRegion('eu'), isNotEmpty);
+      expect(metasOfRegion('asia'), isNotEmpty);
+      final dash = MarketDashboard(File('/tmp/vnsi-none.json'));
+      dash.setRegion('us');
+      expect(dash.selected, '^GSPC');
+      expect(dash.meta.kind, 'world');
+      dash.dispose();
     });
   });
 }

@@ -37,6 +37,7 @@ Future<List<Bar>> fetchBars(String symbol,
   final end = DateTime.now().millisecondsSinceEpoch ~/ 1000;
   final start = end - days * 86400;
   final k = kind ?? (isIndex ? 'index' : 'stock');
+  if (k == 'world') return resolution == '1D' ? fetchWorldBars(symbol, days: days) : const [];
   final urls = [
     'https://services.entrade.com.vn/chart-api/v2/ohlcs/$k'
         '?from=$start&to=$end&symbol=$symbol&resolution=$resolution',
@@ -54,6 +55,39 @@ Future<List<Bar>> fetchBars(String symbol,
     }
   }
   return const [];
+}
+
+/// Chỉ số thế giới từ Yahoo Finance ([symbol] là mã Yahoo như ^GSPC): nến ngày, tối đa 5 năm gần nhất.
+Future<List<Bar>> fetchWorldBars(String symbol, {int days = 1900}) async {
+  final range = days <= 400 ? '2y' : '5y';
+  try {
+    final resp = await http
+        .get(Uri.parse('https://query1.finance.yahoo.com/v8/finance/chart/${Uri.encodeComponent(symbol)}?range=$range&interval=1d'), headers: userAgent)
+        .timeout(const Duration(seconds: 20));
+    if (resp.statusCode != 200) return const [];
+    return parseYahooBars(jsonDecode(resp.body) as Map<String, dynamic>);
+  } catch (_) {
+    return const [];
+  }
+}
+
+/// Chuyển phản hồi biểu đồ của Yahoo Finance thành nến ngày, bỏ các ngày thiếu giá.
+List<Bar> parseYahooBars(Map<String, dynamic> json) {
+  final result = ((json['chart'] as Map?)?['result'] as List?)?.firstOrNull as Map?;
+  if (result == null) return const [];
+  final t = (result['timestamp'] as List?) ?? const [];
+  final q = (((result['indicators'] as Map?)?['quote'] as List?)?.firstOrNull as Map?) ?? const {};
+  num? at(String k, int i) {
+    final l = q[k];
+    return l is List && i < l.length && l[i] is num ? l[i] as num : null;
+  }
+
+  return [
+    for (var i = 0; i < t.length; i++)
+      if (at('close', i) case final c?)
+        Bar((t[i] as num).toInt(), (at('open', i) ?? c).toDouble(), (at('high', i) ?? c).toDouble(), (at('low', i) ?? c).toDouble(),
+            c.toDouble(), (at('volume', i) ?? 0).toDouble()),
+  ];
 }
 
 /// Ngày giao dịch (giờ Việt Nam) của một nến: yyyy-MM-dd.

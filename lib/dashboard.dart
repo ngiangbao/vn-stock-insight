@@ -12,7 +12,8 @@ import 'services/market.dart';
 class IndexMeta {
   final String symbol, name, desc, kind;
   final String? group; // nhóm bảng giá dùng để tính KL/giá trị/khối ngoại; null nếu không có
-  const IndexMeta(this.symbol, this.name, this.desc, this.kind, this.group);
+  final String region; // vn, us, eu, asia
+  const IndexMeta(this.symbol, this.name, this.desc, this.kind, this.group, {this.region = 'vn'});
 }
 
 const indexMetas = [
@@ -21,7 +22,31 @@ const indexMetas = [
   IndexMeta('UPCOM', 'UPINDEX', 'Chỉ số UPCOM-Index', 'index', 'UPCOM'),
   IndexMeta('VN30', 'VN30', 'Chỉ số VN30', 'index', 'VN30'),
   IndexMeta('VN30F1M', 'VN30F1M', 'Hợp đồng tương lai VN30 tháng gần', 'derivative', null),
+  IndexMeta('VN30F2M', 'VN30F2M', 'Hợp đồng tương lai VN30 tháng kế tiếp', 'derivative', null),
+  IndexMeta('VN30F1Q', 'VN30F1Q', 'Hợp đồng tương lai VN30 quý gần', 'derivative', null),
+  IndexMeta('VN30F2Q', 'VN30F2Q', 'Hợp đồng tương lai VN30 quý kế tiếp', 'derivative', null),
 ];
+
+/// Chỉ số thế giới (Yahoo Finance), chỉ tải khi người dùng chọn khu vực tương ứng.
+const worldMetas = [
+  IndexMeta('^GSPC', 'S&P 500', 'Chỉ số S&P 500 (Mỹ)', 'world', null, region: 'us'),
+  IndexMeta('^IXIC', 'NASDAQ', 'Chỉ số NASDAQ Composite (Mỹ)', 'world', null, region: 'us'),
+  IndexMeta('^DJI', 'DOW JONES', 'Chỉ số Dow Jones (Mỹ)', 'world', null, region: 'us'),
+  IndexMeta('^FTSE', 'FTSE 100', 'Chỉ số FTSE 100 (Anh)', 'world', null, region: 'eu'),
+  IndexMeta('^GDAXI', 'DAX', 'Chỉ số DAX (Đức)', 'world', null, region: 'eu'),
+  IndexMeta('^FCHI', 'CAC 40', 'Chỉ số CAC 40 (Pháp)', 'world', null, region: 'eu'),
+  IndexMeta('^N225', 'NIKKEI 225', 'Chỉ số Nikkei 225 (Nhật)', 'world', null, region: 'asia'),
+  IndexMeta('^HSI', 'HANG SENG', 'Chỉ số Hang Seng (Hồng Kông)', 'world', null, region: 'asia'),
+  IndexMeta('000001.SS', 'SHANGHAI', 'Chỉ số Shanghai Composite (Trung Quốc)', 'world', null, region: 'asia'),
+  IndexMeta('^KS11', 'KOSPI', 'Chỉ số KOSPI (Hàn Quốc)', 'world', null, region: 'asia'),
+];
+
+const allIndexMetas = [...indexMetas, ...worldMetas];
+
+/// Khu vực hiển thị trên dải chỉ số: mã → tên.
+const indexRegions = [('vn', 'Việt Nam'), ('us', 'Châu Mỹ'), ('eu', 'Châu Âu'), ('asia', 'Châu Á')];
+
+List<IndexMeta> metasOfRegion(String region) => [for (final m in allIndexMetas) if (m.region == region) m];
 
 enum HeatMetric { change, foreignNet, liquidity }
 
@@ -56,6 +81,7 @@ class MarketDashboard extends ChangeNotifier {
 
   Map<String, IndexQuote> quotes = {};
   String selected = 'VNINDEX';
+  String region = 'vn';
   String exchange = 'HOSE'; // sàn của bản đồ nhiệt
   HeatMetric heatMetric = HeatMetric.change;
   Map<String, List<BoardRow>> boards = {};
@@ -68,7 +94,14 @@ class MarketDashboard extends ChangeNotifier {
   Timer? _timer;
   bool _disposed = false;
 
-  IndexMeta get meta => indexMetas.firstWhere((m) => m.symbol == selected);
+  IndexMeta get meta => allIndexMetas.firstWhere((m) => m.symbol == selected);
+  List<IndexMeta> get regionMetas => metasOfRegion(region);
+
+  void setRegion(String value) {
+    if (region == value) return;
+    region = value;
+    select(metasOfRegion(value).first.symbol);
+  }
   IndexQuote? get quote => quotes[selected];
   List<BoardRow> get heatRows => boards[exchange] ?? const [];
   List<BoardRow>? get metaBoard => meta.group == null ? null : boards[meta.group];
@@ -107,15 +140,17 @@ class MarketDashboard extends ChangeNotifier {
     notifyListeners();
     try {
       final needed = {exchange, if (meta.group != null) meta.group!};
+      // Chỉ số Việt Nam luôn tải; chỉ số thế giới chỉ tải cho khu vực đang xem
+      final metas = [...indexMetas, if (region != 'vn') ...metasOfRegion(region)];
       final results = await Future.wait([
-        for (final m in indexMetas) fetchBars(m.symbol, days: 1900, kind: m.kind),
+        for (final m in metas) fetchBars(m.symbol, days: 1900, kind: m.kind),
         fetchIntraday(selected, kind: meta.kind),
         for (final g in needed) fetchBoard(g).then<List<BoardRow>?>((r) => r, onError: (_) => null),
         if (sectors.isEmpty) loadSectors(sectorFile) else Future.value(sectors),
       ]);
-      final n = indexMetas.length;
-      final next = <String, IndexQuote>{};
-      for (final (i, m) in indexMetas.indexed) {
+      final n = metas.length;
+      final next = <String, IndexQuote>{...quotes};
+      for (final (i, m) in metas.indexed) {
         final bars = results[i] as List<Bar>;
         final old = quotes[m.symbol];
         // Giữ nguyên danh sách khi không đổi để biểu đồ không bị đặt lại vị trí xem

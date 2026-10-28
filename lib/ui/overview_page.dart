@@ -65,6 +65,7 @@ class OverviewPage extends StatelessWidget {
               children: [
                 if (dash.error != null) _Notice(dash.error!),
                 SizedBox(height: c.maxWidth < 600 ? 300 : 360, child: _ChartCard(dash)),
+                _RegionBar(dash),
                 _IndexList(dash, shrink: true),
                 _selector(dash),
                 SizedBox(height: 250, child: _FlowCard(dash)),
@@ -82,6 +83,7 @@ class OverviewPage extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
               child: Column(children: [
                 if (dash.error != null) _Notice(dash.error!),
+                _RegionBar(dash),
                 SizedBox(height: 94, child: _IndexStrip(dash)),
                 Expanded(
                   child: Row(
@@ -241,6 +243,29 @@ class _ChartCard extends StatelessWidget {
   }
 }
 
+/// Chọn khu vực của dải chỉ số: Việt Nam, Châu Mỹ, Châu Âu, Châu Á.
+class _RegionBar extends StatelessWidget {
+  final MarketDashboard dash;
+  const _RegionBar(this.dash);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(6, 4, 6, 0),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Wrap(spacing: 6, runSpacing: 2, children: [
+            for (final (id, label) in indexRegions)
+              ChoiceChip(
+                label: Text(label),
+                selected: dash.region == id,
+                visualDensity: VisualDensity.compact,
+                onSelected: (_) => dash.setRegion(id),
+              ),
+          ]),
+        ),
+      );
+}
+
 class _IndexStrip extends StatelessWidget {
   final MarketDashboard dash;
   const _IndexStrip(this.dash);
@@ -248,12 +273,12 @@ class _IndexStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
         builder: (context, constraints) {
-          final width = ((constraints.maxWidth - 40) / indexMetas.length).clamp(184.0, 248.0).toDouble();
+          final width = ((constraints.maxWidth - 40) / dash.regionMetas.length).clamp(184.0, 248.0).toDouble();
           return ListView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(vertical: 5),
             children: [
-              for (final meta in indexMetas)
+              for (final meta in dash.regionMetas)
                 SizedBox(
                   width: width,
                   child: _IndexQuoteCard(dash: dash, meta: meta),
@@ -323,7 +348,7 @@ class _IndexList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tiles = [for (final m in indexMetas) _IndexTile(dash, m)];
+    final tiles = [for (final m in dash.regionMetas) _IndexTile(dash, m)];
     return Card(
       margin: const EdgeInsets.all(6),
       clipBehavior: Clip.antiAlias,
