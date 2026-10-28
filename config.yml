@@ -1,0 +1,72 @@
+# Cấu hình chính. Sửa file này để đổi danh sách theo dõi, nguồn tin hoặc model.
+
+# Mã bạn muốn AI phân tích chi tiết (mỗi lần chạy, mỗi mã tốn 1 lượt gọi Opus)
+watchlist:
+  - FPT
+  - VCB
+  - HPG
+  - MWG
+  - TCB
+  - SSI
+
+# Rổ cổ phiếu để chạy bộ lọc kỹ thuật (không tốn tiền AI).
+# Mặc định là rổ VN30. Rổ này được điều chỉnh mỗi 6 tháng, hãy cập nhật khi cần.
+universe:
+  - ACB
+  - BCM
+  - BID
+  - BVH
+  - CTG
+  - FPT
+  - GAS
+  - GVR
+  - HDB
+  - HPG
+  - LPB
+  - MBB
+  - MSN
+  - MWG
+  - PLX
+  - SAB
+  - SHB
+  - SSB
+  - SSI
+  - STB
+  - TCB
+  - TPB
+  - VCB
+  - VHM
+  - VIB
+  - VIC
+  - VJC
+  - VNM
+  - VPB
+  - VRE
+
+# Nguồn tin RSS
+news_feeds:
+  - name: CafeF - Chứng khoán
+    url: https://cafef.vn/thi-truong-chung-khoan.rss
+  - name: CafeF - Doanh nghiệp
+    url: https://cafef.vn/doanh-nghiep.rss
+  - name: Vietstock - Cổ phiếu
+    url: https://vietstock.vn/830/chung-khoan/co-phieu.rss
+  - name: Vietstock - Doanh nghiệp
+    url: https://vietstock.vn/737/doanh-nghiep/hoat-dong-kinh-doanh.rss
+  - name: Tin nhanh chứng khoán
+    url: https://www.tinnhanhchungkhoan.vn/rss/chung-khoan-1.rss
+  - name: VnEconomy - Chứng khoán
+    url: https://vneconomy.vn/chung-khoan.rss
+  - name: VnExpress - Kinh doanh
+    url: https://vnexpress.net/rss/kinh-doanh.rss
+
+# Chỉ giữ tin trong khoảng thời gian này (giờ)
+news_max_age_hours: 48
+
+ai:
+  # Model rẻ, nhanh: phân loại và tóm tắt hàng trăm tin
+  news_model: claude-haiku-5-5
+  # Model mạnh: phân tích chi tiết từng mã và nhận định thị trường
+  analysis_model: claude-opus-5-5
+  # Mức suy nghĩ cho phân tích: low | medium | high | xhigh | max
+  analysis_effort: high

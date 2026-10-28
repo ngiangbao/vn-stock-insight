@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VN Stock Insight</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-inner">
+      <div>
+        <h1>VN Stock Insight</h1>
+        <p class="muted" id="updated">Đang tải…</p>
+      </div>
+      <div class="top-right">
+        <select id="history" aria-label="Xem ngày"></select>
+      </div>
+    </div>
+    <nav class="wrap tabs" role="tablist">
+      <button class="tab active" data-tab="overview">Tổng quan</button>
+      <button class="tab" data-tab="watch">Theo dõi</button>
+      <button class="tab" data-tab="screen">Bộ lọc</button>
+      <button class="tab" data-tab="news">Tin tức</button>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <section id="overview" class="panel active"></section>
+    <section id="watch" class="panel"></section>
+    <section id="screen" class="panel"></section>
+    <section id="news" class="panel">
+      <div class="filters">
+        <input id="news-q" type="search" placeholder="Tìm theo mã hoặc từ khóa…">
+        <select id="news-sent">
+          <option value="all">Mọi cảm xúc</option>
+          <option value="pos">Tích cực</option>
+          <option value="neg">Tiêu cực</option>
+        </select>
+        <select id="news-imp">
+          <option value="1">Mọi mức độ</option>
+          <option value="3">Quan trọng (≥3)</option>
+          <option value="4">Rất quan trọng (≥4)</option>
+        </select>
+      </div>
+      <div id="news-list"></div>
+    </section>
+  </main>
+
+  <footer class="wrap muted small">
+    Dữ liệu giá: DNSE/VNDirect (nghìn đồng). Tin tức: CafeF, Vietstock, VnExpress, VnEconomy, Tin nhanh chứng khoán.
+    Phân tích do AI tạo ra, chỉ mang tính tham khảo, không phải khuyến nghị đầu tư.
+  </footer>
+  <script src="app.js"></script>
+</body>
+</html>

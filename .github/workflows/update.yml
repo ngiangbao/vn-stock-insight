@@ -1,0 +1,60 @@
+name: Cập nhật dữ liệu
+
+on:
+  schedule:
+    # Giờ UTC, thứ 2 đến thứ 6. 01:30 UTC = 8:30 sáng VN (trước giờ mở cửa),
+    # 05:00 UTC = 12:00 trưa VN (nghỉ trưa), 08:15 UTC = 15:15 chiều VN (sau đóng cửa)
+    - cron: "30 1 * * 1-5"
+    - cron: "0 5 * * 1-5"
+    - cron: "15 8 * * 1-5"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["site/**", "!site/data/**"]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Chạy pipeline
+        if: github.event_name != 'push'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python -m pipeline.main
+
+      - name: Lưu dữ liệu vào repo
+        if: github.event_name != 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add site/data
+          git diff --cached --quiet || git commit -m "Cập nhật dữ liệu $(TZ=Asia/Ho_Chi_Minh date '+%Y-%m-%d %H:%M')"
+          git push
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4
