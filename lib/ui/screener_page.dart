@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/market.dart';
 import '../state.dart';
-import 'analysis_page.dart';
+import 'stock_dialog.dart';
 import 'widgets.dart';
 
 class ScreenerPage extends StatefulWidget {
@@ -78,7 +78,7 @@ class _ScreenerPageState extends State<ScreenerPage> {
               rows: [
                 for (final s in rows)
                   DataRow(
-                    onSelectChanged: (_) => openAnalysis(context, s.symbol),
+                    onSelectChanged: (_) => openStock(context, s.symbol),
                     cells: [
                       DataCell(Text(s.symbol, style: const TextStyle(fontWeight: FontWeight.w700))),
                       DataCell(Text(fmt(s.close))),

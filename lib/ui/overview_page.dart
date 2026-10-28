@@ -9,9 +9,9 @@ import '../dashboard.dart';
 import '../services/board.dart';
 import '../services/market.dart';
 import '../state.dart';
-import 'analysis_page.dart';
 import 'chart.dart';
 import 'dash_widgets.dart';
+import 'stock_dialog.dart';
 import 'widgets.dart';
 
 const _minHeight = 600.0;
@@ -486,7 +486,7 @@ class _HeatCard extends StatelessWidget {
       rows: dash.heatRows,
       sectors: dash.sectors,
       metric: dash.heatMetric,
-      onOpen: (s) => openAnalysis(context, s),
+      onOpen: (s) => openStock(context, s),
     ),
   );
 }

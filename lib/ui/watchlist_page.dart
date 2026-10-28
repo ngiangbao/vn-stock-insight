@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../state.dart';
-import 'analysis_page.dart';
-import 'chart.dart';
+import 'stock_dialog.dart';
 import 'widgets.dart';
 
 class WatchlistPage extends StatefulWidget {
@@ -67,14 +66,14 @@ class _WatchlistPageState extends State<WatchlistPage> {
                     decoration: InputDecoration(hintText: 'Mã cổ phiếu, ví dụ FPT', errorText: _error, errorMaxLines: 2),
                     onSubmitted: (_) {
                       final s = _readSymbol();
-                      if (s != null) openAnalysis(context, s);
+                      if (s != null) openStock(context, s);
                     },
                   ),
                 ),
                 FilledButton.icon(
                   onPressed: () {
                     final s = _readSymbol();
-                    if (s != null) openAnalysis(context, s);
+                    if (s != null) openStock(context, s);
                   },
                   icon: const Icon(Icons.auto_awesome),
                   label: const Text('Phân tích AI'),
@@ -130,7 +129,7 @@ class _StockCard extends StatelessWidget {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => openAnalysis(context, symbol),
+        onTap: () => openStock(context, symbol),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -165,7 +164,7 @@ class _StockCard extends StatelessWidget {
                 message: 'Mở biểu đồ chi tiết',
                 child: InkWell(
                   borderRadius: BorderRadius.circular(6),
-                  onTap: () => openChart(context, symbol),
+                  onTap: () => openStock(context, symbol),
                   child: s == null
                       ? SizedBox(
                           height: 64,
@@ -210,12 +209,12 @@ class _StockCard extends StatelessWidget {
             ),
             Row(children: [
               TextButton.icon(
-                onPressed: () => openAnalysis(context, symbol),
+                onPressed: () => openStock(context, symbol),
                 icon: const Icon(Icons.auto_awesome, size: 18),
                 label: Text(result == null ? 'Phân tích AI' : 'Xem phân tích'),
               ),
               TextButton.icon(
-                onPressed: () => openChart(context, symbol),
+                onPressed: () => openStock(context, symbol),
                 icon: const Icon(Icons.candlestick_chart, size: 18),
                 label: const Text('Biểu đồ'),
               ),
