@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ai/prompts.dart';
+import 'dashboard.dart';
 import 'ai/providers.dart';
 import 'services/fundamentals.dart';
 import 'services/llama_runtime.dart';
@@ -63,6 +64,7 @@ class AppState extends ChangeNotifier {
   // ---------- Model chạy trong app ----------
   late final Directory dataDir;
   late final LlamaRuntime runtime;
+  late final MarketDashboard dash;
   String? embeddedModel; // đường dẫn file GGUF đang dùng
   String? engineStatus;
   double? engineProgress;
@@ -125,7 +127,7 @@ class AppState extends ChangeNotifier {
   /// Kết quả phân tích chuyên sâu đã lưu: mã → {created_at, ai, inputs, result}
   Map<String, Map<String, dynamic>> analyses = {};
 
-  Future<void> init() async {
+  Future<void> init({bool startDashboard = true}) async {
     _prefs = await SharedPreferences.getInstance();
     themeMode = ThemeMode.values.byName(_prefs.getString('theme') ?? 'system');
     providerId = _prefs.getString('provider') ?? 'anthropic';
@@ -147,8 +149,11 @@ class AppState extends ChangeNotifier {
     if (inds != null) chartIndicators = {for (final n in inds) ?Indicator.values.asNameMap()[n]};
     embeddedModel = _prefs.getString('embeddedModel');
     dataDir = await getApplicationSupportDirectory();
+    dash = MarketDashboard(File('${dataDir.path}${Platform.pathSeparator}sectors.json'));
+    dash.addListener(notifyListeners);
     runtime = LlamaRuntime(dataDir, () => rootBundle.loadString('assets/runtime.json'));
     _autoUpdateEngine();
+    if (startDashboard) dash.start();
     final saved = _prefs.getString('analyses');
     if (saved != null) {
       analyses = (jsonDecode(saved) as Map<String, dynamic>).map((k, v) => MapEntry(k, v as Map<String, dynamic>));
@@ -256,6 +261,7 @@ class AppState extends ChangeNotifier {
   // ---------- Dữ liệu thị trường ----------
   Future<void> refresh() async {
     if (loading) return;
+    dash.refresh();
     loading = true;
     loadError = null;
     notifyListeners();

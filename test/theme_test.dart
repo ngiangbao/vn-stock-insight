@@ -21,7 +21,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final state = AppState();
-    await state.init();
+    await state.init(startDashboard: false);
     await tester.pumpWidget(AppScope(state: state, child: const StockApp()));
     await tester.tap(find.text('Cài đặt').first);
     await tester.pumpAndSettle();

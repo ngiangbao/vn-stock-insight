@@ -21,31 +21,55 @@ class Bar {
   const Bar(this.t, this.o, this.h, this.l, this.c, this.v);
 }
 
-Future<List<Bar>> fetchBars(String symbol, {int days = 400, bool isIndex = false}) async {
+/// Chuyển phản hồi biểu đồ của DNSE ({t, o, h, l, c, v}) thành danh sách nến.
+List<Bar> parseBars(Map<String, dynamic> d) {
+  final t = (d['t'] as List?) ?? const [];
+  double n(String k, int i) => (d[k][i] as num).toDouble();
+  return [
+    for (var i = 0; i < t.length; i++)
+      Bar((t[i] as num).toInt(), n('o', i), n('h', i), n('l', i), n('c', i), n('v', i)),
+  ];
+}
+
+/// [kind]: 'stock' (mặc định), 'index' hoặc 'derivative' (VN30F1M). [resolution]: '1D' hoặc số phút ('1').
+Future<List<Bar>> fetchBars(String symbol,
+    {int days = 400, bool isIndex = false, String? kind, String resolution = '1D'}) async {
   final end = DateTime.now().millisecondsSinceEpoch ~/ 1000;
   final start = end - days * 86400;
+  final k = kind ?? (isIndex ? 'index' : 'stock');
   final urls = [
-    'https://services.entrade.com.vn/chart-api/v2/ohlcs/${isIndex ? 'index' : 'stock'}'
-        '?from=$start&to=$end&symbol=$symbol&resolution=1D',
-    'https://dchart-api.vndirect.com.vn/dchart/history?resolution=D&symbol=$symbol&from=$start&to=$end',
+    'https://services.entrade.com.vn/chart-api/v2/ohlcs/$k'
+        '?from=$start&to=$end&symbol=$symbol&resolution=$resolution',
+    if (resolution == '1D' && k != 'derivative')
+      'https://dchart-api.vndirect.com.vn/dchart/history?resolution=D&symbol=$symbol&from=$start&to=$end',
   ];
   for (final url in urls) {
     try {
       final resp = await http.get(Uri.parse(url), headers: userAgent).timeout(const Duration(seconds: 20));
       if (resp.statusCode != 200) continue;
-      final d = jsonDecode(resp.body) as Map<String, dynamic>;
-      final t = (d['t'] as List?) ?? const [];
-      double n(String k, int i) => (d[k][i] as num).toDouble();
-      final bars = [
-        for (var i = 0; i < t.length; i++)
-          Bar((t[i] as num).toInt(), n('o', i), n('h', i), n('l', i), n('c', i), n('v', i)),
-      ];
+      final bars = parseBars(jsonDecode(resp.body) as Map<String, dynamic>);
       if (bars.isNotEmpty) return bars;
     } catch (_) {
       // thử nguồn tiếp theo
     }
   }
   return const [];
+}
+
+/// Ngày giao dịch (giờ Việt Nam) của một nến: yyyy-MM-dd.
+String vnDate(int t) =>
+    DateTime.fromMillisecondsSinceEpoch((t + 7 * 3600) * 1000, isUtc: true).toIso8601String().substring(0, 10);
+
+/// Nến 1 phút của phiên gần nhất (ngoài giờ giao dịch là phiên đã đóng cửa gần nhất).
+Future<List<Bar>> fetchIntraday(String symbol, {String kind = 'index'}) async {
+  final bars = await fetchBars(symbol, days: 5, kind: kind, resolution: '1');
+  return lastSession(bars);
+}
+
+List<Bar> lastSession(List<Bar> bars) {
+  if (bars.isEmpty) return bars;
+  final day = vnDate(bars.last.t);
+  return bars.where((b) => vnDate(b.t) == day).toList();
 }
 
 double _avg(Iterable<double> xs) => xs.reduce((a, b) => a + b) / xs.length;

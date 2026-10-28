@@ -29,6 +29,7 @@ enum ChartType {
 }
 
 enum Indicator {
+  ma10('MA 10', Color(0xFF9575CD)),
   ma20('MA 20', Color(0xFF2962FF)),
   ma50('MA 50', Color(0xFFFF9800)),
   ma200('MA 200', Color(0xFFE91E63)),
@@ -47,16 +48,20 @@ enum Indicator {
 
 const _up = Color(0xFF26A69A), _down = Color(0xFFEF5350);
 
+/// Khoảng thời gian gọn cho dashboard (số phiên): 1d ≈ 10 phiên gần nhất.
+const dashboardRanges = [('1d', 10), ('1m', 22), ('3m', 66), ('6m', 130), ('1y', 250), ('3y', 750), ('5y', 1250)];
+
 const ranges = [('1T', 22), ('3T', 66), ('6T', 130), ('1N', 250), ('5N', 1250), ('Tất cả', 0)];
 
 /// Mở biểu đồ toàn màn hình, tải lịch sử dài (5 năm).
-void openChart(BuildContext context, String symbol, {String? title}) =>
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChartPage(symbol, title: title)));
+void openChart(BuildContext context, String symbol, {String? title, String? kind}) =>
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChartPage(symbol, title: title, kind: kind)));
 
 class ChartPage extends StatefulWidget {
   final String symbol;
   final String? title;
-  const ChartPage(this.symbol, {super.key, this.title});
+  final String? kind; // 'index' | 'derivative' | null (cổ phiếu)
+  const ChartPage(this.symbol, {super.key, this.title, this.kind});
 
   @override
   State<ChartPage> createState() => _ChartPageState();
@@ -69,7 +74,7 @@ class _ChartPageState extends State<ChartPage> {
   @override
   void initState() {
     super.initState();
-    fetchBars(widget.symbol, days: 1900, isIndex: widget.symbol == 'VNINDEX').then((b) {
+    fetchBars(widget.symbol, days: 1900, isIndex: widget.symbol == 'VNINDEX', kind: widget.kind).then((b) {
       if (!mounted) return;
       setState(() => b.length < 2 ? _error = 'Không lấy được dữ liệu giá ${widget.symbol}.' : _bars = b);
     });
@@ -92,7 +97,19 @@ class StockChart extends StatefulWidget {
   final double height;
   final bool expand; // chiếm hết chiều cao còn lại (trang biểu đồ riêng)
   final VoidCallback? onFullscreen;
-  const StockChart(this.symbol, this.bars, {super.key, this.height = 420, this.expand = false, this.onFullscreen});
+
+  /// Chế độ gọn (dashboard): chỉ báo cố định, khoảng thời gian riêng, không có menu dạng biểu đồ/chỉ báo.
+  final Set<Indicator>? fixedIndicators;
+  final List<(String, int)> rangeList;
+  final int initialRange;
+  const StockChart(this.symbol, this.bars,
+      {super.key,
+      this.height = 420,
+      this.expand = false,
+      this.onFullscreen,
+      this.fixedIndicators,
+      this.rangeList = ranges,
+      this.initialRange = 2});
 
   @override
   State<StockChart> createState() => _StockChartState();
@@ -108,7 +125,7 @@ class _StockChartState extends State<StockChart> {
   late _Series _data;
   double _end = 0, _count = 130; // phiên ngoài cùng bên phải (có thể lẻ) và số phiên hiển thị
   Offset? _cross;
-  int _range = 2;
+  late int _range = widget.initialRange;
   double _startCount = 0;
   ChartType? _builtFor;
 
@@ -125,6 +142,7 @@ class _StockChartState extends State<StockChart> {
     final (macd, signal, hist) = macdSeries(closes);
     final (k, d) = stochasticSeries(bars);
     _data = _Series(bars, type == ChartType.heikinAshi ? heikinAshi(bars) : bars, {
+      'ma10': smaSeries(closes, 10),
       'ma20': smaSeries(closes, 20),
       'ma50': smaSeries(closes, 50),
       'ma200': smaSeries(closes, 200),
@@ -145,7 +163,8 @@ class _StockChartState extends State<StockChart> {
 
   void _setRange(int i, {bool rebuild = true}) {
     final n = widget.bars.length;
-    final count = ranges[i].$2 == 0 ? n.toDouble() : math.min(ranges[i].$2, n).toDouble();
+    final rl = widget.rangeList;
+    final count = rl[i].$2 == 0 ? n.toDouble() : math.min(rl[i].$2, n).toDouble();
     void apply() {
       _range = i;
       _count = math.max(count + 3, 10);
@@ -176,27 +195,30 @@ class _StockChartState extends State<StockChart> {
     final state = AppScope.of(context);
     final type = state.chartType;
     if (_builtFor != type) _compute(type);
-    final active = state.chartIndicators;
+    final active = widget.fixedIndicators ?? state.chartIndicators;
+    final compact = widget.fixedIndicators != null;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final text = Theme.of(context).textTheme;
 
     final toolbar = Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-      for (final (i, r) in ranges.indexed)
+      for (final (i, r) in widget.rangeList.indexed)
         ChoiceChip(
           label: Text(r.$1),
           selected: _range == i,
           visualDensity: VisualDensity.compact,
           onSelected: (_) => _setRange(i),
         ),
-      const SizedBox(width: 4),
-      PopupMenuButton<ChartType>(
+      if (!compact) const SizedBox(width: 4),
+      if (!compact)
+        PopupMenuButton<ChartType>(
         tooltip: 'Dạng biểu đồ',
         initialValue: type,
         onSelected: state.setChartType,
         itemBuilder: (_) => [for (final t in ChartType.values) PopupMenuItem(value: t, child: Text(t.label))],
         child: Chip(avatar: const Icon(Icons.candlestick_chart, size: 18), label: Text(type.label), visualDensity: VisualDensity.compact),
       ),
-      PopupMenuButton<Indicator>(
+      if (!compact)
+        PopupMenuButton<Indicator>(
         tooltip: 'Chỉ báo',
         onSelected: state.toggleIndicator,
         itemBuilder: (_) => [
@@ -269,7 +291,8 @@ class _StockChartState extends State<StockChart> {
       toolbar,
       const SizedBox(height: 6),
       if (widget.expand) Expanded(child: chart) else SizedBox(height: widget.height, child: chart),
-      Padding(
+      if (!compact)
+        Padding(
         padding: const EdgeInsets.only(top: 4),
         child: Text('Kéo để di chuyển · cuộn chuột hoặc chụm 2 ngón để phóng to · rê chuột/nhấn giữ để xem chi tiết · nhấp đúp để đặt lại',
             style: text.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
@@ -444,6 +467,7 @@ class _ChartPainter extends CustomPainter {
   }
 
   List<String> get _overlayKeys => [
+        if (indicators.contains(Indicator.ma10)) 'ma10',
         if (indicators.contains(Indicator.ma20)) 'ma20',
         if (indicators.contains(Indicator.ma50)) 'ma50',
         if (indicators.contains(Indicator.ma200)) 'ma200',
@@ -457,6 +481,7 @@ class _ChartPainter extends CustomPainter {
           ('bbMid', Indicator.bollinger.color.withValues(alpha: 0.6)),
           ('bbLo', Indicator.bollinger.color),
         ],
+        if (indicators.contains(Indicator.ma10)) ('ma10', Indicator.ma10.color),
         if (indicators.contains(Indicator.ma20)) ('ma20', Indicator.ma20.color),
         if (indicators.contains(Indicator.ma50)) ('ma50', Indicator.ma50.color),
         if (indicators.contains(Indicator.ma200)) ('ma200', Indicator.ma200.color),
