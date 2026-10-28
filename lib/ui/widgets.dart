@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 
 import '../state.dart';
@@ -84,19 +86,35 @@ class _SparkPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final min = values.reduce((a, b) => a < b ? a : b), max = values.reduce((a, b) => a > b ? a : b);
     final span = max - min == 0 ? 1 : max - min;
+    const pad = 3.0;
     final path = Path();
+    late Offset last;
     for (var i = 0; i < values.length; i++) {
-      final x = i / (values.length - 1) * size.width;
-      final y = size.height - (values[i] - min) / span * (size.height - 4) - 2;
+      final x = i / (values.length - 1) * (size.width - pad * 2) + pad;
+      final y = size.height - (values[i] - min) / span * (size.height - pad * 2) - pad;
+      last = Offset(x, y);
       i == 0 ? path.moveTo(x, y) : path.lineTo(x, y);
     }
+    // Vùng tô chuyển màu dưới đường giá
+    final fill = Path.from(path)
+      ..lineTo(last.dx, size.height)
+      ..lineTo(pad, size.height)
+      ..close();
+    canvas.drawPath(
+        fill,
+        Paint()
+          ..shader = ui.Gradient.linear(
+              Offset.zero, Offset(0, size.height), [color.withValues(alpha: 0.22), color.withValues(alpha: 0.0)]));
     canvas.drawPath(
         path,
         Paint()
           ..color = color
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.6
+          ..strokeWidth = 2
+          ..strokeJoin = StrokeJoin.round
+          ..strokeCap = StrokeCap.round
           ..isAntiAlias = true);
+    canvas.drawCircle(last, 3, Paint()..color = color);
   }
 
   @override
@@ -191,4 +209,40 @@ class PageFrame extends StatelessWidget {
   }
 }
 
-const disclaimer = 'Phân tích do AI tạo ra, có thể sai, chỉ mang tính tham khảo, không phải khuyến nghị đầu tư.';
+/// Co giãn toàn bộ giao diện theo chiều rộng cửa sổ: app được dựng như ở cửa sổ rộng [designWidth]
+/// rồi phóng to/thu nhỏ cho vừa, nên bố cục giữ nguyên tỉ lệ ở mọi kích thước.
+/// Màn hình hẹp (điện thoại) giữ nguyên kích thước gốc.
+class AutoScale extends StatelessWidget {
+  static const designWidth = 1280.0;
+  final bool enabled;
+  final Widget child;
+  const AutoScale({super.key, required this.enabled, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final width = mq.size.width;
+    if (!enabled || width < 600) return child;
+    final s = (width / designWidth).clamp(0.75, 2.5);
+    if ((s - 1).abs() < 0.02) return child;
+    final logical = mq.size / s;
+    return FittedBox(
+      fit: BoxFit.fill,
+      alignment: Alignment.topLeft,
+      child: SizedBox.fromSize(
+        size: logical,
+        child: MediaQuery(
+          data: mq.copyWith(
+            size: logical,
+            padding: mq.padding / s,
+            viewPadding: mq.viewPadding / s,
+            viewInsets: mq.viewInsets / s,
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+const disclaimer ='Phân tích do AI tạo ra, có thể sai, chỉ mang tính tham khảo, không phải khuyến nghị đầu tư.';

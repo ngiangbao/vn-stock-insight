@@ -1,69 +1,85 @@
 {
-  "_ghi_chu": "Danh sách model đề xuất cho chế độ chạy trên máy. App tải bản mới nhất của file này từ GitHub, nên có thể cập nhật danh sách mà không cần phát hành app mới. size_gb là dung lượng bản lượng tử hóa 4-bit (Q4_K_M) mà Ollama/LM Studio tải mặc định.",
+  "_ghi_chu": "Danh sách model đề xuất. App tải bản mới nhất của file này từ GitHub, nên cập nhật được danh sách mà không cần phát hành app mới. hf_repo/hf_file: file GGUF trên Hugging Face để tải và chạy ngay trong app. ollama: tên model để tải bằng Ollama. size_gb: dung lượng file.",
   "models": [
     {
       "name": "Qwen3 4B",
       "ollama": "qwen3:4b",
       "search": "qwen3-4b",
-      "size_gb": 2.6,
+      "size_gb": 2.5,
       "quality": 2,
-      "note": "Nhỏ, nhanh, tiếng Việt khá. Phù hợp máy yếu hoặc laptop không có GPU rời."
+      "note": "Nhỏ, nhanh, tiếng Việt khá. Phù hợp máy yếu hoặc laptop không có GPU rời.",
+      "hf_repo": "unsloth/Qwen3-4B-GGUF",
+      "hf_file": "Qwen3-4B-Q4_K_M.gguf"
     },
     {
       "name": "Gemma 3 4B",
       "ollama": "gemma3:4b",
       "search": "gemma-3-4b",
-      "size_gb": 3.3,
+      "size_gb": 2.49,
       "quality": 2,
-      "note": "Nhỏ gọn của Google, viết tiếng Việt tự nhiên."
+      "note": "Nhỏ gọn của Google, viết tiếng Việt tự nhiên.",
+      "hf_repo": "unsloth/gemma-3-4b-it-GGUF",
+      "hf_file": "gemma-3-4b-it-Q4_K_M.gguf"
     },
     {
       "name": "Qwen3 8B",
       "ollama": "qwen3:8b",
       "search": "qwen3-8b",
-      "size_gb": 5.2,
+      "size_gb": 5.03,
       "quality": 3,
-      "note": "Cân bằng tốt giữa chất lượng và tốc độ. Lựa chọn mặc định cho máy 16 GB RAM."
+      "note": "Cân bằng tốt giữa chất lượng và tốc độ. Lựa chọn mặc định cho máy 16 GB RAM.",
+      "hf_repo": "unsloth/Qwen3-8B-GGUF",
+      "hf_file": "Qwen3-8B-Q4_K_M.gguf"
     },
     {
       "name": "Gemma 3 12B",
       "ollama": "gemma3:12b",
       "search": "gemma-3-12b",
-      "size_gb": 8.1,
+      "size_gb": 7.3,
       "quality": 4,
-      "note": "Phân tích mạch lạc, tiếng Việt tốt. Cần GPU 12 GB hoặc Apple Silicon 16 GB trở lên để chạy mượt."
+      "note": "Phân tích mạch lạc, tiếng Việt tốt. Cần GPU 12 GB hoặc Apple Silicon 16 GB trở lên để chạy mượt.",
+      "hf_repo": "unsloth/gemma-3-12b-it-GGUF",
+      "hf_file": "gemma-3-12b-it-Q4_K_M.gguf"
     },
     {
       "name": "Qwen3 14B",
       "ollama": "qwen3:14b",
       "search": "qwen3-14b",
-      "size_gb": 9.3,
+      "size_gb": 9.0,
       "quality": 4,
-      "note": "Suy luận tốt với số liệu tài chính."
+      "note": "Suy luận tốt với số liệu tài chính.",
+      "hf_repo": "unsloth/Qwen3-14B-GGUF",
+      "hf_file": "Qwen3-14B-Q4_K_M.gguf"
     },
     {
       "name": "gpt-oss 20B",
       "ollama": "gpt-oss:20b",
       "search": "gpt-oss-20b",
-      "size_gb": 14,
+      "size_gb": 12.11,
       "quality": 4,
-      "note": "Model mở của OpenAI, suy luận mạnh, chạy nhanh nhờ kiến trúc MoE."
+      "note": "Model mở của OpenAI, suy luận mạnh, chạy nhanh nhờ kiến trúc MoE.",
+      "hf_repo": "ggml-org/gpt-oss-20b-GGUF",
+      "hf_file": "gpt-oss-20b-MXFP4.gguf"
     },
     {
       "name": "Gemma 3 27B",
       "ollama": "gemma3:27b",
       "search": "gemma-3-27b",
-      "size_gb": 17,
+      "size_gb": 16.55,
       "quality": 5,
-      "note": "Chất lượng cao nhất trong nhóm Gemma. Cần GPU 24 GB hoặc Apple Silicon 32 GB."
+      "note": "Chất lượng cao nhất trong nhóm Gemma. Cần GPU 24 GB hoặc Apple Silicon 32 GB.",
+      "hf_repo": "unsloth/gemma-3-27b-it-GGUF",
+      "hf_file": "gemma-3-27b-it-Q4_K_M.gguf"
     },
     {
       "name": "Qwen3 30B-A3B",
       "ollama": "qwen3:30b",
       "search": "qwen3-30b-a3b",
-      "size_gb": 19,
+      "size_gb": 18.56,
       "quality": 5,
-      "note": "Kiến trúc MoE: chất lượng của model lớn nhưng tốc độ gần model nhỏ. Rất hợp Apple Silicon 32 GB+."
+      "note": "Kiến trúc MoE: chất lượng của model lớn nhưng tốc độ gần model nhỏ. Rất hợp Apple Silicon 32 GB+.",
+      "hf_repo": "unsloth/Qwen3-30B-A3B-GGUF",
+      "hf_file": "Qwen3-30B-A3B-Q4_K_M.gguf"
     }
   ]
 }

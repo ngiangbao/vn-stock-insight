@@ -66,6 +66,16 @@ const providers = [
   ProviderPreset(id: 'xai', name: 'xAI (Grok)', baseUrl: 'https://api.x.ai/v1', defaultModel: '', keyHint: 'console.x.ai'),
   ProviderPreset(id: 'together', name: 'Together AI', baseUrl: 'https://api.together.xyz/v1', defaultModel: '', keyHint: 'api.together.ai'),
   ProviderPreset(
+    id: 'embedded',
+    name: 'Chạy trong app (llama.cpp)',
+    baseUrl: '',
+    defaultModel: 'local',
+    local: true,
+    needsKey: false,
+    note: 'Tải model GGUF từ Hugging Face và chạy ngay trong app, không cần cài thêm gì. '
+        'Chọn model ở "Model trên máy". Hỗ trợ Windows, macOS, Linux.',
+  ),
+  ProviderPreset(
     id: 'lmstudio',
     name: 'LM Studio (trên máy)',
     baseUrl: 'http://localhost:1234/v1',
@@ -170,6 +180,8 @@ Future<Map<String, dynamic>> generateJson(
 }) async {
   if (c.model.isEmpty) throw AiException('Chưa chọn model. Vào Cài đặt → AI để chọn model.');
   if (c.preset.needsKey && c.apiKey.isEmpty) throw AiException('Chưa nhập API key cho ${c.preset.name}.');
+  // Model chạy trên máy có ngữ cảnh ngắn: chừa chỗ cho dữ liệu đầu vào
+  if (c.preset.local) maxTokens = maxTokens.clamp(0, 6000);
   return c.preset.style == ApiStyle.anthropic
       ? _anthropic(c, system, prompt, schema, maxTokens)
       : _openai(c, system, prompt, schema, schemaName, maxTokens);
@@ -181,9 +193,11 @@ Future<http.Response> _post(String url, Map<String, String> headers, Map<String,
   } on TimeoutException {
     throw AiException('AI phản hồi quá lâu (hơn ${_timeout.inMinutes} phút).');
   } catch (e) {
-    throw AiException(c.preset.local
-        ? 'Không kết nối được ${c.baseUrl}. Kiểm tra ${c.preset.name} đang chạy và đã nạp model.'
-        : 'Lỗi kết nối: $e');
+    throw AiException(c.preset.id == 'embedded'
+        ? 'Engine trong app ngừng phản hồi. Hãy thử lại.'
+        : c.preset.local
+            ? 'Không kết nối được ${c.baseUrl}. Kiểm tra ${c.preset.name} đang chạy và đã nạp model.'
+            : 'Lỗi kết nối: $e');
   }
 }
 
