@@ -204,148 +204,97 @@ class _WatchTable extends StatelessWidget {
   final ValueChanged<String> onRemove;
   const _WatchTable({required this.symbols, required this.profiles, required this.onRemove});
 
-  static const _symW = 72.0, _chartW = 140.0, _numW = 104.0, _scoreW = 104.0, _actW = 232.0, _flexMin = 150.0;
-  static const _minWidth = 32 + _symW + _chartW + _numW * 3 + _scoreW + _actW + _flexMin * 2;
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final state = AppScope.of(context);
-    final head = text.labelLarge?.copyWith(color: cs.onSurfaceVariant, fontWeight: FontWeight.w700);
+    const right = Alignment.centerRight, center = Alignment.center;
 
-    Widget cell(double? w, Widget child, {int flex = 0, Alignment align = Alignment.centerLeft}) {
-      final box = Align(alignment: align, child: child);
-      return w != null ? SizedBox(width: w, child: box) : Expanded(flex: flex, child: box);
-    }
-
-    Widget header() => Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          cell(_symW, Text('Mã CK', style: head)),
-          cell(null, Text('Tên doanh nghiệp', style: head), flex: 3),
-          cell(null, Text('Ngành', style: head), flex: 3),
-          cell(
-            _chartW,
-            Text('Biểu đồ 30 phiên', style: head, textAlign: TextAlign.center),
-            align: Alignment.center,
-          ),
-          cell(_numW, Text('Giá khớp', style: head), align: Alignment.centerRight),
-          cell(_numW, Text('Biến động 1D', style: head), align: Alignment.centerRight),
-          cell(_numW, Text('Biến động 1M', style: head), align: Alignment.centerRight),
-          cell(_scoreW, Text('Điểm kỹ thuật', style: head), align: Alignment.center),
-          cell(_actW, Text('Thao tác', style: head), align: Alignment.center),
-        ],
-      ),
-    );
-
-    Widget row(String sym) {
+    FlexRow row(String sym) {
       final s = state.stocks[sym];
       final profile = profiles[sym];
       final score = s == null ? null : techScore5(s.techScore);
-      return InkWell(
-        onTap: () => openStock(context, sym),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 68),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          decoration: BoxDecoration(
-            border: Border(top: BorderSide(color: cs.outlineVariant)),
-          ),
+      final tone = Tone.of(context, s?.num_('change_1d'));
+      return FlexRow(onTap: () => openStock(context, sym), [
+        Text(sym, style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+        Text(profile?.name ?? '…', maxLines: 1, overflow: TextOverflow.ellipsis),
+        profile == null || profile.sector.isEmpty
+            ? const Text('–')
+            : Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: cs.surfaceContainerHighest, borderRadius: BorderRadius.circular(6)),
+                child: Text(profile.sector, maxLines: 1, overflow: TextOverflow.ellipsis, style: text.bodySmall),
+              ),
+        s == null
+            ? const Text('–')
+            : Semantics(
+                label: 'Biểu đồ giá 30 phiên gần nhất của $sym',
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 160),
+                  child: Sparkline(s.spark.length > 30 ? s.spark.sublist(s.spark.length - 30) : s.spark, height: 36),
+                ),
+              ),
+        Text(
+          s == null ? '–' : fmt(s.close),
+          style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800, color: tone, fontFeatures: const [FontFeature.tabularFigures()]),
+        ),
+        Pct(s?.num_('change_1d')),
+        Pct(s?.num_('change_1m')),
+        score == null
+            ? const Text('–')
+            : Tooltip(
+                message: 'Điểm kỹ thuật tổng hợp từ xu hướng MA, RSI, MACD và khối lượng (thang 0–5)',
+                child: Tag('$score/5', color: cs.primary),
+              ),
+        FittedBox(
+          fit: BoxFit.scaleDown,
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              cell(_symW, Text(sym, style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800))),
-              cell(null, Text(profile?.name ?? '…', maxLines: 1, overflow: TextOverflow.ellipsis, style: text.bodyMedium), flex: 3),
-              cell(null, profile == null || profile.sector.isEmpty
-                    ? const Text('–')
-                    : Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: cs.surfaceContainerHighest, borderRadius: BorderRadius.circular(6)),
-                        child: Text(profile.sector, maxLines: 1, overflow: TextOverflow.ellipsis, style: text.bodySmall),
-                      ), flex: 3),
-              cell(
-                _chartW,
-                s == null
-                    ? Text('–', style: text.bodySmall)
-                    : Semantics(
-                        label: 'Biểu đồ giá 30 phiên gần nhất của $sym',
-                        child: SizedBox(
-                          width: 130,
-                          child: Sparkline(s.spark.length > 30 ? s.spark.sublist(s.spark.length - 30) : s.spark, height: 36),
-                        ),
-                      ),
-                align: Alignment.center,
+              IconButton(
+                tooltip: 'Xem biểu đồ $sym',
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                visualDensity: VisualDensity.standard,
+                icon: const Icon(Icons.bar_chart),
+                onPressed: () => openStock(context, sym),
               ),
-              cell(
-                _numW,
-                Text(
-                  s == null ? '–' : fmt(s.close),
-                  style: text.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: Tone.of(context, s?.num_('change_1d')),
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-                align: Alignment.centerRight,
+              FilledButton.tonalIcon(
+                style: FilledButton.styleFrom(minimumSize: const Size(48, 48), padding: const EdgeInsets.symmetric(horizontal: 10)),
+                onPressed: () => openAnalysis(context, sym),
+                icon: const Icon(Icons.auto_awesome, size: 18),
+                label: const Text('AI Report'),
               ),
-              cell(_numW, Pct(s?.num_('change_1d')), align: Alignment.centerRight),
-              cell(_numW, Pct(s?.num_('change_1m')), align: Alignment.centerRight),
-              cell(
-                _scoreW,
-                score == null
-                    ? const Text('–')
-                    : Tooltip(
-                        message: 'Điểm kỹ thuật tổng hợp từ xu hướng MA, RSI, MACD và khối lượng (thang 0–5)',
-                        child: Tag('$score/5', color: cs.primary),
-                      ),
-                align: Alignment.center,
-              ),
-              cell(
-                _actW,
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: 'Xem biểu đồ $sym',
-                        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                        visualDensity: VisualDensity.standard,
-                        icon: const Icon(Icons.bar_chart),
-                        onPressed: () => openStock(context, sym),
-                      ),
-                      FilledButton.tonalIcon(
-                        style: FilledButton.styleFrom(minimumSize: const Size(48, 48), padding: const EdgeInsets.symmetric(horizontal: 10)),
-                        onPressed: () => openAnalysis(context, sym),
-                        icon: const Icon(Icons.auto_awesome, size: 18),
-                        label: const Text('AI Report'),
-                      ),
-                      IconButton(
-                        tooltip: 'Gỡ $sym khỏi danh sách',
-                        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                        visualDensity: VisualDensity.standard,
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () => onRemove(sym),
-                      ),
-                    ],
-                  ),
-                ),
-                align: Alignment.center,
+              IconButton(
+                tooltip: 'Gỡ $sym khỏi danh sách',
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                visualDensity: VisualDensity.standard,
+                icon: const Icon(Icons.delete_outline),
+                onPressed: () => onRemove(sym),
               ),
             ],
           ),
         ),
-      );
+      ]);
     }
 
-    final table = Column(children: [header(), for (final sym in symbols) row(sym)]);
     return Card(
       clipBehavior: Clip.antiAlias,
-      child: LayoutBuilder(
-        builder: (context, box) => box.maxWidth >= _minWidth
-            ? table
-            // Cửa sổ hẹp: giữ nguyên các cột thẳng hàng, cuộn ngang thay vì ép hoặc xếp chồng
-            : SingleChildScrollView(scrollDirection: Axis.horizontal, child: SizedBox(width: _minWidth, child: table)),
+      child: FlexTable(
+        minWidth: 1300,
+        rowHeight: 68,
+        columns: const [
+          FlexCol('Mã CK', 10),
+          FlexCol('Tên doanh nghiệp', 30),
+          FlexCol('Ngành', 22),
+          FlexCol('Biểu đồ 30 phiên', 20, align: center),
+          FlexCol('Giá khớp', 14, align: right),
+          FlexCol('Biến động 1D', 15, align: right),
+          FlexCol('Biến động 1M', 15, align: right),
+          FlexCol('Điểm kỹ thuật', 13, align: center),
+          FlexCol('Thao tác', 30, align: center),
+        ],
+        rows: [for (final sym in symbols) row(sym)],
       ),
     );
   }

@@ -1,8 +1,11 @@
 // Cửa sổ pop-up chi tiết một cổ phiếu, hiện lên trên màn hình đang xem: thông tin chính, biểu đồ,
 // chỉ số cơ bản, thông tin phiên và lối vào phân tích AI.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
+import '../dashboard.dart';
 import '../services/board.dart';
 import '../services/fundamentals.dart';
 import '../services/market.dart';
@@ -75,6 +78,70 @@ class _StockDialogState extends State<StockDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final state = AppScope.of(context);
+    final symbol = widget.symbol;
+    final watching = state.watchlist.contains(symbol);
+    final company = (_fund?['company'] as Map?) ?? const {};
+    final s = _snap;
+    final bars = s?.bars ?? const <Bar>[];
+    final close = s?.close;
+    final prev = bars.length >= 2 ? bars[bars.length - 2].c : null;
+    final diff = close == null || prev == null ? null : (close - prev) * 1000;
+    return _PopupShell(
+      leading: IconButton(
+        tooltip: watching ? 'Bỏ theo dõi' : 'Thêm vào danh sách theo dõi',
+        isSelected: watching,
+        constraints: _hit,
+        visualDensity: VisualDensity.standard,
+        icon: const Icon(Icons.star_border),
+        selectedIcon: Icon(Icons.star, color: Tone.flat(context)),
+        onPressed: () => watching ? state.removeWatch(symbol) : state.addWatch(symbol),
+      ),
+      title: symbol,
+      subtitle: company['ten'] as String?,
+      tag: company['nganh'] as String?,
+      price: close == null ? null : fmt(close * 1000, 0),
+      amplitude: diff == null ? null : _amplitude(diff, s?.num_('change_1d'), 0),
+      diff: diff,
+      onAnalyze: () => openAnalysis(context, symbol),
+      chart: _ChartPanel(symbol, _bars, _snap, _barsFailed),
+      side: _Sidebar(symbol, _snap, _fund, _row),
+    );
+  }
+}
+
+/// "▲ +1.650  (+1,42%)": số tiền thay đổi và phần trăm, kèm mũi tên để không chỉ dựa vào màu.
+String _amplitude(double diff, num? pct, int digits) {
+  final sign = diff > 0 ? '+' : '';
+  final arrow = diff > 0 ? '▲' : (diff < 0 ? '▼' : '■');
+  final p = pct == null ? '' : '  ($sign${fmt(pct, 2)}%)';
+  return '$arrow $sign${fmt(diff, digits)}$p';
+}
+
+/// Khung pop-up gần phủ hết cửa sổ: thanh trên (tên, giá và biên độ cùng một hàng, nút Phân tích AI và Đóng ở góc phải),
+/// bên dưới là biểu đồ và cột thông tin (trên màn hình hẹp xếp dọc).
+class _PopupShell extends StatelessWidget {
+  final Widget? leading;
+  final String title;
+  final String? subtitle, tag, price, amplitude;
+  final double? diff;
+  final VoidCallback? onAnalyze;
+  final Widget chart, side;
+  const _PopupShell({
+    this.leading,
+    required this.title,
+    this.subtitle,
+    this.tag,
+    this.price,
+    this.amplitude,
+    this.diff,
+    this.onAnalyze,
+    required this.chart,
+    required this.side,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final narrow = MediaQuery.sizeOf(context).width < 860;
     return Dialog(
       insetPadding: EdgeInsets.all(narrow ? 8 : 20),
@@ -85,11 +152,19 @@ class _StockDialogState extends State<StockDialog> {
         child: LayoutBuilder(
           builder: (context, box) {
             final wide = box.maxWidth >= 860;
-            final chart = _ChartPanel(widget.symbol, _bars, _snap, _barsFailed);
-            final side = _Sidebar(widget.symbol, _snap, _fund, _row);
             return Column(
               children: [
-                _Header(symbol: widget.symbol, snap: _snap, fund: _fund, compact: !wide),
+                _TopBar(
+                  leading: leading,
+                  title: title,
+                  subtitle: subtitle,
+                  tag: tag,
+                  price: price,
+                  amplitude: amplitude,
+                  diff: diff,
+                  onAnalyze: onAnalyze,
+                  compact: !wide,
+                ),
                 const Divider(height: 1),
                 Expanded(
                   child: wide
@@ -125,39 +200,129 @@ class _StockDialogState extends State<StockDialog> {
 /// Vùng chạm tối thiểu 48 px.
 const _hit = BoxConstraints(minWidth: 48, minHeight: 48);
 
-class _Header extends StatelessWidget {
-  final String symbol;
-  final Snapshot? snap;
-  final Map<String, dynamic>? fund;
+class _TopBar extends StatelessWidget {
+  final Widget? leading;
+  final String title;
+  final String? subtitle, tag, price, amplitude;
+  final double? diff;
+  final VoidCallback? onAnalyze;
   final bool compact;
-  const _Header({required this.symbol, required this.snap, required this.fund, required this.compact});
+  const _TopBar({
+    this.leading,
+    required this.title,
+    this.subtitle,
+    this.tag,
+    this.price,
+    this.amplitude,
+    this.diff,
+    this.onAnalyze,
+    required this.compact,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final state = AppScope.of(context);
     final text = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
-    final watching = state.watchlist.contains(symbol);
-    final company = (fund?['company'] as Map?) ?? const {};
-    final name = company['ten'] as String?;
-    final sector = company['nganh'] as String?;
+    final tone = Tone.of(context, diff);
+    final nameStyle = text.bodyMedium?.copyWith(color: cs.onSurfaceVariant);
+    final nums = const [FontFeature.tabularFigures()];
 
-    // Giá đầy đủ (đồng) và biên độ so với phiên trước: số tiền và phần trăm
-    final s = snap;
-    final bars = s?.bars ?? const <Bar>[];
-    final close = s?.close;
-    final prev = bars.length >= 2 ? bars[bars.length - 2].c : null;
-    final diff = close == null || prev == null ? null : (close - prev) * 1000;
-    final pct = s?.num_('change_1d');
-    final tone = Tone.of(context, diff ?? pct);
-    final sign = (diff ?? 0) > 0 ? '+' : '';
-    final arrow = (diff ?? 0) > 0 ? '▲' : ((diff ?? 0) < 0 ? '▼' : '■');
-    final amplitude = diff == null ? '' : '$arrow $sign${fmt(diff, 0)}  ($sign${fmt(pct, 2)}%)';
+    // Tên: mã nổi bật, tên đầy đủ luôn hiện (cạnh mã trên màn hình rộng, bên dưới trên màn hình hẹp)
+    final titleBlock = compact
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(title, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+              if (subtitle != null)
+                Text(
+                  subtitle!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                ),
+            ],
+          )
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(title, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+              if (subtitle != null) ...[
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: nameStyle),
+                ),
+              ],
+              if (tag != null) ...[const SizedBox(width: 10), Tag(tag!)],
+            ],
+          );
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(4, 8, compact ? 12 : 20, 8),
+      padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
       child: Row(
         children: [
+          ?leading,
+          Expanded(
+            flex: 3,
+            child: Align(alignment: Alignment.centerLeft, child: titleBlock),
+          ),
+          const SizedBox(width: 12),
+          // Giá đầy đủ và biên độ nằm ngang hàng nhau, căn phải
+          if (price != null)
+            Expanded(
+              flex: 2,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Semantics(
+                    label: 'Giá $price, thay đổi ${amplitude ?? ''}',
+                    child: ExcludeSemantics(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            price!,
+                            style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w800, color: tone, fontFeatures: nums),
+                          ),
+                          if (amplitude != null) ...[
+                            const SizedBox(width: 12),
+                            Text(
+                              amplitude!,
+                              style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700, color: tone, fontFeatures: nums),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else
+            const Spacer(),
+          const SizedBox(width: 8),
+          if (onAnalyze != null)
+            (compact
+                ? IconButton(
+                    tooltip: 'Phân tích AI',
+                    constraints: _hit,
+                    visualDensity: VisualDensity.standard,
+                    icon: const Icon(Icons.auto_awesome),
+                    onPressed: onAnalyze,
+                  )
+                : Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
+                      onPressed: onAnalyze,
+                      icon: const Icon(Icons.auto_awesome, size: 18),
+                      label: const Text('Phân tích AI'),
+                    ),
+                  )),
           IconButton(
             tooltip: 'Đóng',
             constraints: _hit,
@@ -165,81 +330,6 @@ class _Header extends StatelessWidget {
             icon: const Icon(Icons.close),
             onPressed: () => Navigator.of(context).pop(),
           ),
-          if (compact)
-            IconButton(
-              tooltip: 'Phân tích AI',
-              constraints: _hit,
-              visualDensity: VisualDensity.standard,
-              icon: const Icon(Icons.auto_awesome),
-              onPressed: () => openAnalysis(context, symbol),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.only(left: 4, right: 8),
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
-                onPressed: () => openAnalysis(context, symbol),
-                icon: const Icon(Icons.auto_awesome, size: 18),
-                label: const Text('Phân tích AI'),
-              ),
-            ),
-          IconButton(
-            tooltip: watching ? 'Bỏ theo dõi' : 'Thêm vào danh sách theo dõi',
-            isSelected: watching,
-            constraints: _hit,
-            visualDensity: VisualDensity.standard,
-            icon: const Icon(Icons.star_border),
-            selectedIcon: Icon(Icons.star, color: Tone.flat(context)),
-            onPressed: () => watching ? state.removeWatch(symbol) : state.addWatch(symbol),
-          ),
-          Text(symbol, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(width: 8),
-          if (!compact && name != null)
-            Flexible(
-              child: Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-              ),
-            ),
-          if (!compact && sector != null) ...[const SizedBox(width: 8), Tag(sector)],
-          const Spacer(),
-          if (close != null)
-            Flexible(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerRight,
-                child: Semantics(
-                  label: 'Giá ${fmt(close * 1000, 0)} đồng, thay đổi $amplitude',
-                  child: ExcludeSemantics(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          fmt(close * 1000, 0),
-                          style: (compact ? text.titleMedium : text.titleLarge)?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: tone,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
-                        if (amplitude.isNotEmpty)
-                          Text(
-                            amplitude,
-                            style: text.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: tone,
-                              fontFeatures: const [FontFeature.tabularFigures()],
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -466,6 +556,113 @@ class _Sidebar extends StatelessWidget {
             ],
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// Mở cửa sổ chi tiết của một chỉ số (VNINDEX, HNX, UPCOM, VN30, phái sinh, chỉ số thế giới).
+Future<void> openIndex(BuildContext context, IndexMeta meta) => showDialog<void>(context: context, builder: (_) => IndexDialog(meta));
+
+class IndexDialog extends StatefulWidget {
+  final IndexMeta meta;
+  const IndexDialog(this.meta, {super.key});
+
+  @override
+  State<IndexDialog> createState() => _IndexDialogState();
+}
+
+class _IndexDialogState extends State<IndexDialog> {
+  List<Bar>? _bars;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    final m = widget.meta;
+    final known = AppScope.of(context).dash.quotes[m.symbol]?.bars;
+    if (known != null && known.length >= 2) setState(() => _bars = known);
+    final b = await fetchBars(m.symbol, days: 1900, kind: m.kind);
+    if (!mounted) return;
+    setState(() {
+      if (b.length >= 2) {
+        _bars = b;
+      } else if (_bars == null) {
+        _failed = true;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final m = widget.meta;
+    final b = _bars;
+    final last = b == null || b.length < 2 ? null : b.last;
+    final prev = b == null || b.length < 2 ? null : b[b.length - 2];
+    final diff = last == null || prev == null ? null : last.c - prev.c;
+    final pct = diff == null || prev!.c == 0 ? null : diff / prev.c * 100;
+    return _PopupShell(
+      title: m.name,
+      subtitle: m.desc,
+      price: last == null ? null : fmt(last.c, 2),
+      amplitude: diff == null ? null : _amplitude(diff, pct, 2),
+      diff: diff,
+      chart: _ChartPanel(m.symbol, b, null, _failed),
+      side: _IndexSidebar(b),
+    );
+  }
+}
+
+class _IndexSidebar extends StatelessWidget {
+  final List<Bar>? bars;
+  const _IndexSidebar(this.bars);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final b = bars;
+    if (b == null || b.length < 2) return const SizedBox.shrink();
+    double? back(int n) => b.length > n ? (b.last.c / b[b.length - 1 - n].c - 1) * 100 : null;
+    final year = b.skip(b.length > 250 ? b.length - 250 : 0);
+    final hi = year.map((x) => x.h).reduce(math.max), lo = year.map((x) => x.l).reduce(math.min);
+    final label = text.labelLarge?.copyWith(color: cs.onSurfaceVariant, fontWeight: FontWeight.w700, letterSpacing: 0.6);
+
+    Widget line(String k, Widget v) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(k, style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+          ),
+          DefaultTextStyle.merge(
+            style: const TextStyle(fontWeight: FontWeight.w700, fontFeatures: [FontFeature.tabularFigures()]),
+            child: v,
+          ),
+        ],
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('THÔNG TIN PHIÊN', style: label),
+        const SizedBox(height: 4),
+        line('Mở cửa', Text(fmt(b.last.o, 2))),
+        line('Cao / Thấp', Text('${fmt(b.last.h, 2)} / ${fmt(b.last.l, 2)}')),
+        line('Khối lượng', Text(fmt(b.last.v, 0))),
+        line('Đỉnh / đáy 52 tuần', Text('${fmt(hi, 2)} / ${fmt(lo, 2)}')),
+        const Divider(height: 24),
+        Text('BIẾN ĐỘNG', style: label),
+        const SizedBox(height: 4),
+        line('1 tuần', Pct(back(5))),
+        line('1 tháng', Pct(back(20))),
+        line('3 tháng', Pct(back(60))),
+        line('1 năm', Pct(back(250))),
       ],
     );
   }

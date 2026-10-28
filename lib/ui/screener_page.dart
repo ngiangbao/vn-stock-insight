@@ -247,7 +247,7 @@ class _MarketIndexStrip extends StatelessWidget {
         final count = constraints.maxWidth >= 1200 ? 4 : 2;
         final cardWidth = count == 4 ? (constraints.maxWidth - 36) / 4 : 238.0;
         final cards = [
-          for (final meta in indexMetas.where((m) => m.symbol != 'VN30F1M'))
+          for (final meta in indexMetas.where((m) => m.kind != 'derivative'))
             _IndexMiniCard(meta: meta, quote: dash.quotes[meta.symbol]),
         ];
         return ListView.separated(
@@ -272,45 +272,49 @@ class _IndexMiniCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = Tone.of(context, quote?.pct);
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    meta.name,
-                    style: Theme.of(context).textTheme.labelMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => openIndex(context, meta),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      meta.name,
+                      style: Theme.of(context).textTheme.labelMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
                   ),
-                ),
-                Text(
-                  quote?.pct == null
-                      ? '–'
-                      : '${quote!.pct! >= 0 ? '+' : ''}${fmt(quote!.pct)}%',
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                  Text(
+                    quote?.pct == null
+                        ? '–'
+                        : '${quote!.pct! >= 0 ? '+' : ''}${fmt(quote!.pct)}%',
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                Text(
-                  fmt(quote?.last, 2),
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Sparkline(quote?.spark ?? const [], height: 34),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+              Row(
+                children: [
+                  Text(
+                    fmt(quote?.last, 2),
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Sparkline(quote?.spark ?? const [], height: 34),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -929,16 +933,26 @@ class _SelectedQuotePanelState extends State<_SelectedQuotePanel> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
+                    // Giá đầy đủ theo đồng và biên độ so với giá tham chiếu
                     Text(
-                      fmt(row.price / 1000, 2),
-                      style: theme.textTheme.titleLarge,
+                      fmt(row.price, 0),
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: Tone.of(context, row.dir),
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
                     Text(
-                      '${row.pct >= 0 ? '+' : ''}${fmt(row.pct)}%',
+                      '${row.dir > 0
+                          ? '▲ +'
+                          : row.dir < 0
+                          ? '▼ '
+                          : '■ '}${fmt(row.price - row.ref, 0)}  (${row.pct >= 0 ? '+' : ''}${fmt(row.pct)}%)',
                       style: TextStyle(
                         color: Tone.of(context, row.dir),
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
+                        fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
                   ],
@@ -953,31 +967,36 @@ class _SelectedQuotePanelState extends State<_SelectedQuotePanel> {
             ),
           ),
           const Divider(height: 1),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
+          // Bốn lựa chọn cùng chiều rộng, trải đều trong khung; không đổi kích thước khi chọn (không có dấu tick)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: SegmentedButton<int>(
+              showSelectedIcon: false,
+              expandedInsets: EdgeInsets.zero,
+              style: const ButtonStyle(
+                minimumSize: WidgetStatePropertyAll(Size(0, 44)),
+                padding: WidgetStatePropertyAll(
+                  EdgeInsets.symmetric(horizontal: 4),
+                ),
+              ),
+              segments: [
                 for (final (i, label) in [
                   'Tổng hợp',
                   'Sổ lệnh',
                   'Mức giá',
                   'Thống kê',
                 ].indexed)
-                  Padding(
-                    padding: EdgeInsets.only(
-                      left: i == 0 ? 10 : 2,
-                      right: 2,
-                      top: 7,
-                      bottom: 7,
-                    ),
-                    child: ChoiceChip(
-                      label: Text(label),
-                      selected: _tab == i,
-                      onSelected: (_) => setState(() => _tab = i),
-                      visualDensity: VisualDensity.compact,
+                  ButtonSegment(
+                    value: i,
+                    label: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
               ],
+              selected: {_tab},
+              onSelectionChanged: (v) => setState(() => _tab = v.first),
             ),
           ),
           const Divider(height: 1),
@@ -998,21 +1017,89 @@ class _SelectedQuotePanelState extends State<_SelectedQuotePanel> {
   }
 }
 
-class _SummaryDetails extends StatelessWidget {
+class _SummaryDetails extends StatefulWidget {
   final BoardRow row;
   const _SummaryDetails({required this.row});
 
   @override
+  State<_SummaryDetails> createState() => _SummaryDetailsState();
+}
+
+/// Giá đóng cửa gần đây của các mã chưa có trong dữ liệu của app, tải một lần rồi dùng lại.
+final _sparkCache = <String, List<double>>{};
+
+class _SummaryDetailsState extends State<_SummaryDetails> {
+  List<double>? _fetched;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSpark();
+  }
+
+  @override
+  void didUpdateWidget(_SummaryDetails old) {
+    super.didUpdateWidget(old);
+    if (old.row.symbol != widget.row.symbol) {
+      _fetched = null;
+      _failed = false;
+      _loadSpark();
+    }
+  }
+
+  Future<void> _loadSpark() async {
+    final symbol = widget.row.symbol;
+    final known =
+        context
+            .getInheritedWidgetOfExactType<AppScope>()!
+            .notifier!
+            .stocks[symbol] !=
+        null;
+    if (known) return;
+    final cached = _sparkCache[symbol];
+    if (cached != null) {
+      _fetched = cached;
+      return;
+    }
+    final bars = await fetchBars(symbol, days: 120);
+    if (!mounted || widget.row.symbol != symbol) return;
+    final closes = [
+      for (final b in bars.skip(bars.length > 60 ? bars.length - 60 : 0)) b.c,
+    ];
+    setState(() {
+      if (closes.length >= 2) {
+        _fetched = _sparkCache[symbol] = closes;
+      } else {
+        _failed = true;
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final row = widget.row;
     final state = AppScope.of(context);
     final snap = state.stocks[row.symbol];
+    final spark = snap?.spark ?? _fetched ?? _sparkCache[row.symbol];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (snap != null) ...[
-          Sparkline(snap.spark, height: 80),
-          const SizedBox(height: 12),
-        ],
+        // Mọi mã đều có biểu đồ đường: mã chưa có dữ liệu sẵn được tải riêng
+        SizedBox(
+          height: 80,
+          child: spark != null
+              ? Sparkline(spark, height: 80)
+              : Center(
+                  child: Text(
+                    _failed
+                        ? 'Không tải được biểu đồ giá.'
+                        : 'Đang tải biểu đồ…',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+        ),
+        const SizedBox(height: 12),
         _DetailMetric(label: 'Giá tham chiếu', value: fmt(row.ref / 1000, 2)),
         _DetailMetric(label: 'Giá mở cửa', value: fmt(row.open / 1000, 2)),
         _DetailMetric(
@@ -1423,7 +1510,6 @@ class _TechnicalFilterTabState extends State<_TechnicalFilterTab> {
                   );
             return _asc ? result : -result;
           });
-    final sortIndex = _cols.indexWhere((column) => column.$1 == _sortKey);
     return Column(
       children: [
         Padding(
@@ -1459,81 +1545,68 @@ class _TechnicalFilterTabState extends State<_TechnicalFilterTab> {
                     ),
                   )
                 : SingleChildScrollView(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: DataTable(
-                        sortColumnIndex: sortIndex,
-                        sortAscending: _asc,
-                        columnSpacing: 22,
-                        showCheckboxColumn: false,
-                        columns: [
-                          for (final column in _cols)
-                            DataColumn(
-                              label: Text(column.$2),
-                              numeric: column.$1 != 'symbol',
-                              onSort: (_, _) => setState(() {
-                                _asc = _sortKey == column.$1 ? !_asc : false;
-                                _sortKey = column.$1;
-                              }),
-                            ),
-                          const DataColumn(label: Text('Tín hiệu')),
-                        ],
-                        rows: [
-                          for (final snapshot in rows)
-                            DataRow(
-                              onSelectChanged: (_) =>
-                                  openStock(context, snapshot.symbol),
-                              cells: [
-                                DataCell(
-                                  Text(
-                                    snapshot.symbol,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
+                    child: FlexTable(
+                      minWidth: 1250,
+                      rowHeight: 56,
+                      columns: [
+                        for (final column in _cols)
+                          FlexCol(
+                            column.$2,
+                            column.$1 == 'symbol'
+                                ? 10
+                                : (column.$1 == 'from_high_52w' ? 14 : 12),
+                            align: column.$1 == 'symbol'
+                                ? Alignment.centerLeft
+                                : Alignment.centerRight,
+                            ascending: _sortKey == column.$1 ? _asc : null,
+                            onSort: () => setState(() {
+                              _asc = _sortKey == column.$1 ? !_asc : false;
+                              _sortKey = column.$1;
+                            }),
+                          ),
+                        const FlexCol('Tín hiệu', 30),
+                      ],
+                      rows: [
+                        for (final snapshot in rows)
+                          FlexRow(
+                            onTap: () => openStock(context, snapshot.symbol),
+                            [
+                              Text(
+                                snapshot.symbol,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
                                 ),
-                                DataCell(Text(fmt(snapshot.close))),
-                                for (final key in [
-                                  'change_1d',
-                                  'change_1w',
-                                  'change_1m',
-                                  'change_3m',
-                                ])
-                                  DataCell(Pct(snapshot.num_(key))),
-                                DataCell(Text(fmt(snapshot.num_('rsi14'), 1))),
-                                DataCell(
-                                  Text(
-                                    snapshot.num_('vol_ratio') == null
-                                        ? '–'
-                                        : 'x${fmt(snapshot.num_('vol_ratio'))}',
-                                  ),
-                                ),
-                                DataCell(Pct(snapshot.num_('from_high_52w'))),
-                                DataCell(
-                                  Tag(
-                                    '${snapshot.techScore > 0 ? '+' : ''}${snapshot.techScore}',
-                                    color: Tone.of(context, snapshot.techScore),
-                                  ),
-                                ),
-                                DataCell(
-                                  ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      maxWidth: 360,
-                                    ),
-                                    child: Text(
-                                      snapshot.signals.isEmpty
-                                          ? '–'
-                                          : snapshot.signals.join(' · '),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                        ],
-                      ),
+                              ),
+                              Text(fmt(snapshot.close)),
+                              for (final key in [
+                                'change_1d',
+                                'change_1w',
+                                'change_1m',
+                                'change_3m',
+                              ])
+                                Pct(snapshot.num_(key)),
+                              Text(fmt(snapshot.num_('rsi14'), 1)),
+                              Text(
+                                snapshot.num_('vol_ratio') == null
+                                    ? '–'
+                                    : 'x${fmt(snapshot.num_('vol_ratio'))}',
+                              ),
+                              Pct(snapshot.num_('from_high_52w')),
+                              Tag(
+                                '${snapshot.techScore > 0 ? '+' : ''}${snapshot.techScore}',
+                                color: Tone.of(context, snapshot.techScore),
+                              ),
+                              Text(
+                                snapshot.signals.isEmpty
+                                    ? '–'
+                                    : snapshot.signals.join(' · '),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                      ],
                     ),
                   ),
           ),

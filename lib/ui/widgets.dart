@@ -261,3 +261,99 @@ class AutoScale extends StatelessWidget {
 }
 
 const disclaimer ='Phân tích do AI tạo ra, có thể sai, chỉ mang tính tham khảo, không phải khuyến nghị đầu tư.';
+
+/// Cột của [FlexTable]: các cột chia đều toàn bộ chiều rộng theo tỉ lệ [flex], không bao giờ chồng lấn nhau.
+class FlexCol {
+  final String label;
+  final int flex;
+  final Alignment align;
+  final VoidCallback? onSort;
+  final bool? ascending; // null: cột này không đang được sắp xếp
+  const FlexCol(this.label, this.flex, {this.align = Alignment.centerLeft, this.onSort, this.ascending});
+}
+
+class FlexRow {
+  final List<Widget> cells;
+  final VoidCallback? onTap;
+  const FlexRow(this.cells, {this.onTap});
+}
+
+/// Bảng ngang trải hết chiều rộng: mỗi cột có chiều rộng tỉ lệ, đệm hai bên 10 px để chữ không dính nhau.
+/// Khi cửa sổ hẹp hơn [minWidth], bảng giữ nguyên chiều rộng tối thiểu và cuộn ngang.
+class FlexTable extends StatelessWidget {
+  final List<FlexCol> columns;
+  final List<FlexRow> rows;
+  final double minWidth;
+  final double rowHeight;
+  const FlexTable({super.key, required this.columns, required this.rows, this.minWidth = 1100, this.rowHeight = 64});
+
+  static const _pad = EdgeInsets.symmetric(horizontal: 10);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final head = Theme.of(context).textTheme.labelLarge?.copyWith(color: cs.onSurfaceVariant, fontWeight: FontWeight.w700);
+
+    Widget line(List<Widget> cells, {double? height}) => Row(
+      children: [
+        for (final (i, c) in cells.indexed)
+          Expanded(
+            flex: columns[i].flex,
+            child: Padding(
+              padding: _pad,
+              child: Align(alignment: columns[i].align, child: c),
+            ),
+          ),
+      ],
+    );
+
+    Widget header() => Container(
+      constraints: const BoxConstraints(minHeight: 52),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      child: line([
+        for (final c in columns)
+          c.onSort == null
+              ? Text(c.label, style: head, maxLines: 2, overflow: TextOverflow.ellipsis)
+              : InkWell(
+                  onTap: c.onSort,
+                  borderRadius: BorderRadius.circular(6),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 44),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(c.label, style: head, maxLines: 2, overflow: TextOverflow.ellipsis),
+                        ),
+                        if (c.ascending != null)
+                          Icon(c.ascending! ? Icons.arrow_upward : Icons.arrow_downward, size: 14, color: cs.primary),
+                      ],
+                    ),
+                  ),
+                ),
+      ]),
+    );
+
+    Widget row(FlexRow r) => InkWell(
+      onTap: r.onTap,
+      child: Container(
+        constraints: BoxConstraints(minHeight: rowHeight),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: cs.outlineVariant)),
+        ),
+        child: line(r.cells),
+      ),
+    );
+
+    final table = Column(children: [header(), for (final r in rows) row(r)]);
+    return LayoutBuilder(
+      builder: (context, box) => box.maxWidth >= minWidth
+          ? table
+          : SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(width: minWidth, child: table),
+            ),
+    );
+  }
+}
