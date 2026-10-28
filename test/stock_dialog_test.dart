@@ -39,6 +39,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100)); // dữ liệu nạp sau khung hình đầu
       expect(find.text('FPT'), findsWidgets);
       expect(find.byType(Dialog), findsOneWidget);
+      final size = tester.getSize(find.byType(Dialog));
+      expect(size.width, greaterThan(w * 0.9), reason: 'pop-up gần phủ hết chiều rộng cửa sổ');
+      expect(size.height, greaterThan(h * 0.9), reason: 'pop-up gần phủ hết chiều cao cửa sổ');
       expect(find.byTooltip('Đóng'), findsOneWidget);
       expect(find.byTooltip('Thêm vào danh sách theo dõi'), findsNothing, reason: 'FPT đã có trong danh sách theo dõi mặc định');
       if (w > 800) {

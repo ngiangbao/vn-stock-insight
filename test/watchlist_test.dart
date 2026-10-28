@@ -20,8 +20,8 @@ void main() {
     expect(techScore5(1), 3);
   });
 
-  for (final (w, table) in [(1300.0, true), (390.0, false)]) {
-    testWidgets('trang Theo dõi ${w.toInt()} px: ${table ? 'dạng bảng' : 'dạng thẻ'}, không tràn', (tester) async {
+  for (final w in [1900.0, 1300.0, 700.0, 390.0]) {
+    testWidgets('trang Theo dõi ${w.toInt()} px: bảng ngang thẳng hàng, không tràn, các hàng không chồng nhau', (tester) async {
       SharedPreferences.setMockInitialValues({});
       FlutterSecureStorage.setMockInitialValues({});
       PathProviderPlatform.instance = _FakePaths();
@@ -33,25 +33,21 @@ void main() {
       final bars = [for (var i = 0; i < 300; i++) Bar(1790000000 + i * 86400, 50 + i * .1, 52 + i * .1, 49 + i * .1, 51 + i * .1 + (i % 5), 1e6)];
       state.stocks = {for (final s in state.watchlist) s: analyze(s, bars)};
 
-      final prev = FlutterError.onError;
-      // Thẻ cũ ở chế độ hẹp tràn với phông thử nghiệm (Ahem rộng hơn phông thật): chỉ kiểm tra tràn ở dạng bảng
-      if (!table) FlutterError.onError = (_) {};
-      addTearDown(() => FlutterError.onError = prev);
       await tester.pumpWidget(AppScope(state: state, child: const MaterialApp(home: WatchlistPage())));
       await tester.pump(const Duration(milliseconds: 200));
       expect(find.text('Danh mục Theo dõi Cá nhân'), findsOneWidget);
       expect(find.text('Tra cứu cổ phiếu'), findsOneWidget);
-      if (table) {
-        expect(find.text('Mã CK'), findsOneWidget);
-        expect(find.text('AI Report'), findsNWidgets(state.watchlist.length));
-        expect(find.textContaining('/5'), findsNWidgets(state.watchlist.length));
-        for (final e in find.byTooltip('Gỡ FPT khỏi danh sách').evaluate()) {
-          expect((e.renderObject! as RenderBox).size.shortestSide, greaterThanOrEqualTo(44));
-        }
-      } else {
-        expect(find.text('Mã CK'), findsNothing);
+      expect(find.text('Mã CK'), findsOneWidget);
+      expect(find.text('AI Report'), findsNWidgets(state.watchlist.length));
+      expect(find.textContaining('/5'), findsNWidgets(state.watchlist.length));
+      // Các hàng xếp dọc đều nhau, không chồng lên nhau
+      final tops = [for (final sym in state.watchlist) tester.getTopLeft(find.text(sym).first).dy]..sort();
+      for (var i = 1; i < tops.length; i++) {
+        expect(tops[i] - tops[i - 1], greaterThanOrEqualTo(60), reason: 'hàng ${i + 1} không được chen vào hàng trước');
       }
-      if (table) expect(tester.takeException(), isNull);
+      // Ở cửa sổ rộng, bảng chiếm gần hết chiều ngang (không bị giới hạn 1100 px)
+      if (w >= 1300) expect(tester.getSize(find.byType(Card).first).width, greaterThan(w - 40));
+      expect(tester.takeException(), isNull);
       state.dash.dispose();
     });
   }

@@ -173,7 +173,15 @@ class PageFrame extends StatelessWidget {
   final List<Widget> children;
   final List<Widget> actions;
   final Future<void> Function()? onRefresh;
-  const PageFrame({super.key, required this.title, required this.children, this.actions = const [], this.onRefresh});
+  final double maxWidth;
+  const PageFrame({
+    super.key,
+    required this.title,
+    required this.children,
+    this.actions = const [],
+    this.onRefresh,
+    this.maxWidth = 1100,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -183,7 +191,7 @@ class PageFrame extends StatelessWidget {
       children: [
         Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1100),
+            constraints: BoxConstraints(maxWidth: maxWidth),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
           ),
         ),

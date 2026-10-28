@@ -77,11 +77,11 @@ class _StockDialogState extends State<StockDialog> {
   Widget build(BuildContext context) {
     final narrow = MediaQuery.sizeOf(context).width < 860;
     return Dialog(
-      insetPadding: EdgeInsets.all(narrow ? 8 : 24),
+      insetPadding: EdgeInsets.all(narrow ? 8 : 20),
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1180, maxHeight: 760),
+      // Cửa sổ lớn, gần phủ hết cửa sổ app đang mở
+      child: SizedBox.expand(
         child: LayoutBuilder(
           builder: (context, box) {
             final wide = box.maxWidth >= 860;
