@@ -327,14 +327,30 @@ class _RegionBar extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(6, 4, 6, 0),
     child: LayoutBuilder(
       builder: (context, c) {
-        final chips = [
-          for (final (id, label) in indexRegions)
-            ChoiceChip(
-              label: Text(label),
-              selected: dash.region == id,
-              onSelected: (_) => dash.setRegion(id),
+        // Bốn nút cùng chiều rộng, không đổi kích thước khi được chọn (không có dấu tick)
+        final selector = SegmentedButton<String>(
+          showSelectedIcon: false,
+          expandedInsets: EdgeInsets.zero,
+          style: const ButtonStyle(
+            minimumSize: WidgetStatePropertyAll(Size(0, 44)),
+            padding: WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 6),
             ),
-        ];
+          ),
+          segments: [
+            for (final (id, label) in indexRegions)
+              ButtonSegment(
+                value: id,
+                label: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+          selected: {dash.region},
+          onSelectionChanged: (v) => dash.setRegion(v.first),
+        );
         final label = Text(
           'Thị trường',
           style: Theme.of(context).textTheme.labelMedium
@@ -343,13 +359,19 @@ class _RegionBar extends StatelessWidget {
         if (c.maxWidth < 520) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              label,
-              Wrap(spacing: 6, runSpacing: 0, children: chips),
-            ],
+            children: [label, const SizedBox(height: 4), selector],
           );
         }
-        return Row(children: [label, const SizedBox(width: 8), ...chips]);
+        return Row(
+          children: [
+            label,
+            const SizedBox(width: 12),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: SizedBox(width: 520, child: selector),
+            ),
+          ],
+        );
       },
     ),
   );
