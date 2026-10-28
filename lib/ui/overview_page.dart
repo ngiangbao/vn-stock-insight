@@ -1,7 +1,8 @@
-// Tổng quan: dashboard thị trường 3 cột vừa một màn hình (chỉ số + biểu đồ | dòng tiền + bản đồ nhiệt | trong phiên).
-// Màn hình hẹp (< 760) xếp thành 1 cột và cho cuộn.
+// Tổng quan theo bố cục thị trường: chỉ số trên cùng, biểu đồ và bảng nhiệt bên dưới.
+// Cửa sổ hẹp chuyển sang danh sách cuộn để giữ số liệu dễ đọc.
 
 import 'dart:math' as math;
+import 'dart:ui' show FontFeature;
 
 import 'package:flutter/material.dart';
 
@@ -57,9 +58,9 @@ class OverviewPage extends StatelessWidget {
       ),
       body: LayoutBuilder(
         builder: (context, c) {
-          // Ba cột chỉ dùng khi mỗi panel còn đủ bề rộng để giữ số liệu và nhãn
-          // trên cùng một dòng. Cửa sổ trung bình chuyển sang bố cục cuộn linh hoạt.
-          if (c.maxWidth < 1200) {
+          // Bố cục hai vùng chỉ dùng khi đủ chỗ cho dải chỉ số và bản đồ nhiệt.
+          // Cửa sổ trung bình chuyển sang bố cục cuộn để tránh ép hẹp các bảng.
+          if (c.maxWidth < 1100) {
             return ListView(
               padding: const EdgeInsets.all(12),
               children: [
@@ -79,42 +80,45 @@ class OverviewPage extends StatelessWidget {
           final body = SizedBox(
             height: h,
             child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    flex: 27,
-                    child: Column(
-                      children: [
-                        Expanded(flex: 11, child: _ChartCard(dash)),
-                        Expanded(flex: 9, child: _IndexList(dash)),
-                      ],
-                    ),
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+              child: Column(children: [
+                if (dash.error != null) _Notice(dash.error!),
+                SizedBox(height: 94, child: _IndexStrip(dash)),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        flex: 58,
+                        child: Column(children: [
+                          Expanded(flex: 7, child: _ChartCard(dash)),
+                          Expanded(
+                            flex: 4,
+                            child: Row(children: [
+                              Expanded(
+                                flex: 7,
+                                child: Column(children: [
+                                  _IndexHeader(dash),
+                                  Expanded(child: _IntradayCard(dash)),
+                                ]),
+                              ),
+                              Expanded(flex: 5, child: _SideInfo(dash, fit: true)),
+                            ]),
+                          ),
+                        ]),
+                      ),
+                      Expanded(
+                        flex: 42,
+                        child: Column(children: [
+                          _selector(dash),
+                          Expanded(flex: 5, child: _FlowCard(dash)),
+                          Expanded(flex: 8, child: _HeatCard(dash)),
+                        ]),
+                      ),
+                    ],
                   ),
-                  Expanded(
-                    flex: 46,
-                    child: Column(
-                      children: [
-                        if (dash.error != null) _Notice(dash.error!),
-                        _selector(dash),
-                        Expanded(flex: 7, child: _FlowCard(dash)),
-                        Expanded(flex: 13, child: _HeatCard(dash)),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    flex: 27,
-                    child: Column(
-                      children: [
-                        _IndexHeader(dash),
-                        Expanded(flex: 8, child: _IntradayCard(dash)),
-                        Expanded(flex: 11, child: _SideInfo(dash, fit: true)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ]),
             ),
           );
           return h > c.maxHeight ? SingleChildScrollView(child: body) : body;
@@ -141,8 +145,18 @@ class OverviewPage extends StatelessWidget {
         runSpacing: 2,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          const ChoiceChip(label: Text('Biến động'), selected: true, visualDensity: VisualDensity.compact),
-          const SizedBox(width: 12),
+          for (final (label, metric) in [
+            ('Biến động', HeatMetric.change),
+            ('Khối ngoại', HeatMetric.foreignNet),
+            ('Thanh khoản', HeatMetric.liquidity),
+          ])
+            ChoiceChip(
+              label: Text(label),
+              selected: dash.heatMetric == metric,
+              visualDensity: VisualDensity.compact,
+              onSelected: (_) => dash.setHeatMetric(metric),
+            ),
+          const SizedBox(width: 8),
           for (final (label, group) in heatExchanges)
             ChoiceChip(
               label: Text(label),
@@ -224,6 +238,81 @@ class _ChartCard extends StatelessWidget {
               initialRange: 2,
               onFullscreen: () => openChart(context, m.symbol, title: 'Biểu đồ ${m.name}', kind: m.kind),
             ),
+    );
+  }
+}
+
+class _IndexStrip extends StatelessWidget {
+  final MarketDashboard dash;
+  const _IndexStrip(this.dash);
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, constraints) {
+          final width = ((constraints.maxWidth - 40) / indexMetas.length).clamp(184.0, 248.0).toDouble();
+          return ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            children: [
+              for (final meta in indexMetas)
+                SizedBox(
+                  width: width,
+                  child: _IndexQuoteCard(dash: dash, meta: meta),
+                ),
+            ],
+          );
+        },
+      );
+}
+
+class _IndexQuoteCard extends StatelessWidget {
+  final MarketDashboard dash;
+  final IndexMeta meta;
+  const _IndexQuoteCard({required this.dash, required this.meta});
+
+  @override
+  Widget build(BuildContext context) {
+    final quote = dash.quotes[meta.symbol];
+    final selected = dash.selected == meta.symbol;
+    final tone = Tone.of(context, quote?.change);
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      margin: const EdgeInsets.only(right: 8),
+      clipBehavior: Clip.antiAlias,
+      color: selected ? cs.primary.withValues(alpha: 0.055) : null,
+      child: InkWell(
+        onTap: () => dash.select(meta.symbol),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(meta.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 3),
+                  Text(fmt(quote?.last), maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, fontFeatures: [FontFeature.tabularFigures()])),
+                  Text(
+                    quote?.change == null
+                        ? 'Chưa có dữ liệu'
+                        : '${quote!.change! >= 0 ? '+' : ''}${fmt(quote.change)}  ·  ${quote.pct! >= 0 ? '+' : ''}${fmt(quote.pct)}%',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11, color: quote?.change == null ? cs.onSurfaceVariant : tone, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+            ),
+            if (quote != null) ...[
+              const SizedBox(width: 6),
+              SizedBox(width: 42, child: Sparkline(quote.spark, height: 34)),
+            ],
+          ]),
+        ),
+      ),
     );
   }
 }
@@ -369,7 +458,12 @@ class _HeatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _Panel(
     padding: const EdgeInsets.all(3),
-    child: HeatMap(rows: dash.heatRows, sectors: dash.sectors, onOpen: (s) => openAnalysis(context, s)),
+    child: HeatMap(
+      rows: dash.heatRows,
+      sectors: dash.sectors,
+      metric: dash.heatMetric,
+      onOpen: (s) => openAnalysis(context, s),
+    ),
   );
 }
 

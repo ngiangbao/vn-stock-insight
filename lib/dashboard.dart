@@ -23,6 +23,8 @@ const indexMetas = [
   IndexMeta('VN30F1M', 'VN30F1M', 'Hợp đồng tương lai VN30 tháng gần', 'derivative', null),
 ];
 
+enum HeatMetric { change, foreignNet, liquidity }
+
 /// Sàn của bản đồ nhiệt: tên hiển thị → nhóm bảng giá.
 const heatExchanges = [('HSX', 'HOSE'), ('HNX', 'HNX'), ('UPCOM', 'UPCOM')];
 
@@ -55,6 +57,7 @@ class MarketDashboard extends ChangeNotifier {
   Map<String, IndexQuote> quotes = {};
   String selected = 'VNINDEX';
   String exchange = 'HOSE'; // sàn của bản đồ nhiệt
+  HeatMetric heatMetric = HeatMetric.change;
   Map<String, List<BoardRow>> boards = {};
   Map<String, SectorInfo> sectors = {};
   List<Bar> intraday = const [];
@@ -90,6 +93,12 @@ class MarketDashboard extends ChangeNotifier {
     exchange = group;
     notifyListeners();
     refresh();
+  }
+
+  void setHeatMetric(HeatMetric metric) {
+    if (heatMetric == metric) return;
+    heatMetric = metric;
+    notifyListeners();
   }
 
   Future<void> refresh() async {

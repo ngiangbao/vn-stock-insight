@@ -175,8 +175,23 @@ class _HomeShellState extends State<HomeShell> {
       const NewsPage(),
       const SettingsPage(),
     ];
-    final wide = MediaQuery.sizeOf(context).width >= 760;
+    final width = MediaQuery.sizeOf(context).width;
+    final wide = width >= 760;
     final body = IndexedStack(index: _tab, children: pages);
+
+    if (width >= 1100) {
+      return Scaffold(
+        body: Column(children: [
+          _DesktopHeader(
+            selectedIndex: _tab,
+            onDestinationSelected: (i) => setState(() => _tab = i),
+            destinations: _destinations,
+          ),
+          const Divider(height: 1),
+          Expanded(child: body),
+        ]),
+      );
+    }
 
     if (wide) {
       return Scaffold(
@@ -207,6 +222,102 @@ class _HomeShellState extends State<HomeShell> {
         destinations: [
           for (final d in _destinations) NavigationDestination(icon: Icon(d.$1), selectedIcon: Icon(d.$2), label: d.$3),
         ],
+      ),
+    );
+  }
+}
+
+class _DesktopHeader extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onDestinationSelected;
+  final List<(IconData, IconData, String)> destinations;
+
+  const _DesktopHeader({
+    required this.selectedIndex,
+    required this.onDestinationSelected,
+    required this.destinations,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: cs.surfaceContainerLowest,
+      child: SizedBox(
+        height: 62,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          child: Row(children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(color: cs.primary, borderRadius: BorderRadius.circular(10)),
+              child: Icon(Icons.show_chart_rounded, color: cs.onPrimary, size: 23),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'VN Stock Insight',
+              maxLines: 1,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(width: 22),
+            const VerticalDivider(width: 1, indent: 14, endIndent: 14),
+            const SizedBox(width: 14),
+            for (var i = 0; i < destinations.length; i++)
+              Expanded(
+                child: _DesktopNavItem(
+                  icon: selectedIndex == i ? destinations[i].$2 : destinations[i].$1,
+                  label: destinations[i].$3,
+                  selected: selectedIndex == i,
+                  onTap: () => onDestinationSelected(i),
+                ),
+              ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _DesktopNavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _DesktopNavItem({required this.icon, required this.label, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 8),
+      child: Material(
+        color: selected ? cs.primary.withValues(alpha: 0.09) : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(icon, size: 19, color: selected ? cs.primary : cs.onSurfaceVariant),
+              const SizedBox(width: 7),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: selected ? cs.primary : cs.onSurfaceVariant,
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  ),
+                ),
+              ),
+            ]),
+          ),
+        ),
       ),
     );
   }

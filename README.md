@@ -6,7 +6,7 @@ App phân tích cổ phiếu Việt Nam bằng AI cho **Windows, macOS, Linux v�
 
 ## Tính năng
 
-- **Tổng quan:** VN-Index, các mã tăng/giảm mạnh nhất rổ VN30, nhận định thị trường bằng AI.
+- **Tổng quan:** dashboard thị trường với các chỉ số, biểu đồ, độ rộng thị trường và bản đồ nhiệt có thể xem theo biến động, giao dịch khối ngoại hoặc thanh khoản.
 - **Theo dõi:** tra cứu mã bất kỳ (HOSE, HNX, UPCoM), thêm hoặc gỡ mã khỏi danh sách theo dõi, phân tích chuyên sâu từng mã:
   - luận điểm đầu tư và điều kiện làm luận điểm sai;
   - kết quả kinh doanh 8 quý; với ngân hàng thì xem NIM, nợ xấu, CASA;

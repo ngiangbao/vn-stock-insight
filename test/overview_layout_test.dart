@@ -67,7 +67,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 100));
       expect(tester.takeException(), isNull);
-      if (w >= 1200) {
+      if (w >= 1100) {
         expect(find.text('Dòng tiền'), findsOneWidget);
       } else if (w >= 760) {
         // Medium windows use a vertical layout; scroll to build the later card.

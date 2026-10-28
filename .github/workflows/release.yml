@@ -143,6 +143,8 @@ jobs:
             exit 0
           fi
           gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --verify-tag --title "VN Stock Insight $GITHUB_REF_NAME" --notes "$(cat <<'EOF'
+          Dashboard mới: thanh chỉ số nhanh, bố cục thị trường gọn hơn và bản đồ nhiệt theo biến động, khối ngoại hoặc thanh khoản.
+
           Tải bản cho máy của bạn:
           - Windows: tải file `-windows-x64-setup.exe` và làm theo trình cài đặt.
           - macOS: tải file `-macos.pkg` và mở để cài ứng dụng vào Applications. Gói hiện chưa được ký/notarize bằng Apple Developer ID; macOS có thể yêu cầu xác nhận khi mở.

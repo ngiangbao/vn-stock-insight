@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../dashboard.dart';
 import '../services/board.dart';
 import '../services/market.dart';
 import '../services/treemap.dart';
@@ -17,10 +18,28 @@ Color heatColor(BoardRow r) {
   if (r.atCeil) return heatCeil;
   if (r.atFloor) return heatFloor;
   if (r.dir == 0) return heatFlat;
-  final t = (r.pct.abs() / 6).clamp(0.0, 1.0);
+  final t = (r.pct.abs() / 6).clamp(0.0, 1.0).toDouble();
   return r.dir > 0
       ? Color.lerp(const Color(0xFF3F7A4B), heatUp, t)!
       : Color.lerp(const Color(0xFF86413E), heatDown, t)!;
+}
+
+Color _metricHeatColor(BoardRow row, HeatMetric metric, double maxForeign, double maxLiquidity) {
+  switch (metric) {
+    case HeatMetric.change:
+      return heatColor(row);
+    case HeatMetric.foreignNet:
+      final net = row.foreignBuy - row.foreignSell;
+      if (net == 0 || maxForeign == 0) return heatFlat;
+      final strength = (net.abs() / maxForeign).clamp(0.0, 1.0).toDouble();
+      return net > 0
+          ? Color.lerp(const Color(0xFF315B48), heatUp, strength)!
+          : Color.lerp(const Color(0xFF663C3B), heatDown, strength)!;
+    case HeatMetric.liquidity:
+      final value = row.valueMn + row.ptValueMn;
+      final strength = maxLiquidity == 0 ? 0.0 : (value / maxLiquidity).clamp(0.0, 1.0).toDouble();
+      return Color.lerp(const Color(0xFF26384A), const Color(0xFF2584B8), strength)!;
+  }
 }
 
 // ---------- Bản đồ nhiệt ----------
@@ -29,7 +48,8 @@ class HeatMap extends StatefulWidget {
   final List<BoardRow> rows;
   final Map<String, SectorInfo> sectors;
   final void Function(String symbol) onOpen;
-  const HeatMap({super.key, required this.rows, required this.sectors, required this.onOpen});
+  final HeatMetric metric;
+  const HeatMap({super.key, required this.rows, required this.sectors, required this.onOpen, this.metric = HeatMetric.change});
 
   @override
   State<HeatMap> createState() => _HeatMapState();
@@ -106,7 +126,9 @@ class _HeatMapState extends State<HeatMap> {
               clipBehavior: Clip.hardEdge,
               children: [
                 Positioned.fill(
-                  child: RepaintBoundary(child: CustomPaint(painter: _HeatPainter(_placed, _bySymbol, widget.rows))),
+                  child: RepaintBoundary(
+                    child: CustomPaint(painter: _HeatPainter(_placed, _bySymbol, widget.rows, widget.metric)),
+                  ),
                 ),
                 if (hover != null) ..._tooltip(context, hover, size),
               ],
@@ -123,11 +145,16 @@ class _HeatMapState extends State<HeatMap> {
         for (final it in g.items)
           if (it.id == r.symbol) it.rect,
     ].firstOrNull;
+    final metricLabel = switch (widget.metric) {
+      HeatMetric.change => 'GTGD ${fmt((r.valueMn + r.ptValueMn) / 1000, 1)} tỷ',
+      HeatMetric.foreignNet => 'Khối ngoại ròng ${fmt(r.foreignBuy - r.foreignSell, 0)} CP',
+      HeatMetric.liquidity => 'Thanh khoản ${fmt((r.valueMn + r.ptValueMn) / 1000, 1)} tỷ',
+    };
     final text =
         '${r.symbol} · ${_sectorOf[r.symbol] ?? 'Khác'}\n'
         'Giá ${fmt(r.price / 1000, 2)} (${r.pct >= 0 ? '+' : ''}${fmt(r.pct)}%)\n'
-        'GTGD ${fmt((r.valueMn + r.ptValueMn) / 1000, 1)} tỷ';
-    const w = 170.0, h = 62.0;
+        '$metricLabel';
+    const w = 190.0, h = 62.0;
     final left = (_pointer.dx + 14 + w > size.width) ? _pointer.dx - 14 - w : _pointer.dx + 14;
     final top = (_pointer.dy + 14 + h > size.height) ? _pointer.dy - 14 - h : _pointer.dy + 14;
     return [
@@ -167,7 +194,8 @@ class _HeatPainter extends CustomPainter {
   final List<PlacedGroup> placed;
   final Map<String, BoardRow> rows;
   final Object token; // đổi khi dữ liệu đổi
-  _HeatPainter(this.placed, this.rows, this.token);
+  final HeatMetric metric;
+  _HeatPainter(this.placed, this.rows, this.token, this.metric);
 
   TextPainter _tp(String s, double size, Color color, double maxW, {FontWeight w = FontWeight.w600}) => TextPainter(
     text: TextSpan(
@@ -182,6 +210,14 @@ class _HeatPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFF1B2230));
+    final maxForeign = rows.values.fold<double>(0, (max, row) {
+      final value = (row.foreignBuy - row.foreignSell).abs();
+      return value > max ? value : max;
+    });
+    final maxLiquidity = rows.values.fold<double>(0, (max, row) {
+      final value = row.valueMn + row.ptValueMn;
+      return value > max ? value : max;
+    });
     for (final g in placed) {
       if (g.header.height > 0) {
         final tp = _tp(g.name, 11, Colors.white70, g.header.width - 6);
@@ -191,15 +227,20 @@ class _HeatPainter extends CustomPainter {
         final r = rows[it.id];
         if (r == null) continue;
         final rect = it.rect.deflate(0.6);
-        canvas.drawRect(rect, Paint()..color = heatColor(r));
+        canvas.drawRect(rect, Paint()..color = _metricHeatColor(r, metric, maxForeign, maxLiquidity));
         if (rect.width >= 30 && rect.height >= 18) {
           final big = rect.width >= 56 && rect.height >= 36;
           final fs = math.min(big ? 15.0 : 11.0, math.max(9.0, math.min(rect.width / 4.2, rect.height / 2.6)));
           final sym = _tp(it.id, fs, Colors.white, rect.width - 4, w: FontWeight.w700);
           final showPct = rect.height >= sym.height * 2 + 4 && rect.width >= 44;
+          final metricValue = switch (metric) {
+            HeatMetric.change => '${r.pct >= 0 ? '+' : ''}${fmt(r.pct)}%',
+            HeatMetric.foreignNet => '${r.foreignBuy >= r.foreignSell ? '+' : ''}${fmt((r.foreignBuy - r.foreignSell) / 1000, 1)}K',
+            HeatMetric.liquidity => '${fmt((r.valueMn + r.ptValueMn) / 1000, 1)} tỷ',
+          };
           final pct = showPct
               ? _tp(
-                  '${r.pct >= 0 ? '+' : ''}${fmt(r.pct)}%',
+                  metricValue,
                   math.max(9, fs - 2),
                   Colors.white,
                   rect.width - 4,
@@ -216,7 +257,8 @@ class _HeatPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_HeatPainter old) => !identical(old.placed, placed) || !identical(old.token, token);
+  bool shouldRepaint(_HeatPainter old) =>
+      !identical(old.placed, placed) || !identical(old.token, token) || old.metric != metric;
 }
 
 // ---------- Dòng tiền: biểu đồ tròn và cột ----------
