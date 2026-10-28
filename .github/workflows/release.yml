@@ -93,10 +93,12 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
       - run: flutter build windows --release
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
       - shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force dist | Out-Null
-          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath "dist\vn-stock-insight-$env:VERSION-windows-x64.zip"
+          $packageVersion = $env:VERSION.TrimStart('v')
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$packageVersion" tool\windows-installer.iss
       - uses: actions/upload-artifact@v7
         with: { name: windows, path: dist/* }
 
@@ -111,9 +113,14 @@ jobs:
           cache: true
       - run: flutter build macos --release
       - run: |
-          mkdir dist
-          ditto -c -k --keepParent "build/macos/Build/Products/Release/VN Stock Insight.app" \
-            "dist/vn-stock-insight-${VERSION}-macos.zip"
+          mkdir -p dist
+          PACKAGE_VERSION="${VERSION#v}"
+          pkgbuild \
+            --component "build/macos/Build/Products/Release/VN Stock Insight.app" \
+            --identifier vn.stockinsight.vnStockInsight \
+            --version "$PACKAGE_VERSION" \
+            --install-location /Applications \
+            "dist/vn-stock-insight-${VERSION}-macos.pkg"
       - uses: actions/upload-artifact@v7
         with: { name: macos, path: dist/* }
 
@@ -137,8 +144,8 @@ jobs:
           fi
           gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --verify-tag --title "VN Stock Insight $GITHUB_REF_NAME" --notes "$(cat <<'EOF'
           Tải bản cho máy của bạn:
-          - Windows: file `-windows-x64.zip`, giải nén rồi chạy `vn_stock_insight.exe`.
-          - macOS: file `-macos.zip`, giải nén, kéo app vào Applications. Lần đầu mở: chuột phải → Open (app chưa được Apple ký).
+          - Windows: tải file `-windows-x64-setup.exe` và làm theo trình cài đặt.
+          - macOS: tải file `-macos.pkg` và mở để cài ứng dụng vào Applications. Gói hiện chưa được ký/notarize bằng Apple Developer ID; macOS có thể yêu cầu xác nhận khi mở.
           - Linux: file `-linux-x64.tar.gz`, giải nén rồi chạy `./vn-stock-insight/install.sh`.
           - Android: file `.apk`, mở để cài (cho phép cài từ nguồn không xác định).
           EOF
