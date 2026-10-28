@@ -19,10 +19,11 @@ const newsFeeds = {
 
 class NewsItem {
   final String title, summary, link, source;
+  final String? imageUrl;
   final DateTime published;
   final Set<String> tickers;
 
-  NewsItem(this.title, this.summary, this.link, this.source, this.published, this.tickers);
+  NewsItem(this.title, this.summary, this.link, this.source, this.published, this.tickers, {this.imageUrl});
 
   Map<String, dynamic> toPromptJson() => {
         'title': title,
@@ -49,6 +50,36 @@ String _htmlEntities(String s) => s
     .replaceAll('&#39;', "'")
     .replaceAll('&lt;', '<')
     .replaceAll('&gt;', '>');
+
+
+String? _imageUrl(XmlElement item) {
+  for (final element in item.descendants.whereType<XmlElement>()) {
+    if (!const {'content', 'thumbnail', 'enclosure'}.contains(element.name.local.toLowerCase())) continue;
+    final url = element.attributes
+        .where((a) => a.name.local.toLowerCase() == 'url' || a.name.local.toLowerCase() == 'href')
+        .map((a) => a.value.trim())
+        .firstWhere((value) => value.isNotEmpty, orElse: () => '');
+    if (url.isEmpty) continue;
+    final type = element.attributes
+        .where((a) => a.name.local.toLowerCase() == 'type')
+        .map((a) => a.value.toLowerCase())
+        .firstOrNull;
+    final isImage = type?.startsWith('image/') ??
+        RegExp(r'\.(jpe?g|png|webp|gif)(?:[?#].*)?$', caseSensitive: false).hasMatch(url);
+    final uri = Uri.tryParse(url);
+    if (isImage && uri != null && (uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty) {
+      return _htmlEntities(url);
+    }
+  }
+  final description = item.getElement('description')?.innerText ?? '';
+  final match = RegExp(r'<img\b[^>]*?(?:src|data-src)=([^ >]+)', caseSensitive: false).firstMatch(description);
+  final url = match?.group(1)?.replaceAll('"', '').replaceAll("'", '').trim();
+  if (url == null) return null;
+  final uri = Uri.tryParse(url);
+  return uri != null && (uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty
+      ? _htmlEntities(url)
+      : null;
+}
 
 DateTime? _parseDate(String? s) {
   if (s == null || s.trim().isEmpty) return null;
@@ -87,7 +118,8 @@ Future<List<NewsItem>> fetchNews(Set<String> known, {Duration maxAge = const Dur
         for (final item in doc.findAllElements('item'))
           () {
             final title = _clean(item.getElement('title')?.innerText ?? '');
-            final summary = _clean(item.getElement('description')?.innerText ?? '');
+            final rawDescription = item.getElement('description')?.innerText ?? '';
+            final summary = _clean(rawDescription);
             final published = _parseDate(item.getElement('pubDate')?.innerText)?.toUtc() ?? DateTime.now().toUtc();
             final text = '$title $summary';
             return NewsItem(
@@ -97,6 +129,7 @@ Future<List<NewsItem>> fetchNews(Set<String> known, {Duration maxAge = const Dur
               feed.key,
               published,
               {for (final m in _symbol.allMatches(text)) if (known.contains(m[0])) m[0]!},
+              imageUrl: _imageUrl(item),
             );
           }(),
       ];
