@@ -106,3 +106,19 @@ Future<Map<String, dynamic>> fetchFundamentals(String symbol) async {
   }
   return out;
 }
+
+/// Tên công ty và ngành (nhẹ hơn [fetchFundamentals]: một yêu cầu), lưu đệm trong bộ nhớ.
+final _profiles = <String, ({String name, String sector})>{};
+
+Future<({String name, String sector})?> fetchCompanyProfile(String symbol) async {
+  final hit = _profiles[symbol];
+  if (hit != null) return hit;
+  try {
+    final c = (await _get('$_iq/$symbol')) as Map<String, dynamic>? ?? {};
+    final name = (c['viOrganName'] as String?)?.trim() ?? '';
+    if (name.isEmpty) return null;
+    return _profiles[symbol] = (name: name, sector: (c['sectorVn'] as String?)?.trim() ?? '');
+  } catch (_) {
+    return null;
+  }
+}
