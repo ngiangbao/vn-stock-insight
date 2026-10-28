@@ -8,22 +8,28 @@ import 'package:http/http.dart' as http;
 
 import 'market.dart' show userAgent;
 
-const _boardUrl = 'https://trading.vietcap.com.vn/api/price/v1/w/priceboard/tickers/price/group';
-const _screeningUrl = 'https://iq.vietcap.com.vn/api/iq-insight-service/v1/screening/paging';
+const _boardUrl =
+    'https://trading.vietcap.com.vn/api/price/v1/w/priceboard/tickers/price/group';
+const _screeningUrl =
+    'https://iq.vietcap.com.vn/api/iq-insight-service/v1/screening/paging';
 
 /// Nhóm bảng giá: HOSE, HNX, UPCOM, VN30.
 const boardGroups = ['HOSE', 'HNX', 'UPCOM', 'VN30'];
 
 class BoardRow {
   final String symbol, exchange;
+  final String name;
   final double ref, ceil, floor, price, open, high, low;
+  final double avgPrice;
   final double volume, ptVolume; // KL khớp lệnh, KL thỏa thuận
   final double valueMn, ptValueMn; // triệu đồng
   final double foreignBuy, foreignSell; // KL
+  final List<PriceLevel> bids, asks;
 
   const BoardRow({
     required this.symbol,
     required this.exchange,
+    this.name = '',
     required this.ref,
     required this.ceil,
     required this.floor,
@@ -31,18 +37,26 @@ class BoardRow {
     required this.open,
     required this.high,
     required this.low,
+    this.avgPrice = 0,
     required this.volume,
     required this.ptVolume,
     required this.valueMn,
     required this.ptValueMn,
     required this.foreignBuy,
     required this.foreignSell,
+    this.bids = const [],
+    this.asks = const [],
   });
 
   double get pct => ref > 0 ? (price / ref - 1) * 100 : 0;
   bool get atCeil => ceil > 0 && price >= ceil;
   bool get atFloor => floor > 0 && price > 0 && price <= floor;
   int get dir => price > ref ? 1 : (price < ref ? -1 : 0);
+}
+
+class PriceLevel {
+  final double price, volume;
+  const PriceLevel(this.price, this.volume);
 }
 
 double _d(dynamic x) => x is num ? x.toDouble() : 0;
@@ -62,6 +76,7 @@ List<BoardRow> parseBoard(List<dynamic> json) {
           'HSX' => 'HOSE',
           final x => x as String? ?? '',
         },
+        name: e['orgn'] as String? ?? '',
         ref: ref,
         ceil: _d(e['cei']),
         floor: _d(e['flo']),
@@ -69,12 +84,21 @@ List<BoardRow> parseBoard(List<dynamic> json) {
         open: _d(e['op']),
         high: _d(e['h']),
         low: _d(e['l']),
+        avgPrice: _d(e['avgp']),
         volume: _d(e['vo']),
         ptVolume: _d(e['ptv']),
         valueMn: _d(e['va']),
         ptValueMn: _d(e['pta']) / 1e6,
         foreignBuy: _d(e['frbv']),
         foreignSell: _d(e['frsv']),
+        bids: [
+          for (var i = 1; i <= 3; i++)
+            if (_d(e['bp$i']) > 0) PriceLevel(_d(e['bp$i']), _d(e['bv$i'])),
+        ],
+        asks: [
+          for (var i = 1; i <= 3; i++)
+            if (_d(e['ap$i']) > 0) PriceLevel(_d(e['ap$i']), _d(e['av$i'])),
+        ],
       ),
     );
   }
@@ -94,7 +118,9 @@ Future<List<BoardRow>> fetchBoard(String group) async {
         body: jsonEncode({'group': group}),
       )
       .timeout(const Duration(seconds: 25));
-  if (resp.statusCode != 200) throw Exception('Bảng giá $group: HTTP ${resp.statusCode}');
+  if (resp.statusCode != 200) {
+    throw Exception('Bảng giá $group: HTTP ${resp.statusCode}');
+  }
   return parseBoard(jsonDecode(utf8.decode(resp.bodyBytes)) as List);
 }
 
@@ -147,7 +173,9 @@ Map<String, SectorInfo> parseSectors(List<dynamic> content) => {
   for (final e in content)
     if (e is Map && e['ticker'] is String)
       e['ticker'] as String: SectorInfo(
-        (e['viSector'] as String?)?.trim().isNotEmpty == true ? e['viSector'] as String : 'Khác',
+        (e['viSector'] as String?)?.trim().isNotEmpty == true
+            ? e['viSector'] as String
+            : 'Khác',
         _d(e['marketCap']),
       ),
 };
@@ -171,8 +199,12 @@ Future<Map<String, SectorInfo>> fetchSectors() async {
         }),
       )
       .timeout(const Duration(seconds: 40));
-  if (resp.statusCode != 200) throw Exception('Phân ngành: HTTP ${resp.statusCode}');
-  final data = (jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>)['data'] as Map<String, dynamic>;
+  if (resp.statusCode != 200) {
+    throw Exception('Phân ngành: HTTP ${resp.statusCode}');
+  }
+  final data =
+      (jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>)['data']
+          as Map<String, dynamic>;
   return parseSectors(data['content'] as List);
 }
 
@@ -194,14 +226,21 @@ Future<Map<String, SectorInfo>> loadSectors(
       savedAt = DateTime.parse(j['saved_at'] as String);
       cached = {
         for (final e in (j['sectors'] as Map<String, dynamic>).entries)
-          e.key: SectorInfo((e.value as List)[0] as String, ((e.value as List)[1] as num).toDouble()),
+          e.key: SectorInfo(
+            (e.value as List)[0] as String,
+            ((e.value as List)[1] as num).toDouble(),
+          ),
       };
     }
   } catch (_) {
     cached = {};
     savedAt = null;
   }
-  if (cached.isNotEmpty && savedAt != null && now.difference(savedAt) < sectorMaxAge) return cached;
+  if (cached.isNotEmpty &&
+      savedAt != null &&
+      now.difference(savedAt) < sectorMaxAge) {
+    return cached;
+  }
   try {
     final fresh = await (fetch ?? fetchSectors)();
     if (fresh.isNotEmpty) {
@@ -210,7 +249,8 @@ Future<Map<String, SectorInfo>> loadSectors(
         jsonEncode({
           'saved_at': now.toIso8601String(),
           'sectors': {
-            for (final e in fresh.entries) e.key: [e.value.name, e.value.marketCap],
+            for (final e in fresh.entries)
+              e.key: [e.value.name, e.value.marketCap],
           },
         }),
       );
@@ -230,10 +270,15 @@ class SectorGroup {
 
 /// Gom các mã vào ngành theo [sectors] (mã chưa có ngành → "Khác"), trọng số = giá trị giao dịch.
 /// Nếu cả sàn chưa có giao dịch thì dùng vốn hóa. Kết quả sắp xếp ngành lớn → bé.
-List<SectorGroup> groupBySector(List<BoardRow> rows, Map<String, SectorInfo> sectors) {
+List<SectorGroup> groupBySector(
+  List<BoardRow> rows,
+  Map<String, SectorInfo> sectors,
+) {
   double byValue(BoardRow r) => r.valueMn + r.ptValueMn;
   var weight = byValue;
-  if (rows.every((r) => byValue(r) <= 0)) weight = (r) => sectors[r.symbol]?.marketCap ?? 0;
+  if (rows.every((r) => byValue(r) <= 0)) {
+    weight = (r) => sectors[r.symbol]?.marketCap ?? 0;
+  }
   final map = <String, List<BoardRow>>{};
   for (final r in rows) {
     if (weight(r) <= 0) continue;
