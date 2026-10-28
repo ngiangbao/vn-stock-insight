@@ -15,6 +15,8 @@ import 'ai/prompts.dart';
 import 'dashboard.dart';
 import 'ai/providers.dart';
 import 'services/fundamentals.dart';
+import 'services/lan_share.dart';
+import 'services/macro.dart';
 import 'services/llama_runtime.dart';
 import 'services/market.dart';
 import 'services/news.dart';
@@ -72,6 +74,7 @@ class AppState extends ChangeNotifier {
   late final Directory dataDir;
   late final LlamaRuntime runtime;
   late final MarketDashboard dash;
+  late final LanShare lan;
   String? embeddedModel; // đường dẫn file GGUF đang dùng
   String? engineStatus;
   double? engineProgress;
@@ -159,9 +162,11 @@ class AppState extends ChangeNotifier {
     dash = MarketDashboard(File('${dataDir.path}${Platform.pathSeparator}sectors.json'));
     dash.addListener(notifyListeners);
     runtime = LlamaRuntime(dataDir, () => rootBundle.loadString('assets/runtime.json'));
+    lan = LanShare(this, _prefs, MacroRepository(cacheFile: File('${dataDir.path}${Platform.pathSeparator}macro_cache.json')));
     _autoUpdateEngine();
     if (startDashboard) dash.start();
     await _loadAnalyses();
+    if (startDashboard) lan.restore();
     notifyListeners();
   }
 

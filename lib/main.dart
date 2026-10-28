@@ -156,7 +156,9 @@ class _HomeShellState extends State<HomeShell> {
     // Tắt engine chạy model khi đóng app để không để lại tiến trình chạy ngầm
     _lifecycle = AppLifecycleListener(
       onExitRequested: () async {
-        await AppScope.of(context).runtime.stop();
+        final app = AppScope.of(context);
+        await app.lan.server.stop();
+        await app.runtime.stop();
         return AppExitResponse.exit;
       },
       onDetach: () => AppScope.of(context).runtime.killNow(),

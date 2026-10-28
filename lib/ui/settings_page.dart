@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../ai/providers.dart';
 import '../services/updater.dart';
 import '../state.dart';
+import 'lan_section.dart';
 import 'local_models_page.dart';
 import 'update_dialog.dart';
 import 'widgets.dart';
@@ -284,6 +285,8 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ]),
       ]),
+      const SizedBox(height: 14),
+      const LanSection(),
       const SizedBox(height: 14),
       section('Cập nhật', [
         Text('Phiên bản hiện tại: ${_version.isEmpty ? '…' : _version}'),
