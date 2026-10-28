@@ -109,10 +109,13 @@ class _SettingsPageState extends State<SettingsPage> {
       section('Giao diện', [
         SegmentedButton<ThemeMode>(
           segments: const [
-            ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto), label: Text('Theo hệ thống')),
+            ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto), label: Text('Hệ thống')),
             ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode), label: Text('Sáng')),
             ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode), label: Text('Tối')),
           ],
+          // Không hiện thêm dấu tick (đã có nền chọn) để vừa màn hình 375 px; chiều cao chạm tối thiểu 48
+          showSelectedIcon: false,
+          style: const ButtonStyle(minimumSize: WidgetStatePropertyAll(Size(0, 48))),
           selected: {state.themeMode},
           onSelectionChanged: (s) => state.setTheme(s.first),
         ),
@@ -158,7 +161,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: Row(children: [
                   Icon(x.local ? Icons.computer : Icons.cloud_outlined, size: 18),
                   const SizedBox(width: 8),
-                  Text(x.name),
+                  // Co lại và cắt bằng "…" khi tên dài hoặc màn hình hẹp / cỡ chữ lớn
+                  Expanded(child: Text(x.name, overflow: TextOverflow.ellipsis)),
                 ]),
               ),
           ],

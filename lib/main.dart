@@ -5,6 +5,7 @@ import 'package:flutter/services.dart' show LogicalKeyboardKey;
 
 import 'services/updater.dart';
 import 'state.dart';
+import 'ui/macro_page.dart';
 import 'ui/news_page.dart';
 import 'ui/overview_page.dart';
 import 'ui/screener_page.dart';
@@ -67,8 +68,10 @@ ThemeData _theme(Brightness brightness) {
     ),
     appBarTheme: AppBarTheme(
       backgroundColor: scheme.surface,
+      // Màu chữ phải đặt rõ ràng: titleLarge của app không có màu nên tiêu đề trắng trên nền sáng (không đọc được)
+      foregroundColor: scheme.onSurface,
       surfaceTintColor: Colors.transparent,
-      titleTextStyle: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+      titleTextStyle: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurface),
     ),
     cardTheme: CardThemeData(
       color: card,
@@ -89,6 +92,9 @@ ThemeData _theme(Brightness brightness) {
     visualDensity: VisualDensity.standard,
   );
 }
+
+/// Theme của app (công khai để kiểm thử độ tương phản màu ở cả hai chế độ sáng/tối).
+ThemeData appTheme(Brightness brightness) => _theme(brightness);
 
 class StockApp extends StatelessWidget {
   const StockApp({super.key});
@@ -138,6 +144,7 @@ class _HomeShellState extends State<HomeShell> {
     (Icons.dashboard_outlined, Icons.dashboard, 'Tổng quan'),
     (Icons.star_outline, Icons.star, 'Theo dõi'),
     (Icons.filter_list, Icons.filter_list, 'Bộ lọc'),
+    (Icons.account_balance_outlined, Icons.account_balance, 'Vĩ mô'),
     (Icons.newspaper_outlined, Icons.newspaper, 'Tin tức'),
     (Icons.settings_outlined, Icons.settings, 'Cài đặt'),
   ];
@@ -172,6 +179,7 @@ class _HomeShellState extends State<HomeShell> {
       const OverviewPage(),
       const WatchlistPage(),
       const ScreenerPage(),
+      MacroPage(active: _tab == _macroTab),
       const NewsPage(),
       const SettingsPage(),
     ];
@@ -196,34 +204,71 @@ class _HomeShellState extends State<HomeShell> {
     if (wide) {
       return Scaffold(
         body: Row(children: [
-          NavigationRail(
-            selectedIndex: _tab,
-            onDestinationSelected: (i) => setState(() => _tab = i),
-            labelType: NavigationRailLabelType.all,
-            leading: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Icon(Icons.show_chart, size: 30),
+          // Cuộn được khi cửa sổ thấp để không tràn khi có nhiều mục
+          LayoutBuilder(
+            builder: (context, c) => SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: c.maxHeight),
+                child: IntrinsicHeight(
+                  child: NavigationRail(
+                    selectedIndex: _tab,
+                    onDestinationSelected: (i) => setState(() => _tab = i),
+                    labelType: NavigationRailLabelType.all,
+                    leading: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Icon(Icons.show_chart, size: 30),
+                    ),
+                    destinations: [
+                      for (final d in _destinations)
+                        NavigationRailDestination(icon: Icon(d.$1), selectedIcon: Icon(d.$2), label: Text(d.$3)),
+                    ],
+                  ),
+                ),
+              ),
             ),
-            destinations: [
-              for (final d in _destinations)
-                NavigationRailDestination(icon: Icon(d.$1), selectedIcon: Icon(d.$2), label: Text(d.$3)),
-            ],
           ),
           const VerticalDivider(width: 1),
           Expanded(child: body),
         ]),
       );
     }
+    // Điện thoại: thanh dưới tối đa 5 mục. 4 mục chính + "Thêm" (Tin tức, Cài đặt)
     return Scaffold(
       body: body,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _tab,
-        onDestinationSelected: (i) => setState(() => _tab = i),
+        selectedIndex: _tab < _primaryCount ? _tab : _primaryCount,
+        onDestinationSelected: (i) => i < _primaryCount ? setState(() => _tab = i) : _openMore(),
         destinations: [
-          for (final d in _destinations) NavigationDestination(icon: Icon(d.$1), selectedIcon: Icon(d.$2), label: d.$3),
+          for (final d in _destinations.take(_primaryCount))
+            NavigationDestination(icon: Icon(d.$1), selectedIcon: Icon(d.$2), label: d.$3),
+          const NavigationDestination(icon: Icon(Icons.more_horiz), label: 'Thêm'),
         ],
       ),
     );
+  }
+
+  static const _macroTab = 3; // vị trí của 'Vĩ mô' trong _destinations
+
+  /// Số mục hiện thẳng trên thanh dưới của điện thoại; các mục còn lại nằm trong "Thêm".
+  static const _primaryCount = 4;
+
+  Future<void> _openMore() async {
+    final picked = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (c) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          for (var i = _primaryCount; i < _destinations.length; i++)
+            ListTile(
+              leading: Icon(_destinations[i].$1),
+              title: Text(_destinations[i].$3),
+              selected: _tab == i,
+              onTap: () => Navigator.pop(c, i),
+            ),
+        ]),
+      ),
+    );
+    if (picked != null && mounted) setState(() => _tab = picked);
   }
 }
 
