@@ -59,16 +59,16 @@ class OverviewPage extends StatelessWidget {
         builder: (context, c) {
           // Ba cột chỉ dùng khi mỗi panel còn đủ bề rộng để giữ số liệu và nhãn
           // trên cùng một dòng. Cửa sổ trung bình chuyển sang bố cục cuộn linh hoạt.
-          if (c.maxWidth < 1100) {
+          if (c.maxWidth < 1200) {
             return ListView(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(12),
               children: [
                 if (dash.error != null) _Notice(dash.error!),
-                SizedBox(height: 360, child: _ChartCard(dash)),
+                SizedBox(height: c.maxWidth < 600 ? 300 : 360, child: _ChartCard(dash)),
                 _IndexList(dash, shrink: true),
                 _selector(dash),
-                SizedBox(height: 230, child: _FlowCard(dash)),
-                SizedBox(height: 440, child: _HeatCard(dash)),
+                SizedBox(height: 250, child: _FlowCard(dash)),
+                SizedBox(height: c.maxWidth < 600 ? 360 : 440, child: _HeatCard(dash)),
                 _IndexHeader(dash),
                 SizedBox(height: 240, child: _IntradayCard(dash)),
                 _SideInfo(dash),
@@ -79,7 +79,7 @@ class OverviewPage extends StatelessWidget {
           final body = SizedBox(
             height: h,
             child: Padding(
-              padding: const EdgeInsets.all(5),
+              padding: const EdgeInsets.all(8),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -160,11 +160,11 @@ class _Panel extends StatelessWidget {
   final Widget child;
   final String? title;
   final EdgeInsets padding;
-  const _Panel({required this.child, this.title, this.padding = const EdgeInsets.all(8)});
+  const _Panel({required this.child, this.title, this.padding = const EdgeInsets.all(12)});
 
   @override
   Widget build(BuildContext context) => Card(
-    margin: const EdgeInsets.all(3),
+    margin: const EdgeInsets.all(6),
     clipBehavior: Clip.antiAlias,
     child: Padding(
       padding: padding,
@@ -173,7 +173,7 @@ class _Panel extends StatelessWidget {
         children: [
           if (title != null)
             Padding(
-              padding: const EdgeInsets.only(bottom: 4),
+              padding: const EdgeInsets.only(bottom: 8),
               child: Text(title!, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
             ),
           Expanded(child: child),
@@ -237,7 +237,7 @@ class _IndexList extends StatelessWidget {
   Widget build(BuildContext context) {
     final tiles = [for (final m in indexMetas) _IndexTile(dash, m)];
     return Card(
-      margin: const EdgeInsets.all(3),
+      margin: const EdgeInsets.all(6),
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [for (final t in tiles) shrink ? SizedBox(height: 60, child: t) : Expanded(child: t)],
@@ -543,15 +543,15 @@ class _SideInfo extends StatelessWidget {
     );
     if (!fit) {
       return Card(
-        margin: const EdgeInsets.all(3),
+        margin: const EdgeInsets.all(6),
         child: Padding(padding: const EdgeInsets.all(8), child: content),
       );
     }
     return Card(
-      margin: const EdgeInsets.all(3),
+      margin: const EdgeInsets.all(6),
       clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(12),
         child: LayoutBuilder(
           builder: (context, c) => FittedBox(
             fit: BoxFit.scaleDown,
