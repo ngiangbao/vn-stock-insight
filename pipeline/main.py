@@ -28,7 +28,8 @@ def main() -> None:
     ai_cfg = config["ai"]
 
     # 1. Giá và chỉ báo kỹ thuật
-    symbols = sorted(set(config["universe"]) | set(config["watchlist"]))
+    members = storage.member_symbols()
+    symbols = sorted(set(config["universe"]) | set(config["watchlist"]) | members)
     stocks: dict[str, dict] = {}
     for symbol in symbols:
         try:
@@ -86,6 +87,7 @@ def main() -> None:
         "ai_enabled": use_ai,
         "models": ai_cfg if use_ai else None,
         "watchlist": config["watchlist"],
+        "universe": config["universe"],
         "index": index,
         "brief": brief,
         "stocks": stocks,

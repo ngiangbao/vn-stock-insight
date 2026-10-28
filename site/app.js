@@ -11,6 +11,10 @@ const timeVN = (ts) => new Date(ts * 1000).toLocaleString("vi-VN", { timeZone: "
 
 let DATA = null;
 
+// Bộ lọc và tổng quan chỉ dùng rổ cố định (VN30); dữ liệu còn có thêm các mã thành viên theo dõi
+const universeStocks = () =>
+  (DATA.universe || Object.keys(DATA.stocks)).map((s) => DATA.stocks[s]).filter(Boolean);
+
 function spark(values, w = 140, h = 40) {
   if (!values || values.length < 2) return "";
   const min = Math.min(...values), max = Math.max(...values), span = max - min || 1;
@@ -22,8 +26,8 @@ function spark(values, w = 140, h = 40) {
 const list = (items) => (items?.length ? `<ul class="tight">${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>` : `<p class="muted small">–</p>`);
 
 function renderOverview() {
-  const { index: ix, brief, stocks } = DATA;
-  const all = Object.values(stocks);
+  const { index: ix, brief } = DATA;
+  const all = universeStocks();
   const up = all.filter((s) => s.change_1d > 0).length;
   const down = all.filter((s) => s.change_1d < 0).length;
   const byChange = [...all].filter((s) => s.change_1d != null).sort((a, b) => b.change_1d - a.change_1d);
@@ -65,17 +69,106 @@ function renderOverview() {
   $("#overview").innerHTML = html;
 }
 
+// ---------- Danh sách theo dõi ----------
+// Có Supabase: lưu riêng cho từng thành viên trong bảng watchlist.
+// Chạy trên máy: lưu trong trình duyệt, mặc định lấy danh sách trong config.yml.
+let WATCH = [];
+let WATCH_LOADED = false;
+let LATEST_DEEP = {}; // mã → thời điểm có phân tích chuyên sâu gần nhất
+
+const LOCAL_KEY = "vn-stock-insight.watchlist";
+const SYMBOL_RE = /^[A-Z0-9]{3,10}$/;
+
+async function loadWatchlist() {
+  if (sb) {
+    const { data, error } = await sb.from("watchlist").select("symbol").order("created_at");
+    WATCH = error ? [] : data.map((r) => r.symbol);
+    if (WATCH.length) {
+      const { data: rows } = await sb.from("stock_analyses").select("symbol, created_at")
+        .in("symbol", WATCH).order("created_at", { ascending: false }).limit(200);
+      LATEST_DEEP = {};
+      (rows || []).forEach((r) => { LATEST_DEEP[r.symbol] ??= r.created_at; });
+    }
+  } else {
+    try {
+      WATCH = JSON.parse(localStorage.getItem(LOCAL_KEY)) ?? [...DATA.watchlist];
+    } catch {
+      WATCH = [...DATA.watchlist];
+    }
+  }
+}
+
+function saveLocal() {
+  try { localStorage.setItem(LOCAL_KEY, JSON.stringify(WATCH)); } catch {}
+}
+
+async function addToWatch(symbol) {
+  if (WATCH.includes(symbol)) return;
+  if (sb) {
+    const { error } = await sb.from("watchlist").insert({ symbol });
+    if (error) return alert(`Không thêm được ${symbol}: ${error.message}`);
+  }
+  WATCH.push(symbol);
+  saveLocal();
+  renderWatch();
+}
+
+async function removeFromWatch(symbol) {
+  if (!confirm(`Gỡ ${symbol} khỏi danh sách theo dõi?`)) return;
+  if (sb) {
+    const { error } = await sb.from("watchlist").delete().eq("symbol", symbol);
+    if (error) return alert(`Không gỡ được ${symbol}: ${error.message}`);
+  }
+  WATCH = WATCH.filter((s) => s !== symbol);
+  saveLocal();
+  renderWatch();
+}
+
+function readSymbol() {
+  const symbol = $("#lookup-input").value.trim().toUpperCase();
+  if (!SYMBOL_RE.test(symbol)) {
+    $("#lookup-msg").textContent = "Nhập mã cổ phiếu gồm 3 chữ cái, ví dụ FPT, HPG, VNM.";
+    return null;
+  }
+  $("#lookup-msg").textContent = "";
+  return symbol;
+}
+
 function renderWatch() {
-  const cards = DATA.watchlist.map((sym) => {
+  const lookup = `<div class="card lookup">
+    <h2>Tra cứu cổ phiếu</h2>
+    <p class="muted small">Nhập mã bất kỳ trên HOSE, HNX, UPCoM để AI phân tích chuyên sâu: luận điểm đầu tư, kết quả kinh doanh, định giá, kỹ thuật, lịch sự kiện và bảng chấm điểm 8 tiêu chí.</p>
+    <form id="lookup-form" class="lookup-row">
+      <input id="lookup-input" placeholder="Mã cổ phiếu, ví dụ FPT" maxlength="10" autocomplete="off" autocapitalize="characters">
+      <button type="submit" class="btn">Phân tích AI</button>
+      <button type="button" id="lookup-add" class="btn-ghost">+ Theo dõi</button>
+    </form>
+    <p id="lookup-msg" class="small err-text"></p>
+  </div>`;
+
+  const cards = WATCH.map((sym) => {
     const s = DATA.stocks[sym];
-    if (!s) return "";
     const a = DATA.analyses?.[sym];
+    const deep = LATEST_DEEP[sym];
+    const actions = `<div class="card-actions">
+        <button class="btn-ghost small-btn" data-deep="${esc(sym)}">${deep ? "Xem phân tích chuyên sâu" : "Phân tích chuyên sâu"}</button>
+        <button class="icon-btn" data-remove="${esc(sym)}" title="Gỡ khỏi danh sách" aria-label="Gỡ ${esc(sym)}">✕</button>
+      </div>`;
+    if (!s) {
+      return `<article class="card">
+        <div class="stock-head"><h2>${esc(sym)}</h2>${actions}</div>
+        <p class="muted small">Giá và chỉ báo của mã này sẽ có sau lần cập nhật dữ liệu tới. Bạn vẫn có thể chạy phân tích chuyên sâu ngay.</p>
+        ${deep ? `<p class="muted small">Phân tích gần nhất: ${timeVN(Date.parse(deep) / 1000)}</p>` : ""}
+      </article>`;
+    }
     const related = DATA.news.filter((n) => n.tickers?.includes(sym)).slice(0, 5);
     return `<article class="card">
       <div class="stock-head">
         <div><h2>${esc(sym)}</h2>${a ? `<span class="badge ${stanceClass(a.stance)}">${esc(a.stance)}</span> <span class="muted small">độ tin cậy: ${esc(a.confidence)}</span>` : ""}</div>
         <div class="price"><div class="big">${fmt(s.close)}</div>${pct(s.change_1d)}</div>
       </div>
+      ${actions}
+      ${deep ? `<p class="muted small">Phân tích chuyên sâu gần nhất: ${timeVN(Date.parse(deep) / 1000)}</p>` : ""}
       ${spark(s.spark, 300, 48)}
       <div class="kv">
         <div>1 tháng<b>${pct(s.change_1m)}</b></div><div>RSI<b>${fmt(s.rsi14, 1)}</b></div>
@@ -91,11 +184,143 @@ function renderWatch() {
           <div class="section-label">Động lực</div>${list(a.catalysts)}
           <div class="section-label">Rủi ro</div>${list(a.risks)}
           <div class="section-label">Cần theo dõi</div>${list(a.watch_points)}
-        </details>` : `<p class="muted small">Chưa có phân tích AI.</p>`}
+        </details>` : ""}
       ${related.length ? `<div class="section-label">Tin liên quan</div>${related.map((n) => `<div class="small"><a href="${esc(n.link)}" target="_blank" rel="noopener">${esc(n.title)}</a></div>`).join("")}` : ""}
     </article>`;
   });
-  $("#watch").innerHTML = `<div class="grid grid-2">${cards.join("")}</div>`;
+
+  const empty = `<div class="card"><p class="muted">Danh sách theo dõi đang trống. Nhập mã ở ô tra cứu phía trên rồi bấm "+ Theo dõi".</p></div>`;
+  $("#watch").innerHTML = `<div class="stack">${lookup}${WATCH.length ? `<div class="grid grid-2">${cards.join("")}</div>` : empty}</div>`;
+
+  $("#lookup-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const symbol = readSymbol();
+    if (symbol) openDeep(symbol);
+  });
+  $("#lookup-add").addEventListener("click", () => {
+    const symbol = readSymbol();
+    if (symbol) addToWatch(symbol);
+  });
+  document.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", () => removeFromWatch(b.dataset.remove)));
+  document.querySelectorAll("[data-deep]").forEach((b) => b.addEventListener("click", () => openDeep(b.dataset.deep)));
+}
+
+// ---------- Phân tích chuyên sâu (Edge Function "analyze") ----------
+async function openDeep(symbol, refresh = false) {
+  const dlg = $("#deep");
+  const body = $("#deep-body");
+  $("#deep-title").textContent = `Phân tích chuyên sâu · ${symbol}`;
+  if (!dlg.open) dlg.showModal();
+
+  if (!sb) {
+    body.innerHTML = `<p class="notice">Phân tích chuyên sâu cần đăng nhập và Supabase. Chức năng này chạy trên trang web đã triển khai, không chạy ở chế độ thử trên máy.</p>`;
+    return;
+  }
+  body.innerHTML = `<div class="loading"><div class="spinner"></div><p>AI đang thu thập dữ liệu và phân tích ${esc(symbol)}…<br><span class="muted small">Thường mất 30–90 giây.</span></p></div>`;
+
+  const { data, error } = await sb.functions.invoke("analyze", { body: { symbol, refresh } });
+  if (error) {
+    let msg = error.message;
+    try { msg = (await error.context.json()).error || msg; } catch {}
+    body.innerHTML = `<p class="notice">${esc(msg)}</p>`;
+    return;
+  }
+  LATEST_DEEP[symbol] = data.created_at;
+  body.innerHTML = renderDeep(symbol, data);
+  $("#deep-add")?.addEventListener("click", async () => {
+    await addToWatch(symbol);
+    $("#deep-add").replaceWith(Object.assign(document.createElement("span"), { className: "muted small", textContent: "Đã có trong danh sách theo dõi" }));
+  });
+  $("#deep-refresh")?.addEventListener("click", () => openDeep(symbol, true));
+}
+
+const scoreBar = (score) =>
+  `<span class="score">${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= score ? (score >= 4 ? "on-up" : score <= 2 ? "on-down" : "on-flat") : ""}"></i>`).join("")}</span>`;
+
+const IMPACT_CLASS = { Cao: "b-down", "Trung bình": "b-flat", Thấp: "b-up" };
+
+function renderDeep(symbol, data) {
+  const r = data.result || {};
+  const t = data.inputs?.technicals || {};
+  const c = data.inputs?.fundamentals?.company || {};
+  const ratios = data.inputs?.fundamentals?.chi_so_ttm_theo_quy || [];
+  const lastRatio = ratios.at(-1) || {};
+  const pctv = (x) => (x == null ? "–" : fmt(x * 100, 1) + "%");
+  const avgScore = r.scorecard?.length ? r.scorecard.reduce((s, x) => s + x.score, 0) / r.scorecard.length : null;
+
+  return `
+    <div class="deep-head">
+      <div>
+        <div class="muted small">${esc(c.ten || "")}${c.nganh ? " · " + esc(c.nganh) : ""}</div>
+        <div class="big">${fmt(t.close)} <span class="small">${pct(t.change_1d)}</span></div>
+        <div class="kv">
+          <div>P/E<b>${fmt(lastRatio.pe, 1)}</b></div><div>P/B<b>${fmt(lastRatio.pb, 2)}</b></div>
+          <div>ROE<b>${pctv(lastRatio.roe)}</b></div><div>Vốn hóa<b>${c.von_hoa_ty_dong ? fmt(c.von_hoa_ty_dong, 0) + " tỷ" : "–"}</b></div>
+          <div>1 năm<b>${pct(t.change_1y)}</b></div>
+        </div>
+      </div>
+      <div class="deep-verdict">
+        <span class="badge ${stanceClass(r.stance)}">${esc(r.stance)}</span>
+        <span class="muted small">độ tin cậy ${esc(r.confidence)}</span>
+        ${avgScore != null ? `<div class="big">${fmt(avgScore, 1)}<span class="muted small">/5</span></div>` : ""}
+      </div>
+    </div>
+    <p class="headline">${esc(r.headline)}</p>
+    <p>${esc(r.summary)}</p>
+
+    <div class="section-label">Bảng chấm điểm</div>
+    <table class="scorecard">${(r.scorecard || []).map((x) => `<tr><td class="l">${esc(x.dimension)}</td><td>${scoreBar(x.score)}</td><td class="l sig">${esc(x.reason)}</td></tr>`).join("")}</table>
+
+    <div class="grid grid-2">
+      <div>
+        <div class="section-label">Luận điểm đầu tư</div>
+        <p><b>${esc(r.thesis?.statement)}</b></p>
+        ${list(r.thesis?.pillars)}
+        <div class="section-label">Luận điểm sai nếu…</div>
+        ${list(r.thesis?.invalidation)}
+      </div>
+      <div>
+        <div class="section-label">Kết quả kinh doanh</div>
+        <p>${esc(r.earnings?.summary)}</p>
+        ${list(r.earnings?.highlights)}
+      </div>
+    </div>
+
+    <div class="grid grid-2">
+      <div><div class="section-label">Định giá</div><p>${esc(r.valuation)}</p></div>
+      <div><div class="section-label">Vị thế cạnh tranh</div><p>${esc(r.competition)}</p></div>
+    </div>
+
+    <div class="section-label">Kỹ thuật</div>
+    <p>${esc(r.technical?.summary)}</p>
+    <p class="small"><b>Vùng giá:</b> ${esc(r.technical?.key_levels)}</p>
+
+    <div class="section-label">Lịch sự kiện</div>
+    <div class="table-wrap"><table>
+      ${(r.catalysts || []).map((x) => `<tr><td class="l">${esc(x.timing)}</td><td class="l sig"><b>${esc(x.event)}</b><br><span class="muted">${esc(x.why)}</span></td><td><span class="badge ${IMPACT_CLASS[x.impact] || "b-flat"}">${esc(x.impact)}</span></td></tr>`).join("")}
+    </table></div>
+
+    <div class="section-label">Kịch bản</div>
+    <div class="grid grid-3">
+      <div class="scenario up-border"><b>Tích cực</b><p class="small">${esc(r.scenarios?.bull)}</p></div>
+      <div class="scenario flat-border"><b>Cơ sở</b><p class="small">${esc(r.scenarios?.base)}</p></div>
+      <div class="scenario down-border"><b>Tiêu cực</b><p class="small">${esc(r.scenarios?.bear)}</p></div>
+    </div>
+
+    <div class="grid grid-2">
+      <div><div class="section-label">Rủi ro</div>${list(r.risks)}</div>
+      <div><div class="section-label">Cần theo dõi</div>${list(r.watch_points)}</div>
+    </div>
+    ${r.data_gaps?.length ? `<div class="section-label">Hạn chế dữ liệu</div>${list(r.data_gaps)}` : ""}
+
+    <div class="deep-foot">
+      <span class="muted small">${data.cached ? "Kết quả đã lưu" : "Vừa phân tích"} lúc ${timeVN(Date.parse(data.created_at) / 1000)}${data.model ? " · " + esc(data.model) : ""}.
+      Số liệu: DNSE, Vietcap IQ. AI có thể sai, đây không phải khuyến nghị đầu tư.</span>
+      <span class="deep-buttons">
+        ${data.cached ? `<button id="deep-refresh" class="btn-ghost small-btn">Phân tích lại</button>` : ""}
+        ${WATCH.includes(symbol) ? "" : `<button id="deep-add" class="btn small-btn">+ Theo dõi</button>`}
+      </span>
+    </div>`;
 }
 
 const COLS = [
@@ -105,7 +330,7 @@ const COLS = [
 let sortKey = "tech_score", sortDir = -1;
 
 function renderScreen() {
-  const rows = Object.values(DATA.stocks).sort((a, b) => {
+  const rows = universeStocks().sort((a, b) => {
     const x = a[sortKey], y = b[sortKey];
     if (typeof x === "string") return x.localeCompare(y) * sortDir;
     return ((x ?? -Infinity) - (y ?? -Infinity)) * sortDir;
@@ -172,6 +397,10 @@ async function getJSON(path) {
 
 async function load(day) {
   DATA = await getJSON(day ? `history/${day}.json` : "latest.json");
+  if (!WATCH_LOADED) {
+    await loadWatchlist();
+    WATCH_LOADED = true;
+  }
   $("#updated").textContent = `Cập nhật: ${timeVN(DATA.generated_at)}${DATA.ai_enabled ? "" : " · chưa bật AI"}`;
   renderOverview();
   renderWatch();
@@ -205,6 +434,7 @@ async function showApp() {
 
 function showLogin() {
   setLocked(true);
+  WATCH_LOADED = false;
   $("#updated").textContent = "Dành cho thành viên được mời";
 }
 

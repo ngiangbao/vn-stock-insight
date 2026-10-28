@@ -22,6 +22,22 @@ GitHub Actions (8:30, 12:00, 15:15 các ngày giao dịch)
 
 Mã nguồn công khai, nhưng **dữ liệu phân tích chỉ nằm trong Supabase** và chỉ thành viên được mời mới đọc được.
 
+### Tra cứu và phân tích chuyên sâu theo yêu cầu
+
+Trong tab **Theo dõi**, thành viên nhập mã bất kỳ (HOSE, HNX, UPCoM) để chạy phân tích chuyên sâu, thêm mã vào danh sách theo dõi riêng, hoặc gỡ mã khỏi danh sách.
+
+```
+Trình duyệt ──(đăng nhập)──▶ Supabase Edge Function "analyze"
+                               ├─ Giá + 10 chỉ báo kỹ thuật (DNSE): MA20/50/200, RSI, MACD, Bollinger, Stochastic, ATR, khối lượng
+                               ├─ Số liệu cơ bản (Vietcap IQ): P/E, P/B, ROE, biên lợi nhuận, nợ, 8 quý KQKD; NIM/NPL/CASA cho ngân hàng
+                               ├─ Tin liên quan 48 giờ (từ dữ liệu pipeline)
+                               └─ Claude Opus 5.5 → báo cáo có cấu trúc, lưu vào bảng stock_analyses
+```
+
+Báo cáo áp dụng các khung phân tích chuyển thể từ plugin **equity-research** và **financial-analysis** của Anthropic ([anthropics/financial-services](https://github.com/anthropics/financial-services), Apache-2.0): luận điểm đầu tư (thesis tracker), phân tích kết quả kinh doanh, định giá tương đối, vị thế cạnh tranh, lịch sự kiện. Thêm vào đó là bảng chấm điểm 8 tiêu chí và 3 kịch bản. Xem [`supabase/functions/analyze/prompt.ts`](supabase/functions/analyze/prompt.ts).
+
+Kiểm soát chi phí: kết quả được dùng lại cho mọi thành viên trong 6 giờ (`CACHE_HOURS`), và mỗi thành viên chạy mới tối đa 10 lần mỗi 24 giờ (`DAILY_LIMIT`). Mỗi lần chạy mới tốn khoảng vài cent tiền API.
+
 ## Cài đặt lần đầu
 
 ### 1. Supabase (đăng nhập và lưu dữ liệu, gói miễn phí là đủ)
@@ -40,6 +56,11 @@ Mã nguồn công khai, nhưng **dữ liệu phân tích chỉ nằm trong Supab
 | Variable | `SUPABASE_ANON_KEY` | Khóa anon / publishable (khóa này công khai được) |
 | Secret | `SUPABASE_SERVICE_KEY` | Khóa service_role / secret (**tuyệt đối không công khai**) |
 | Secret | `ANTHROPIC_API_KEY` | API key lấy tại [platform.claude.com](https://platform.claude.com) |
+| Secret | `SUPABASE_ACCESS_TOKEN` | Access token tạo tại supabase.com → Account → Access Tokens (để GitHub tự triển khai Edge Function) |
+
+Sau khi thêm đủ, vào tab Actions → "Triển khai Edge Function" → Run workflow (về sau, mỗi lần sửa thư mục `supabase/functions` hàm sẽ tự được triển khai lại).
+
+Nếu đã chạy `setup.sql` từ phiên bản trước, hãy chạy lại file này: nó tạo thêm bảng `watchlist` và `stock_analyses`.
 
 ### 3. Chạy lần đầu
 

@@ -18,6 +18,25 @@ def _supabase() -> tuple[str, str] | None:
     return (url, key) if url and key else None
 
 
+def member_symbols(limit: int = 150) -> set[str]:
+    """Các mã mà thành viên đang theo dõi (bảng watchlist), để pipeline lấy giá cho cả những mã này."""
+    remote = _supabase()
+    if not remote:
+        return set()
+    url, key = remote
+    try:
+        resp = requests.get(
+            f"{url}/rest/v1/watchlist?select=symbol",
+            headers={"Authorization": f"Bearer {key}", "apikey": key},
+            timeout=30,
+        )
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        print(f"[storage] Không đọc được danh sách theo dõi của thành viên: {exc}")
+        return set()
+    return set(sorted({row["symbol"] for row in resp.json()})[:limit])
+
+
 def _upload(url: str, key: str, path: str, body: bytes) -> None:
     resp = requests.post(
         f"{url}/storage/v1/object/{BUCKET}/{path}",
