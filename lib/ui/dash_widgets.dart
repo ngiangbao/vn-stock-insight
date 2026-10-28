@@ -88,7 +88,9 @@ class _HeatMapState extends State<HeatMap> {
     for (final g in _placed) {
       if (!g.rect.contains(p)) continue;
       for (final it in g.items) {
-        if (it.rect.contains(p)) return it.id;
+        if (it.rect.contains(p)) {
+          return it.id;
+        }
       }
     }
     return null;
@@ -96,7 +98,9 @@ class _HeatMapState extends State<HeatMap> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.rows.isEmpty) return const Center(child: Text('Chưa có dữ liệu bảng giá'));
+    if (widget.rows.isEmpty) {
+      return const Center(child: Text('Chưa có dữ liệu bảng giá'));
+    }
     return LayoutBuilder(
       builder: (context, c) {
         final size = Size(c.maxWidth, c.maxHeight);
@@ -311,6 +315,69 @@ class _PiePainter extends CustomPainter {
   bool shouldRepaint(_PiePainter old) => old.up != up || old.down != down || old.flat != flat || old.text != text;
 }
 
+/// Tỷ trọng giá trị giao dịch của nhóm tăng, giảm và đứng giá (tỷ đồng).
+class FlowPie extends StatelessWidget {
+  final double up, down, flat;
+  const FlowPie({super.key, required this.up, required this.down, required this.flat});
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: 'Tỷ trọng dòng tiền: tăng ${fmt(up, 1)} tỷ, giảm ${fmt(down, 1)} tỷ, đứng giá ${fmt(flat, 1)} tỷ',
+    child: CustomPaint(
+      size: Size.infinite,
+      painter: _FlowPiePainter(up, down, flat, Theme.of(context).colorScheme.onSurface),
+    ),
+  );
+}
+
+class _FlowPiePainter extends CustomPainter {
+  final double up, down, flat;
+  final Color text;
+  _FlowPiePainter(this.up, this.down, this.flat, this.text);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final values = [up, down, flat];
+    final total = values.fold<double>(0, (sum, value) => sum + value);
+    if (total <= 0 || size.shortestSide <= 8) return;
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = math.max(8.0, math.min(size.width, size.height) / 2 - 18);
+    final stroke = math.min(22.0, radius * 0.38);
+    final rect = Rect.fromCircle(center: center, radius: radius - stroke / 2);
+    final colors = [heatUp, heatDown, heatFlat];
+    var start = -math.pi / 2;
+    for (final (i, value) in values.indexed) {
+      if (value <= 0) continue;
+      final sweep = value / total * math.pi * 2;
+      canvas.drawArc(
+        rect,
+        start,
+        sweep,
+        false,
+        Paint()
+          ..color = colors[i]
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = stroke,
+      );
+      start += sweep;
+    }
+    final totalText = TextPainter(
+      text: TextSpan(
+        text: '${fmt(total, 1)} tỷ',
+        style: TextStyle(color: text, fontSize: 12, fontWeight: FontWeight.w700),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      ellipsis: '…',
+    )..layout(maxWidth: math.max(24, radius * 1.5));
+    totalText.paint(canvas, center - Offset(totalText.width / 2, totalText.height / 2));
+  }
+
+  @override
+  bool shouldRepaint(_FlowPiePainter old) =>
+      old.up != up || old.down != down || old.flat != flat || old.text != text;
+}
+
 /// Cột "Phân bổ dòng tiền": tổng giá trị giao dịch (tỷ đồng) của nhóm Tăng / Giảm / Không đổi.
 class FlowBars extends StatelessWidget {
   final double up, down, flat; // tỷ đồng
@@ -377,7 +444,9 @@ class IntradayChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (bars.length < 2) return const Center(child: Text('Chưa có dữ liệu trong phiên'));
+    if (bars.length < 2) {
+      return const Center(child: Text('Chưa có dữ liệu trong phiên'));
+    }
     final last = bars.last.c;
     final color = ref == null || last >= ref! ? Tone.up(context) : Tone.down(context);
     return CustomPaint(

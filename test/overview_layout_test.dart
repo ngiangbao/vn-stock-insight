@@ -81,6 +81,9 @@ void main() {
       if (w < 760) {
         // Điện thoại: danh sách 8 chỉ số dài hơn, cuộn tới các nút chọn của bản đồ nhiệt
         await tester.scrollUntilVisible(find.text('Biến động'), 240, scrollable: find.byType(Scrollable).first);
+      } else if (w < 1100) {
+        // Cửa sổ trung bình xếp thẻ theo chiều dọc, cuộn tiếp tới bộ lọc bản đồ nhiệt.
+        await tester.scrollUntilVisible(find.text('Biến động'), 240, scrollable: find.byType(Scrollable).first);
       }
       expect(find.text('Biến động'), findsOneWidget);
       // Màn hình rộng: không có cuộn dọc cho cả trang
