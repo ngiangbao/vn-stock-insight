@@ -914,7 +914,8 @@ class _HeatFilter<T> extends StatelessWidget {
         6 +
         options.map((o) => measure(o.$2, valueStyle)).reduce(math.max) +
         17 +
-        16;
+        16 +
+        44; // chừa thêm chỗ để chữ không bao giờ bị cắt
     return Container(
       width: math.max(width, needed),
       height: 48,
