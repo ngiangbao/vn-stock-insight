@@ -3,15 +3,21 @@
 
 import 'dart:convert';
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ai/prompts.dart';
 import 'ai/providers.dart';
 import 'services/fundamentals.dart';
+import 'services/llama_runtime.dart';
 import 'services/market.dart';
 import 'services/news.dart';
+import 'ui/chart.dart' show ChartType, Indicator;
 
 const defaultWatchlist = ['FPT', 'VCB', 'HPG', 'MWG', 'TCB', 'SSI'];
 
@@ -25,6 +31,7 @@ class AppState extends ChangeNotifier {
   String providerId = 'anthropic';
   String effort = 'medium';
   bool autoCheckUpdates = true;
+  bool autoScale = true;
   final Map<String, String> _baseUrls = {}, _models = {}, _keys = {};
 
   ProviderPreset get provider => presetById(providerId);
@@ -33,7 +40,74 @@ class AppState extends ChangeNotifier {
   String keyOf(String id) => _keys[id] ?? '';
 
   AiConfig get aiConfig => AiConfig(provider, baseUrlOf(providerId), modelOf(providerId), keyOf(providerId), effort: effort);
-  String get aiLabel => '${provider.name} · ${modelOf(providerId).isEmpty ? 'chưa chọn model' : modelOf(providerId)}';
+  String get aiLabel => providerId == 'embedded'
+      ? '${provider.name} · ${embeddedModel == null ? 'chưa chọn model' : embeddedModel!.split(Platform.pathSeparator).last}'
+      : '${provider.name} · ${modelOf(providerId).isEmpty ? 'chưa chọn model' : modelOf(providerId)}';
+
+  // ---------- Biểu đồ ----------
+  ChartType chartType = ChartType.candle;
+  Set<Indicator> chartIndicators = {Indicator.ma20, Indicator.ma50, Indicator.volume};
+
+  void setChartType(ChartType t) {
+    chartType = t;
+    _prefs.setString('chartType', t.name);
+    notifyListeners();
+  }
+
+  void toggleIndicator(Indicator i) {
+    chartIndicators = chartIndicators.contains(i) ? ({...chartIndicators}..remove(i)) : {...chartIndicators, i};
+    _prefs.setStringList('chartIndicators', [for (final x in chartIndicators) x.name]);
+    notifyListeners();
+  }
+
+  // ---------- Model chạy trong app ----------
+  late final Directory dataDir;
+  late final LlamaRuntime runtime;
+  String? embeddedModel; // đường dẫn file GGUF đang dùng
+  String? engineStatus;
+  double? engineProgress;
+
+  Directory get modelsDir => Directory('${dataDir.path}${Platform.pathSeparator}models');
+
+  void setEmbeddedModel(String? path) {
+    embeddedModel = path;
+    path == null ? _prefs.remove('embeddedModel') : _prefs.setString('embeddedModel', path);
+    notifyListeners();
+  }
+
+  void _engine(String? status, double? progress) {
+    engineStatus = status;
+    engineProgress = progress;
+    notifyListeners();
+  }
+
+  /// Cấu hình AI để gọi. Với model chạy trong app: tự cài/cập nhật engine và nạp model nếu cần.
+  Future<AiConfig> resolveAiConfig() async {
+    if (providerId != 'embedded') return aiConfig;
+    final model = embeddedModel;
+    if (model == null || !File(model).existsSync()) {
+      throw AiException('Chưa chọn model chạy trong app. Vào Cài đặt → Model trên máy để tải và chọn model.');
+    }
+    try {
+      final url = await runtime.start(model, onStatus: _engine);
+      return AiConfig(provider, url, 'local', '');
+    } finally {
+      _engine(null, null);
+    }
+  }
+
+  /// Kiểm tra và cập nhật engine ở chế độ nền (khi đã từng cài).
+  Future<void> _autoUpdateEngine() async {
+    try {
+      if (!embeddedSupported || await runtime.installed() == null) return;
+      if (await runtime.needsUpdate()) {
+        await runtime.ensureInstalled(onStatus: _engine);
+        _engine(null, null);
+      }
+    } catch (_) {
+      _engine(null, null);
+    }
+  }
 
   // ---------- Dữ liệu ----------
   List<String> watchlist = [...defaultWatchlist];
@@ -57,6 +131,7 @@ class AppState extends ChangeNotifier {
     providerId = _prefs.getString('provider') ?? 'anthropic';
     effort = _prefs.getString('effort') ?? 'medium';
     autoCheckUpdates = _prefs.getBool('autoUpdate') ?? true;
+    autoScale = _prefs.getBool('autoScale') ?? true;
     for (final p in providers) {
       final url = _prefs.getString('url_${p.id}');
       final model = _prefs.getString('model_${p.id}');
@@ -66,6 +141,13 @@ class AppState extends ChangeNotifier {
       if (key != null) _keys[p.id] = key;
     }
     watchlist = _prefs.getStringList('watchlist') ?? [...defaultWatchlist];
+    chartType = ChartType.values.asNameMap()[_prefs.getString('chartType')] ?? ChartType.candle;
+    final inds = _prefs.getStringList('chartIndicators');
+    if (inds != null) chartIndicators = {for (final n in inds) ?Indicator.values.asNameMap()[n]};
+    embeddedModel = _prefs.getString('embeddedModel');
+    dataDir = await getApplicationSupportDirectory();
+    runtime = LlamaRuntime(dataDir, () => rootBundle.loadString('assets/runtime.json'));
+    _autoUpdateEngine();
     final saved = _prefs.getString('analyses');
     if (saved != null) {
       analyses = (jsonDecode(saved) as Map<String, dynamic>).map((k, v) => MapEntry(k, v as Map<String, dynamic>));
@@ -107,6 +189,12 @@ class AppState extends ChangeNotifier {
   void setEffort(String value) {
     effort = value;
     _prefs.setString('effort', value);
+    notifyListeners();
+  }
+
+  void setAutoScale(bool value) {
+    autoScale = value;
+    _prefs.setBool('autoScale', value);
     notifyListeners();
   }
 
@@ -196,7 +284,7 @@ class AppState extends ChangeNotifier {
               '${s.signals.isEmpty ? '' : ', tín hiệu: ${s.signals.join(', ')}'}')
           .join('\n');
       marketBrief = await generateJson(
-        aiConfig,
+        await resolveAiConfig(),
         system: marketSystem,
         prompt: marketPrompt(index!.toPromptJson(), movers, news.take(30).map((n) => n.toPromptJson()).toList()),
         schema: marketSchema,
@@ -222,7 +310,7 @@ class AppState extends ChangeNotifier {
       'news': newsFor(news, symbol).map((n) => n.toPromptJson()).toList(),
     };
     final result = await generateJson(
-      aiConfig,
+      await resolveAiConfig(),
       system: stockSystem,
       prompt: stockPrompt(symbol, inputs),
       schema: stockSchema,

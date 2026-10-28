@@ -116,6 +116,13 @@ class _SettingsPageState extends State<SettingsPage> {
           selected: {state.themeMode},
           onSelectionChanged: (s) => state.setTheme(s.first),
         ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Tự co giãn theo chiều rộng cửa sổ'),
+          subtitle: const Text('Phóng to/thu nhỏ toàn bộ giao diện khi đổi kích thước cửa sổ'),
+          value: state.autoScale,
+          onChanged: state.setAutoScale,
+        ),
       ]),
       const SizedBox(height: 14),
       section('AI', [
@@ -141,6 +148,19 @@ class _SettingsPageState extends State<SettingsPage> {
           },
         ),
         if (p.note.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(p.note, style: text.bodySmall)),
+        if (p.id == 'embedded') ...[
+          const SizedBox(height: 12),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.memory),
+            title: Text(state.embeddedModel?.split(RegExp(r'[/\\]')).last ?? 'Chưa chọn model'),
+            subtitle: const Text('Model GGUF chạy ngay trong app'),
+            trailing: FilledButton.tonal(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LocalModelsPage())),
+              child: Text(state.embeddedModel == null ? 'Tải & chọn model' : 'Đổi model'),
+            ),
+          ),
+        ] else ...[
         const SizedBox(height: 12),
         TextField(
           controller: _url,
@@ -207,6 +227,7 @@ class _SettingsPageState extends State<SettingsPage> {
             padding: const EdgeInsets.only(top: 8),
             child: Text(_status!, style: TextStyle(color: _statusOk ? Tone.up(context) : Tone.down(context))),
           ),
+        ],
         if (p.style == ApiStyle.anthropic) ...[
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(

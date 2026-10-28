@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../state.dart';
+import 'chart.dart';
 import 'widgets.dart';
 
 void openAnalysis(BuildContext context, String symbol) =>
@@ -73,7 +74,21 @@ class _AnalysisPageState extends State<AnalysisPage> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 920),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                if (_running) _Loading(widget.symbol, state.aiLabel, state.provider.local),
+                if (state.stocks[widget.symbol] != null) ...[
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: StockChart(
+                        widget.symbol,
+                        state.stocks[widget.symbol]!.bars,
+                        height: 380,
+                        onFullscreen: () => openChart(context, widget.symbol),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                if (_running) _Loading(widget.symbol, state.aiLabel, state.provider.local, state.engineStatus, state.engineProgress),
                 if (_error != null)
                   Card(
                     color: Theme.of(context).colorScheme.errorContainer,
@@ -102,7 +117,9 @@ class _AnalysisPageState extends State<AnalysisPage> {
 class _Loading extends StatelessWidget {
   final String symbol, ai;
   final bool local;
-  const _Loading(this.symbol, this.ai, this.local);
+  final String? engineStatus;
+  final double? engineProgress;
+  const _Loading(this.symbol, this.ai, this.local, this.engineStatus, this.engineProgress);
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -110,7 +127,12 @@ class _Loading extends StatelessWidget {
         child: Column(children: [
           const CircularProgressIndicator(),
           const SizedBox(height: 16),
-          Text('Đang thu thập dữ liệu và phân tích $symbol…', textAlign: TextAlign.center),
+          Text(engineStatus ?? 'Đang thu thập dữ liệu và phân tích $symbol…', textAlign: TextAlign.center),
+          if (engineStatus != null && engineProgress != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 80, vertical: 8),
+              child: LinearProgressIndicator(value: engineProgress),
+            ),
           const SizedBox(height: 4),
           Text(local ? 'Model chạy trên máy có thể mất vài phút.' : 'Thường mất 30–90 giây.',
               style: Theme.of(context).textTheme.bodySmall),

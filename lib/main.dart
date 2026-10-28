@@ -1,3 +1,5 @@
+import 'dart:ui' show AppExitResponse;
+
 import 'package:flutter/material.dart';
 
 import 'services/updater.dart';
@@ -8,6 +10,7 @@ import 'ui/screener_page.dart';
 import 'ui/settings_page.dart';
 import 'ui/update_dialog.dart';
 import 'ui/watchlist_page.dart';
+import 'ui/widgets.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,6 +49,7 @@ class StockApp extends StatelessWidget {
       theme: _theme(Brightness.light),
       darkTheme: _theme(Brightness.dark),
       themeMode: state.themeMode,
+      builder: (context, child) => AutoScale(enabled: state.autoScale, child: child!),
       home: const HomeShell(),
     );
   }
@@ -60,6 +64,13 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
 
   static const _destinations = [
     (Icons.dashboard_outlined, Icons.dashboard, 'Tổng quan'),
@@ -73,6 +84,14 @@ class _HomeShellState extends State<HomeShell> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _autoCheckUpdate());
+    // Tắt engine chạy model khi đóng app để không để lại tiến trình chạy ngầm
+    _lifecycle = AppLifecycleListener(
+      onExitRequested: () async {
+        await AppScope.of(context).runtime.stop();
+        return AppExitResponse.exit;
+      },
+      onDetach: () => AppScope.of(context).runtime.killNow(),
+    );
   }
 
   Future<void> _autoCheckUpdate() async {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/market.dart';
 import '../state.dart';
+import 'chart.dart';
 import 'widgets.dart';
 
 class OverviewPage extends StatelessWidget {
@@ -34,7 +35,13 @@ class OverviewPage extends StatelessWidget {
                   Padding(padding: const EdgeInsets.only(bottom: 6), child: Pct(ix.num_('change_1d'))),
                 ]),
                 const SizedBox(height: 8),
-                Sparkline(ix.spark, height: 56),
+                Tooltip(
+                  message: 'Mở biểu đồ VN-Index',
+                  child: InkWell(
+                    onTap: () => openChart(context, 'VNINDEX', title: 'Biểu đồ VN-Index'),
+                    child: Sparkline(ix.spark, height: 72),
+                  ),
+                ),
                 const SizedBox(height: 10),
                 Wrap(spacing: 22, runSpacing: 8, children: [
                   Kv('1 tuần', Pct(ix.num_('change_1w'))),
