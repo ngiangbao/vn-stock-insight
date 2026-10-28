@@ -272,7 +272,9 @@ class _LocalModelsPageState extends State<LocalModelsPage> {
                         Text('Bấm "Tải" để tải file GGUF trực tiếp từ Hugging Face và chạy ngay trong app. '
                             'Tải bị ngắt thì bấm lại để tải tiếp.', style: text.bodySmall),
                         const SizedBox(height: 10),
-                        for (final m in _catalog) _catalogTile(m, hw, m == best),
+                        Wrap(spacing: 12, runSpacing: 12, children: [
+                          for (final m in _catalog) _catalogTile(m, hw, m == best),
+                        ]),
                       ]),
                       const SizedBox(height: 14),
                       _searchCard(card, hw, text),
@@ -331,18 +333,31 @@ class _LocalModelsPageState extends State<LocalModelsPage> {
     ]);
   }
 
+  /// Chiều cao cố định cho vùng nút bấm / thanh tiến độ, để khung model không đổi kích thước khi đang tải.
+  static const _actionHeight = 56.0;
+
+  Widget _actionArea(Widget child) =>
+      SizedBox(height: _actionHeight, child: Align(alignment: Alignment.bottomLeft, child: child));
+
   Widget _progress(_Job job) {
     final text = Theme.of(context).textTheme;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
       LinearProgressIndicator(value: job.total == null ? null : job.received / job.total!),
       const SizedBox(height: 4),
       Row(children: [
         Expanded(
           child: Text(
-              '${formatBytes(job.received)}${job.total == null ? '' : ' / ${formatBytes(job.total!)} · ${(job.received / job.total! * 100).toStringAsFixed(0)}%'}',
-              style: text.bodySmall),
+            '${formatBytes(job.received)}${job.total == null ? '' : ' / ${formatBytes(job.total!)} · ${(job.received / job.total! * 100).toStringAsFixed(0)}%'}',
+            style: text.bodySmall,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
-        TextButton(onPressed: () => setState(job.cancel.cancel), child: const Text('Tạm dừng')),
+        TextButton(
+          onPressed: () => setState(job.cancel.cancel),
+          style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+          child: const Text('Tạm dừng'),
+        ),
       ]),
     ]);
   }
@@ -374,8 +389,11 @@ class _LocalModelsPageState extends State<LocalModelsPage> {
     final file = _fileFor(m.hfFile);
     final have = file.existsSync();
     final job = _jobs[m.hfFile];
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    // Mọi khung có cùng kích thước cố định; nội dung dài được cắt bớt, vùng nút/tiến độ cao cố định
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      width: _tileWidth,
+      height: _tileHeight,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
@@ -385,33 +403,41 @@ class _LocalModelsPageState extends State<LocalModelsPage> {
         ),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-          Text(m.name, style: text.titleSmall),
-          Tag(label, color: color),
-          if (recommended) Tag('Đề xuất', color: Theme.of(context).colorScheme.primary),
-          if (have) Tag('Đã tải', color: Tone.up(context)),
-          Text('${fmt(m.sizeGb, 1)} GB · chất lượng ${'★' * m.quality}${'☆' * (5 - m.quality)}', style: text.bodySmall),
+        Row(children: [
+          Expanded(child: Text(m.name, style: text.titleSmall, maxLines: 1, overflow: TextOverflow.ellipsis)),
+          Text('${fmt(m.sizeGb, 1)} GB', style: text.bodySmall),
         ]),
+        const SizedBox(height: 6),
+        SizedBox(
+          height: 22,
+          child: ClipRect(
+            child: Wrap(spacing: 6, children: [
+              Tag(label, color: color),
+              if (recommended) Tag('Đề xuất', color: Theme.of(context).colorScheme.primary),
+              if (have) Tag('Đã tải', color: Tone.up(context)),
+            ]),
+          ),
+        ),
         const SizedBox(height: 4),
-        Text(m.note, style: text.bodySmall),
-        Text('${m.hfRepo} / ${m.hfFile}', style: text.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-        const SizedBox(height: 8),
-        if (job != null)
-          _progress(job)
-        else
-          Wrap(spacing: 8, children: [
-            if (have)
-              FilledButton.tonal(onPressed: () => _use(file.path), child: const Text('Dùng model này'))
-            else
-              FilledButton.tonalIcon(
-                onPressed: () => _download(HfFile(m.hfRepo, m.hfFile, (m.sizeGb * 1e9).round())),
-                icon: const Icon(Icons.download),
-                label: Text('Tải (${fmt(m.sizeGb, 1)} GB)'),
-              ),
-          ]),
+        Text('Chất lượng ${'★' * m.quality}${'☆' * (5 - m.quality)}', style: text.bodySmall),
+        const SizedBox(height: 4),
+        Expanded(child: Text(m.note, style: text.bodySmall, maxLines: 4, overflow: TextOverflow.ellipsis)),
+        Text('${m.hfRepo} / ${m.hfFile}',
+            style: text.labelSmall?.copyWith(color: muted), maxLines: 1, overflow: TextOverflow.ellipsis),
+        _actionArea(job != null
+            ? _progress(job)
+            : have
+                ? FilledButton.tonal(onPressed: () => _use(file.path), child: const Text('Dùng model này'))
+                : FilledButton.tonalIcon(
+                    onPressed: () => _download(HfFile(m.hfRepo, m.hfFile, (m.sizeGb * 1e9).round())),
+                    icon: const Icon(Icons.download),
+                    label: Text('Tải (${fmt(m.sizeGb, 1)} GB)'),
+                  )),
       ]),
     );
   }
+
+  static const _tileWidth = 296.0, _tileHeight = 240.0;
 
   Widget _searchCard(Widget Function(String, List<Widget>, {Widget? trailing}) card, Hardware hw, TextTheme text) {
     return card('Tìm model khác trên Hugging Face', [
@@ -466,13 +492,12 @@ class _LocalModelsPageState extends State<LocalModelsPage> {
           if (suggested) Tag('Nên chọn', color: Theme.of(context).colorScheme.primary),
           Text(formatBytes(f.size), style: Theme.of(context).textTheme.bodySmall),
         ]),
-        const SizedBox(height: 6),
-        if (job != null)
-          _progress(job)
-        else if (file.existsSync())
-          FilledButton.tonal(onPressed: () => _use(file.path), child: const Text('Dùng model này'))
-        else
-          OutlinedButton.icon(onPressed: () => _download(f), icon: const Icon(Icons.download), label: const Text('Tải')),
+        // Cùng chiều cao khi chưa tải, đang tải và đã tải
+        _actionArea(job != null
+            ? _progress(job)
+            : file.existsSync()
+                ? FilledButton.tonal(onPressed: () => _use(file.path), child: const Text('Dùng model này'))
+                : OutlinedButton.icon(onPressed: () => _download(f), icon: const Icon(Icons.download), label: const Text('Tải'))),
       ]),
     );
   }

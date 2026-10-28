@@ -1,6 +1,7 @@
 import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 
 import 'services/updater.dart';
 import 'state.dart';
@@ -49,7 +50,16 @@ class StockApp extends StatelessWidget {
       theme: _theme(Brightness.light),
       darkTheme: _theme(Brightness.dark),
       themeMode: state.themeMode,
-      builder: (context, child) => AutoScale(enabled: state.autoScale, child: child!),
+      // Ctrl + / Ctrl - để phóng to/thu nhỏ giao diện, Ctrl 0 để trở về tự động
+      builder: (context, child) => CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.equal, control: true): () => state.setUiScale((state.uiScale ?? 1) + 0.1),
+          const SingleActivator(LogicalKeyboardKey.add, control: true): () => state.setUiScale((state.uiScale ?? 1) + 0.1),
+          const SingleActivator(LogicalKeyboardKey.minus, control: true): () => state.setUiScale((state.uiScale ?? 1) - 0.1),
+          const SingleActivator(LogicalKeyboardKey.digit0, control: true): () => state.setUiScale(null),
+        },
+        child: AutoScale(enabled: state.autoScale, manual: state.uiScale, child: child!),
+      ),
       home: const HomeShell(),
     );
   }
