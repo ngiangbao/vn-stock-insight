@@ -67,7 +67,17 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 100));
       expect(tester.takeException(), isNull);
-      if (w >= 760) expect(find.text('Dòng tiền'), findsOneWidget);
+      if (w >= 1200) {
+        expect(find.text('Dòng tiền'), findsOneWidget);
+      } else if (w >= 760) {
+        // Medium windows use a vertical layout; scroll to build the later card.
+        await tester.scrollUntilVisible(
+          find.text('Dòng tiền'),
+          240,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(find.text('Dòng tiền'), findsOneWidget);
+      }
       expect(find.text('Biến động'), findsOneWidget);
       // Màn hình rộng: không có cuộn dọc cho cả trang
       if (w >= 900 && h >= 700) expect(find.byType(SingleChildScrollView), findsNothing);

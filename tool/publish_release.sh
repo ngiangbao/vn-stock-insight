@@ -20,8 +20,8 @@ mapfile -t FILES < <(find "$DIR" -type f | sort)
 [[ ${#FILES[@]} -gt 0 ]] || { echo "Lượt build $RUN không có file nào" >&2; exit 1; }
 
 NOTES="Tải bản cho máy của bạn:
-- Windows: file \`-windows-x64.zip\`, giải nén rồi chạy \`vn_stock_insight.exe\`.
-- macOS: file \`-macos.zip\`, giải nén, kéo app vào Applications. Lần đầu mở: chuột phải → Open (app chưa được Apple ký).
+- Windows: tải file \`-windows-x64-setup.exe\` và làm theo trình cài đặt.
+- macOS: tải file \`-macos.pkg\` để cài vào Applications. Gói chưa được ký/notarize bằng Apple Developer ID; macOS có thể yêu cầu xác nhận khi mở.
 - Linux: file \`-linux-x64.tar.gz\`, giải nén rồi chạy \`./vn-stock-insight/install.sh\`.
 - Android: file \`.apk\`, mở để cài (cho phép cài từ nguồn không xác định)."
 

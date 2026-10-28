@@ -43,8 +43,8 @@ Cấu hình trong **Cài đặt → AI**: chọn nhà cung cấp, nhập API key
 
 Tải bản mới nhất tại [Releases](https://github.com/ngiangbao/vn-stock-insight/releases):
 
-- **Windows:** `…-windows-x64.zip`, giải nén rồi chạy `vn_stock_insight.exe`.
-- **macOS:** `…-macos.zip`, giải nén rồi kéo vào Applications. Lần đầu mở, chuột phải → Open (app chưa được Apple ký).
+- **Windows:** `…-windows-x64-setup.exe`, mở trình cài đặt và làm theo hướng dẫn.
+- **macOS:** `…-macos.pkg`, mở gói cài đặt để cài vào Applications. Gói chưa được ký/notarize bằng Apple Developer ID; macOS có thể yêu cầu xác nhận khi mở.
 - **Linux:** `…-linux-x64.tar.gz`, giải nén rồi chạy `./vn-stock-insight/install.sh`. Gỡ bằng `install.sh --uninstall`.
 - **Android:** `….apk`, mở file để cài.
 
