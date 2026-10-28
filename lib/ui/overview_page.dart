@@ -57,7 +57,9 @@ class OverviewPage extends StatelessWidget {
       ),
       body: LayoutBuilder(
         builder: (context, c) {
-          if (c.maxWidth < 760) {
+          // Ba cột chỉ dùng khi mỗi panel còn đủ bề rộng để giữ số liệu và nhãn
+          // trên cùng một dòng. Cửa sổ trung bình chuyển sang bố cục cuộn linh hoạt.
+          if (c.maxWidth < 1100) {
             return ListView(
               padding: const EdgeInsets.all(8),
               children: [
