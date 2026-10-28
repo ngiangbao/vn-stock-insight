@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vn_stock_insight/state.dart';
 import 'package:vn_stock_insight/ai/providers.dart';
 import 'package:vn_stock_insight/services/hardware.dart';
 import 'package:vn_stock_insight/services/llama_runtime.dart';
@@ -6,6 +7,19 @@ import 'package:vn_stock_insight/services/market.dart';
 import 'package:vn_stock_insight/services/updater.dart';
 
 void main() {
+  test('dùng lại phân tích trong cùng ngày Việt Nam và bỏ cache sang ngày mới', () {
+    final state = AppState()
+      ..analyses['FPT'] = {
+        'created_at': '2026-10-28T17:00:00.000Z', // 00:00 ngày 29 tại Việt Nam
+        'result': {'signal': 'hold'},
+      };
+
+    expect(state.analysisForToday('FPT', now: DateTime.utc(2026, 10, 29, 12)), isNotNull);
+    expect(state.analysisForToday('FPT', now: DateTime.utc(2026, 10, 29, 17)), isNull);
+    expect(state.analysisForToday('VCB', now: DateTime.utc(2026, 10, 29, 12)), isNull);
+    state.dispose();
+  });
+
   test('so sánh phiên bản', () {
     expect(compareVersions('v1.0.10', '1.0.9'), greaterThan(0));
     expect(compareVersions('1.0.0+3', '1.0.0'), 0);

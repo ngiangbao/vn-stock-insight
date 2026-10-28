@@ -24,11 +24,11 @@ class _AnalysisPageState extends State<AnalysisPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (AppScope.of(context).analyses[widget.symbol] == null) _run();
+      if (AppScope.of(context).analysisForToday(widget.symbol) == null) _run();
     });
   }
 
-  Future<void> _run() async {
+  Future<void> _run({bool force = false}) async {
     final state = AppScope.of(context);
     setState(() {
       _running = true;
@@ -38,7 +38,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
       ..reset()
       ..start();
     try {
-      await state.analyzeStock(widget.symbol);
+      await state.analyzeStock(widget.symbol, force: force);
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -51,6 +51,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final saved = state.analyses[widget.symbol];
+    final cachedToday = state.analysisForToday(widget.symbol) != null;
     final watching = state.watchlist.contains(widget.symbol);
 
     return Scaffold(
@@ -64,7 +65,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
               label: const Text('Theo dõi'),
             ),
           if (saved != null && !_running)
-            IconButton(onPressed: _run, icon: const Icon(Icons.refresh), tooltip: 'Phân tích lại'),
+            IconButton(onPressed: () => _run(force: true), icon: const Icon(Icons.refresh), tooltip: 'Phân tích lại'),
         ],
       ),
       body: ListView(
@@ -74,6 +75,18 @@ class _AnalysisPageState extends State<AnalysisPage> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 920),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                if (cachedToday && !_running)
+                  Card(
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.06),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      child: Row(children: [
+                        Icon(Icons.offline_pin_outlined, size: 18),
+                        SizedBox(width: 8),
+                        Expanded(child: Text('Kết quả hôm nay đã lưu trên máy và sẽ được dùng lại khi bạn mở lại app.')),
+                      ]),
+                    ),
+                  ),
                 if (state.stocks[widget.symbol] != null) ...[
                   Card(
                     child: Padding(

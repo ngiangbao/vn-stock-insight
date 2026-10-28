@@ -22,6 +22,13 @@ import 'ui/chart.dart' show ChartType, Indicator;
 
 const defaultWatchlist = ['FPT', 'VCB', 'HPG', 'MWG', 'TCB', 'SSI'];
 
+String _vietnamDayKey(DateTime value) {
+  final date = value.toUtc().add(const Duration(hours: 7));
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '${date.year}-$month-$day';
+}
+
 class AppState extends ChangeNotifier {
   late SharedPreferences _prefs;
   final _secure = const FlutterSecureStorage();
@@ -154,10 +161,7 @@ class AppState extends ChangeNotifier {
     runtime = LlamaRuntime(dataDir, () => rootBundle.loadString('assets/runtime.json'));
     _autoUpdateEngine();
     if (startDashboard) dash.start();
-    final saved = _prefs.getString('analyses');
-    if (saved != null) {
-      analyses = (jsonDecode(saved) as Map<String, dynamic>).map((k, v) => MapEntry(k, v as Map<String, dynamic>));
-    }
+    await _loadAnalyses();
     notifyListeners();
   }
 
@@ -289,6 +293,49 @@ class AppState extends ChangeNotifier {
   List<Snapshot> get vn30Stocks => [for (final s in vn30) ?stocks[s]];
 
   // ---------- AI ----------
+  Map<String, dynamic>? analysisForToday(String symbol, {DateTime? now}) {
+    final record = analyses[symbol];
+    final created = DateTime.tryParse(record?['created_at']?.toString() ?? '');
+    if (record == null || created == null || _vietnamDayKey(created) != _vietnamDayKey(now ?? DateTime.now())) return null;
+    return record;
+  }
+
+  Future<void> _loadAnalyses() async {
+    final file = File('${dataDir.path}${Platform.pathSeparator}analyses.json');
+    try {
+      if (await file.exists()) {
+        analyses = _decodeAnalyses(await file.readAsString());
+        return;
+      }
+    } catch (_) {
+      // A damaged local cache falls back to the previous preferences store.
+    }
+    final legacy = _prefs.getString('analyses');
+    if (legacy != null) {
+      try {
+        analyses = _decodeAnalyses(legacy);
+      } catch (_) {
+        analyses = {};
+      }
+    }
+  }
+
+  Map<String, Map<String, dynamic>> _decodeAnalyses(String source) =>
+      (jsonDecode(source) as Map<String, dynamic>).map((key, value) => MapEntry(key, Map<String, dynamic>.from(value as Map)));
+
+  Future<void> _saveAnalyses() async {
+    final encoded = jsonEncode(analyses);
+    final file = File('${dataDir.path}${Platform.pathSeparator}analyses.json');
+    try {
+      await file.parent.create(recursive: true);
+      await file.writeAsString(encoded, flush: true);
+      await _prefs.remove('analyses');
+    } catch (_) {
+      // Preserve the old storage path as a fallback if the support directory is unavailable.
+      await _prefs.setString('analyses', encoded);
+    }
+  }
+
   Future<void> runMarketBrief() async {
     if (index == null) return;
     briefLoading = true;
@@ -315,7 +362,9 @@ class AppState extends ChangeNotifier {
   }
 
   /// Phân tích chuyên sâu một mã. Ném lỗi để giao diện hiển thị.
-  Future<Map<String, dynamic>> analyzeStock(String symbol) async {
+  Future<Map<String, dynamic>> analyzeStock(String symbol, {bool force = false}) async {
+    final cached = analysisForToday(symbol);
+    if (!force && cached != null) return cached;
     final bars = await fetchBars(symbol);
     if (bars.length < 30) throw AiException('Không tìm thấy dữ liệu giá cho mã $symbol.');
     final snap = analyze(symbol, bars);
@@ -340,13 +389,13 @@ class AppState extends ChangeNotifier {
       'result': result,
     };
     analyses = {...analyses, symbol: record};
-    // Giữ 40 kết quả gần nhất
-    if (analyses.length > 40) {
+    // Giữ tối đa 100 mã gần nhất; các kết quả được lưu riêng theo người dùng.
+    if (analyses.length > 100) {
       final keep = analyses.entries.toList()
-        ..sort((a, b) => b.value['created_at'].compareTo(a.value['created_at']));
-      analyses = Map.fromEntries(keep.take(40));
+      ..sort((a, b) => (b.value['created_at'] as String).compareTo(a.value['created_at'] as String));
+      analyses = Map.fromEntries(keep.take(100));
     }
-    await _prefs.setString('analyses', jsonEncode(analyses));
+    await _saveAnalyses();
     notifyListeners();
     return record;
   }
