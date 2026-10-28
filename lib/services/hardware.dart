@@ -98,7 +98,7 @@ Future<Hardware> detectHardware() async {
 enum Fit { fast, slow, no }
 
 class ModelInfo {
-  final String name, ollama, search, note;
+  final String name, ollama, search, note, hfRepo, hfFile;
   final double sizeGb;
   final int quality;
 
@@ -107,8 +107,20 @@ class ModelInfo {
         ollama = j['ollama'],
         search = j['search'],
         note = j['note'] ?? '',
+        hfRepo = j['hf_repo'] ?? '',
+        hfFile = j['hf_file'] ?? '',
         sizeGb = (j['size_gb'] as num).toDouble(),
         quality = j['quality'] ?? 3;
+
+  /// Chỉ dùng để đánh giá mức phù hợp của một file có dung lượng cho trước.
+  ModelInfo.size(this.sizeGb)
+      : name = '',
+        ollama = '',
+        search = '',
+        note = '',
+        hfRepo = '',
+        hfFile = '',
+        quality = 3;
 
   /// Model cần thêm ~15% bộ nhớ cho ngữ cảnh (context ~8K token) khi chạy.
   double get needGb => sizeGb * 1.15 + 0.5;

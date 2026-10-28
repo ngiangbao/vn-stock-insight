@@ -1,0 +1,4 @@
+{
+  "_ghi_chu": "Phiên bản llama.cpp mà app dùng để chạy model trong app. App đọc bản mới nhất của file này từ GitHub; đổi số build ở đây là mọi app tự cập nhật engine (có kiểm tra SHA-256 từ GitHub). Danh sách build: https://github.com/ggml-org/llama.cpp/releases",
+  "llama_cpp_build": "b11624"
+}

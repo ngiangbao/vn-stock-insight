@@ -94,8 +94,9 @@ class Snapshot {
   final List<String> signals;
   final int techScore;
   final List<double> spark; // giá đóng cửa 60 phiên
+  final List<Bar> bars; // dữ liệu ngày đã tải, dùng cho biểu đồ
 
-  Snapshot(this.symbol, this.data, this.signals, this.techScore, this.spark);
+  Snapshot(this.symbol, this.data, this.signals, this.techScore, this.spark, this.bars);
 
   double get close => (data['close'] as num).toDouble();
   double? num_(String k) => (data[k] as num?)?.toDouble();
@@ -199,6 +200,7 @@ Snapshot analyze(String symbol, List<Bar> bars) {
     signals,
     score,
     closes.sublist(math.max(0, closes.length - 60)),
+    bars,
   );
 }
 
