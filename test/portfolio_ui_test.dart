@@ -9,7 +9,9 @@ import 'package:vn_stock_insight/main.dart' show appTheme;
 import 'package:vn_stock_insight/services/cfa.dart';
 import 'package:vn_stock_insight/services/portfolio.dart';
 import 'package:vn_stock_insight/state.dart';
+import 'package:vn_stock_insight/ui/analysis_report.dart';
 import 'package:vn_stock_insight/ui/cfa_page.dart';
+import 'package:vn_stock_insight/ui/cfa_report.dart';
 import 'package:vn_stock_insight/ui/portfolio_page.dart';
 import 'package:vn_stock_insight/ui/portfolio_report.dart';
 
@@ -411,5 +413,85 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(tester.getTopRight(find.byType(PortfolioReport)).dx, greaterThan(w - 40));
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('khung kịch bản ở báo cáo AI, CFA và danh mục cùng rộng, cùng cao dù nội dung dài ngắn khác nhau', (tester) async {
+    const w = 1400.0;
+    tester.view.physicalSize = const Size(w, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    // Báo cáo AI một cổ phiếu
+    final ai = {
+      'symbol': 'FPT',
+      'created_at': DateTime.now().toIso8601String(),
+      'ai': 'test',
+      'inputs': {
+        'technicals': {'close': 52.5},
+      },
+      'result': {
+        'stance': 'Trung lập',
+        'confidence': 'Vừa',
+        'headline': 'H',
+        'summary': 'S',
+        'scenarios': {'bull': 'Ngắn', 'base': 'Vừa phải ' * 8, 'bear': 'Rất dài ' * 40},
+      },
+    };
+    // Báo cáo CFA và danh mục: thay nội dung kịch bản bằng độ dài lệch nhau
+    final pa = _analysis();
+    (pa['result'] as Map)['scenarios'] = [
+      {'name': 'Tích cực', 'probability': 30, 'condition': 'Ngắn', 'effect': 'a', 'signals': 'b'},
+      {'name': 'Cơ sở', 'probability': 50, 'condition': 'Vừa ' * 20, 'effect': 'a', 'signals': 'b'},
+      {'name': 'Tiêu cực', 'probability': 20, 'condition': 'Rất dài ' * 50, 'effect': 'a', 'signals': 'b'},
+    ];
+    final cfa = {
+      ...pa,
+      'symbol': 'HPG',
+      'series': {
+        'dates': (pa['series'] as Map)['dates'],
+        'stock': (pa['series'] as Map)['danh_muc'],
+        'index': (pa['series'] as Map)['vnindex'],
+      },
+      'inputs': {'quant': {}, 'valuation': {}},
+      'result': {
+        'stance': 'Tích cực',
+        'confidence': 'Vừa',
+        'headline': 'H',
+        'summary': 'S',
+        'scenarios': [
+          for (final (n, t) in [('Tích cực', 'Ngắn'), ('Cơ sở', 'Vừa ' * 20), ('Tiêu cực', 'Rất dài ' * 50)])
+            {'name': n, 'probability': 30, 'condition': t, 'price_effect': 'a', 'signals': 'b'},
+        ],
+      },
+    };
+
+    for (final (name, widget) in [
+      ('AI', ResearchReport(ai)),
+      ('CFA', CfaReport(cfa)),
+      ('Danh mục', PortfolioReport(newPortfolio('X'), pa)),
+    ]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: Padding(padding: const EdgeInsets.all(16), child: widget),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      final row = find.byType(ScenarioRow);
+      expect(row, findsOneWidget, reason: name);
+      final rowWidget = tester.widget<Row>(find.descendant(of: row, matching: find.byType(Row)).first);
+      final cards = [for (final c in rowWidget.children) if (c is Expanded) c];
+      expect(cards.length, 3, reason: name);
+      final rects = [for (final c in cards) tester.getRect(find.byWidget(c))];
+      expect({for (final r in rects) r.width.toStringAsFixed(1)}.length, 1, reason: '$name: cùng rộng');
+      expect({for (final r in rects) r.height.toStringAsFixed(1)}.length, 1, reason: '$name: cùng cao');
+      expect(rects.first.left, tester.getTopLeft(row).dx, reason: name);
+      expect(rects.last.right, closeTo(tester.getTopRight(row).dx, 0.5), reason: '$name: trải hết chiều ngang của khung');
+      expect(tester.getTopRight(row).dx, greaterThan(w - 60), reason: '$name: khung kịch bản giãn gần hết cửa sổ');
+      expect(tester.takeException(), isNull, reason: name);
+    }
   });
 }

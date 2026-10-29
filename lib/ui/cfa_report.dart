@@ -6,7 +6,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import 'analysis_report.dart' show ReportSection;
+import 'analysis_report.dart' show ReportSection, ScenarioRow;
 import 'widgets.dart';
 
 double? _n(dynamic x) => x is num ? x.toDouble() : null;
@@ -200,25 +200,7 @@ class CfaReport extends StatelessWidget {
           ),
         ),
         if (scenarios.isNotEmpty)
-          ReportSection(
-            '7. Kịch bản có xác suất',
-            LayoutBuilder(
-              builder: (context, c) {
-                final cards = [for (final s in scenarios) _Scenario(Map<String, dynamic>.from(s))];
-                return c.maxWidth >= 760
-                    ? Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (var i = 0; i < cards.length; i++) ...[if (i > 0) const SizedBox(width: 10), Expanded(child: cards[i])],
-                        ],
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [for (final c in cards) Padding(padding: const EdgeInsets.only(bottom: 8), child: c)],
-                      );
-              },
-            ),
-          ),
+          ReportSection('7. Kịch bản có xác suất', ScenarioRow([for (final s in scenarios) _Scenario(Map<String, dynamic>.from(s))])),
         if ((r['monitoring'] as List?)?.isNotEmpty ?? false) ReportSection('8. Chỉ tiêu cần theo dõi', Bullets(r['monitoring'])),
         if ((r['risks'] as List?)?.isNotEmpty ?? false) ReportSection('9. Rủi ro', Bullets(r['risks'])),
         ReportSection('10. Đạo đức và giới hạn của phân tích', para(r['ethics'])),
@@ -458,12 +440,9 @@ class _Scenario extends StatelessWidget {
               Tag('${s['probability']}%', color: tone),
             ],
           ),
-          line('Điều kiện', s['condition']),
-          line('Tác động giá', s['price_effect']),
-          line('Tín hiệu', s['signals']),
           // Thanh xác suất: chiều dài thể hiện xác suất, kèm số ở thẻ bên trên
           Padding(
-            padding: const EdgeInsets.only(top: 10),
+            padding: const EdgeInsets.only(top: 8),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
@@ -474,6 +453,9 @@ class _Scenario extends StatelessWidget {
               ),
             ),
           ),
+          line('Điều kiện', s['condition']),
+          line('Tác động giá', s['price_effect']),
+          line('Tín hiệu', s['signals']),
         ],
       ),
     );

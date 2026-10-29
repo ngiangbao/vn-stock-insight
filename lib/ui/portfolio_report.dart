@@ -4,7 +4,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'analysis_report.dart' show ReportSection;
+import 'analysis_report.dart' show ReportSection, ScenarioRow;
 import 'cfa_report.dart';
 import 'widgets.dart';
 
@@ -264,24 +264,9 @@ class PortfolioReport extends StatelessWidget {
         if (scenarios.isNotEmpty)
           ReportSection(
             '8. Kịch bản có xác suất',
-            LayoutBuilder(
-              builder: (context, c) {
-                final cards = [
-                  for (final s in scenarios) ScenarioCard({...Map<String, dynamic>.from(s), 'price_effect': s['effect']}),
-                ];
-                return c.maxWidth >= 760
-                    ? Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (var i = 0; i < cards.length; i++) ...[if (i > 0) const SizedBox(width: 10), Expanded(child: cards[i])],
-                        ],
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [for (final c in cards) Padding(padding: const EdgeInsets.only(bottom: 8), child: c)],
-                      );
-              },
-            ),
+            ScenarioRow([
+              for (final s in scenarios) ScenarioCard({...Map<String, dynamic>.from(s), 'price_effect': s['effect']}),
+            ]),
           ),
         if ((r['monitoring'] as List?)?.isNotEmpty ?? false) ReportSection('9. Chỉ tiêu cần theo dõi', Bullets(r['monitoring'])),
         if ((r['risks'] as List?)?.isNotEmpty ?? false) ReportSection('10. Rủi ro', Bullets(r['risks'])),

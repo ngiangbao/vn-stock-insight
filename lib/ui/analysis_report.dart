@@ -189,18 +189,14 @@ class ResearchReport extends StatelessWidget {
                   ]),
                 ),
             ])),
-          _Section('Kịch bản', LayoutBuilder(builder: (context, cons) {
-            final cards = [
+          _Section(
+            'Kịch bản',
+            ScenarioRow([
               _Scenario('Tích cực', r['scenarios']?['bull'], Tone.up(context)),
               _Scenario('Cơ sở', r['scenarios']?['base'], Tone.flat(context)),
               _Scenario('Tiêu cực', r['scenarios']?['bear'], Tone.down(context)),
-            ];
-            return cons.maxWidth > 620
-                ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    for (final (i, w) in cards.indexed) ...[if (i > 0) const SizedBox(width: 10), Expanded(child: w)],
-                  ])
-                : Column(children: [for (final w in cards) Padding(padding: const EdgeInsets.only(bottom: 8), child: w)]);
-          })),
+            ], breakpoint: 620),
+          ),
           _Section(
             'Rủi ro và điểm cần theo dõi',
             twoCols(
@@ -1182,4 +1178,25 @@ class ExtraMetricsGrid extends StatelessWidget {
       },
     );
   }
+}
+
+/// Hàng các khung kịch bản: màn hình rộng thì mọi khung cùng rộng và cùng cao (bằng khung cao nhất), trải hết chiều ngang;
+/// màn hình hẹp thì xếp dọc, mỗi khung rộng hết khung.
+class ScenarioRow extends StatelessWidget {
+  final List<Widget> cards;
+  final double breakpoint;
+  const ScenarioRow(this.cards, {super.key, this.breakpoint = 760});
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, c) => c.maxWidth >= breakpoint
+            ? IntrinsicHeight(
+                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  for (var i = 0; i < cards.length; i++) ...[if (i > 0) const SizedBox(width: 10), Expanded(child: cards[i])],
+                ]),
+              )
+            : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                for (final w in cards) Padding(padding: const EdgeInsets.only(bottom: 8), child: w),
+              ]),
+      );
 }
