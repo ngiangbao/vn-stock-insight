@@ -604,4 +604,34 @@ void main() {
     expect(center, closeTo(tester.getCenter(title).dx, 60), reason: 'ma trận nằm giữa khung');
     expect(tester.takeException(), isNull);
   });
+
+  for (final w in [1700.0, 900.0, 380.0]) {
+    testWidgets('bảng vị thế giãn hết chiều ngang khung và căn giữa nội dung (${w.toInt()} px)', (tester) async {
+      tester.view.physicalSize = Size(w, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: Padding(padding: const EdgeInsets.all(20), child: PortfolioReport(newPortfolio('X'), _analysis())),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      final table = find.byType(Table).first;
+      final rect = tester.getRect(table);
+      if (w >= 900) {
+        expect(rect.width, closeTo(w - 40, 1.0), reason: 'bảng giãn hết chiều ngang khung');
+        // nội dung ô căn giữa: tâm chữ "Công nghệ"... dùng ô Tỷ trọng 70% nằm giữa cột của nó
+        final head = tester.getCenter(find.descendant(of: table, matching: find.text('Tỷ trọng')));
+        final cell = tester.getCenter(find.descendant(of: table, matching: find.text('70%')).first);
+        expect(cell.dx, closeTo(head.dx, 1.0), reason: 'ô và tiêu đề cột cùng căn giữa');
+      } else {
+        expect(rect.width, greaterThanOrEqualTo(760), reason: 'hẹp thì cuộn ngang, giữ độ rộng tối thiểu');
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

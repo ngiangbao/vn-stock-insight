@@ -406,71 +406,80 @@ class _HoldingsTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    Widget cell(String t, {bool bold = false, bool right = true, double w = 78}) => SizedBox(
-      width: w,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 6),
+    // Cột chia theo tỷ lệ để bảng giãn hết chiều ngang khung; nội dung căn giữa. Hẹp hơn 760 px thì cuộn ngang
+    const cols = <(String, double)>[
+      ('Mã', 0.8),
+      ('Giá trị', 1.3),
+      ('Tỷ trọng', 1.0),
+      ('Đóng góp rủi ro', 1.2),
+      ('Lãi/lỗ', 1.1),
+      ('Lợi suất 1 năm', 1.2),
+      ('Biến động', 1.1),
+      ('Beta', 0.8),
+      ('Cân nhắc (định tính)', 2.2),
+    ];
+    Widget cell(String t, {bool bold = false}) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      child: Center(
         child: Text(
           t,
-          textAlign: right ? TextAlign.end : TextAlign.start,
-          style: TextStyle(fontWeight: bold ? FontWeight.w700 : FontWeight.w400, fontFeatures: const [FontFeature.tabularFigures()]),
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
+            fontSize: 14,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
         ),
       ),
     );
-    final head = [
-      ('Mã', 56.0, false),
-      ('Giá trị', 92.0, true),
-      ('Tỷ trọng', 78.0, true),
-      ('Rủi ro', 70.0, true),
-      ('Lãi/lỗ', 74.0, true),
-      ('Lợi suất', 78.0, true),
-      ('Biến động', 78.0, true),
-      ('Beta', 56.0, true),
-    ];
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            color: cs.surfaceContainerHighest,
-            child: Row(
-              children: [
-                for (final h in head) cell(h.$1, bold: true, w: h.$2, right: h.$3),
-                cell('Cân nhắc (định tính)', bold: true, w: 190, right: false),
-              ],
+    String lai(dynamic v) => _n(v) == null ? '–' : '${_n(v)! > 0 ? '+' : ''}${fmt(_n(v), 1)}%';
+    return LayoutBuilder(
+      builder: (context, box) {
+        final width = box.maxWidth < 760 ? 760.0 : box.maxWidth;
+        final table = Table(
+          columnWidths: {for (final (i, c) in cols.indexed) i: FlexColumnWidth(c.$2)},
+          defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+          children: [
+            TableRow(
+              decoration: BoxDecoration(color: cs.surfaceContainerHighest),
+              children: [for (final c in cols) cell(c.$1, bold: true)],
             ),
-          ),
-          for (final (i, r) in rows.indexed)
-            Container(
-              color: i.isEven ? null : cs.surfaceContainerHighest.withValues(alpha: 0.4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            for (final (i, r) in rows.indexed)
+              TableRow(
+                decoration: BoxDecoration(color: i.isEven ? null : cs.surfaceContainerHighest.withValues(alpha: 0.4)),
                 children: [
-                  cell('${r['ma']}', bold: true, w: 56, right: false),
-                  cell(money(r['gia_tri_nghin_dong']), w: 92),
-                  cell(_pct(r['ty_trong']), w: 78),
-                  cell(_pct(r['dong_gop_rui_ro']), w: 70),
-                  cell(_n(r['lai_lo_pct']) == null ? '–' : '${_n(r['lai_lo_pct'])! > 0 ? '+' : ''}${fmt(_n(r['lai_lo_pct']), 1)}%', w: 74),
-                  cell(_pct(r['loi_suat_nam']), w: 78),
-                  cell(_pct(r['bien_dong_nam']), w: 78),
-                  cell(_num(r['beta']), w: 56),
-                  cell('${notes['${r['ma']}']?['consideration'] ?? '–'}', w: 190, right: false),
+                  cell('${r['ma']}', bold: true),
+                  cell(money(r['gia_tri_nghin_dong'])),
+                  cell(_pct(r['ty_trong'])),
+                  cell(_pct(r['dong_gop_rui_ro'])),
+                  cell(lai(r['lai_lo_pct'])),
+                  cell(_pct(r['loi_suat_nam'])),
+                  cell(_pct(r['bien_dong_nam'])),
+                  cell(_num(r['beta'])),
+                  cell('${notes['${r['ma']}']?['consideration'] ?? '–'}'),
                 ],
               ),
-            ),
-          if (notes.values.any((n) => '${n['comment'] ?? ''}'.isNotEmpty))
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: SizedBox(
-                width: 760,
+          ],
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            box.maxWidth < 760
+                ? SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SizedBox(width: width, child: table),
+                  )
+                : table,
+            if (notes.values.any((n) => '${n['comment'] ?? ''}'.isNotEmpty))
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     for (final r in rows)
                       if ('${notes['${r['ma']}']?['comment'] ?? ''}'.isNotEmpty)
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
+                          padding: const EdgeInsets.only(bottom: 8),
                           child: Text.rich(
                             TextSpan(
                               children: [
@@ -486,9 +495,9 @@ class _HoldingsTable extends StatelessWidget {
                   ],
                 ),
               ),
-            ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 }
