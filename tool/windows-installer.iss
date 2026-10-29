@@ -34,3 +34,5 @@ Name: "{autodesktop}\VN Stock Insight"; Filename: "{app}\vn_stock_insight.exe"; 
 
 [Run]
 Filename: "{app}\vn_stock_insight.exe"; Description: "Launch VN Stock Insight"; Flags: postinstall nowait skipifsilent
+; Cập nhật tự động trong app chạy bộ cài ở chế độ ngầm (/VERYSILENT): mở lại app ngay sau khi cài xong
+Filename: "{app}\vn_stock_insight.exe"; Flags: nowait; Check: WizardSilent

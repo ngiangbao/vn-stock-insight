@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cấu hình artifact "installer" trên SignPath: gói zip chứa bộ cài Inno Setup (tên có số phiên bản nên dùng ký tự đại diện). -->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file path="vn-stock-insight-*-windows-x64-setup.exe">
+      <authenticode-sign/>
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

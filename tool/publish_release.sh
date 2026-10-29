@@ -26,7 +26,9 @@ NOTES="Dashboard mới: thanh chỉ số nhanh, bố cục thị trường gọn
 
 Tải bản cho máy của bạn:
 - Windows: tải file \`-windows-x64-setup.exe\` và làm theo trình cài đặt, hoặc \`-windows-x64-portable.zip\` để giải nén và chạy trực tiếp. Nếu SmartScreen cảnh báo, xem mục Windows trong README. Mã SHA-256 của từng file nằm trong \`SHA256SUMS.txt\`.
-- macOS: tải file \`-macos.pkg\` để cài vào Applications. Gói chưa được ký/notarize bằng Apple Developer ID; macOS có thể yêu cầu xác nhận khi mở.
+- macOS: tải file \`-macos.pkg\` để cài vào Applications. Gói chưa được ký/notarize bằng Apple Developer ID; macOS có thể yêu cầu xác nhận khi mở. File \`-macos.zip\` dùng cho cập nhật tự động trong app.
+
+Cập nhật: từ bản có tính năng này trở đi, app tự báo khi có bản mới; bấm \"Cập nhật ngay\" để app tải, kiểm tra SHA-256, cài và mở lại (Windows, macOS, Linux).
 - Linux: file \`-linux-x64.tar.gz\`, giải nén rồi chạy \`./vn-stock-insight/install.sh\`.
 - Android: file \`.apk\`, mở để cài (cho phép cài từ nguồn không xác định)."
 

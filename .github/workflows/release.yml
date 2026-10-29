@@ -86,6 +86,10 @@ jobs:
   windows:
     needs: test
     runs-on: windows-latest
+    # Ký số bằng SignPath Foundation (miễn phí cho mã nguồn mở). Các bước ký chỉ chạy khi repo có secret SIGNPATH_API_TOKEN
+    # và biến SIGNPATH_ORGANIZATION_ID; chưa có thì build bản chưa ký như trước. Xem docs/CODE_SIGNING.md.
+    env:
+      SIGNPATH_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
     steps:
       - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
@@ -93,12 +97,64 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
       - run: flutter build windows --release
+
+      # Lượt ký 1: file chạy chính của app, ký trước khi đóng gói để file đã cài cũng có chữ ký
+      - name: Tải file chạy lên để ký
+        if: ${{ env.SIGNPATH_TOKEN != '' }}
+        id: upload-app
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-app-unsigned
+          path: build/windows/x64/runner/Release/vn_stock_insight.exe
+      - name: Ký file chạy bằng SignPath
+        if: ${{ env.SIGNPATH_TOKEN != '' }}
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: vn-stock-insight
+          signing-policy-slug: release-signing
+          artifact-configuration-slug: app-exe
+          github-artifact-id: ${{ steps.upload-app.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed-app
+      - name: Đưa file đã ký vào thư mục build
+        if: ${{ env.SIGNPATH_TOKEN != '' }}
+        shell: pwsh
+        run: Copy-Item signed-app\vn_stock_insight.exe build\windows\x64\runner\Release\vn_stock_insight.exe -Force
+
       - name: Install Inno Setup
         run: choco install innosetup --yes --no-progress
       - shell: pwsh
         run: |
           $packageVersion = $env:VERSION.TrimStart('v')
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$packageVersion" tool\windows-installer.iss
+
+      # Lượt ký 2: bộ cài
+      - name: Tải bộ cài lên để ký
+        if: ${{ env.SIGNPATH_TOKEN != '' }}
+        id: upload-installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-installer-unsigned
+          path: dist/*-setup.exe
+      - name: Ký bộ cài bằng SignPath
+        if: ${{ env.SIGNPATH_TOKEN != '' }}
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: vn-stock-insight
+          signing-policy-slug: release-signing
+          artifact-configuration-slug: installer
+          github-artifact-id: ${{ steps.upload-installer.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed-installer
+      - name: Đưa bộ cài đã ký vào thư mục phát hành
+        if: ${{ env.SIGNPATH_TOKEN != '' }}
+        shell: pwsh
+        run: Copy-Item signed-installer\*-setup.exe dist\ -Force
+
       - name: Bản portable (không cần cài, không chạy trình cài đặt)
         shell: pwsh
         run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath "dist\vn-stock-insight-$env:VERSION-windows-x64-portable.zip"
@@ -124,6 +180,8 @@ jobs:
             --version "$PACKAGE_VERSION" \
             --install-location /Applications \
             "dist/vn-stock-insight-${VERSION}-macos.pkg"
+          # Bản .app nén dùng cho cập nhật tự động trong app (app tải về, thay đúng bản đang chạy, mở lại)
+          ditto -c -k --keepParent "build/macos/Build/Products/Release/VN Stock Insight.app" "dist/vn-stock-insight-${VERSION}-macos.zip"
       - uses: actions/upload-artifact@v7
         with: { name: macos, path: dist/* }
 
@@ -150,7 +208,7 @@ jobs:
 
           Tải bản cho máy của bạn:
           - Windows: tải file `-windows-x64-setup.exe` và làm theo trình cài đặt, hoặc `-windows-x64-portable.zip` để giải nén và chạy trực tiếp. Nếu SmartScreen cảnh báo, xem hướng dẫn trong README (mục Windows).
-          - macOS: tải file `-macos.pkg` và mở để cài ứng dụng vào Applications. Gói hiện chưa được ký/notarize bằng Apple Developer ID; macOS có thể yêu cầu xác nhận khi mở.
+          - macOS: tải file `-macos.pkg` và mở để cài ứng dụng vào Applications. Gói hiện chưa được ký/notarize bằng Apple Developer ID; macOS có thể yêu cầu xác nhận khi mở. File `-macos.zip` dùng cho cập nhật tự động trong app.
           - Linux: file `-linux-x64.tar.gz`, giải nén rồi chạy `./vn-stock-insight/install.sh`.
           - Android: file `.apk`, mở để cài (cho phép cài từ nguồn không xác định).
           EOF
