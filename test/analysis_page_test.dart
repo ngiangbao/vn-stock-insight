@@ -3,7 +3,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vn_stock_insight/services/market.dart';
 import 'package:vn_stock_insight/state.dart';
+import 'package:vn_stock_insight/ui/analysis_report.dart';
 import 'package:vn_stock_insight/ui/analysis_page.dart';
 
 class _FakePaths extends PathProviderPlatform {
@@ -21,7 +23,68 @@ Map<String, dynamic> _record(DateTime at, String headline) => {
   'result': {'stance': 'Trung lập', 'confidence': 'Vừa', 'headline': headline, 'summary': 'Tóm tắt $headline'},
 };
 
+Map<String, dynamic> _full(DateTime at) => {
+  'symbol': 'HPG',
+  'created_at': at.toIso8601String(),
+  'ai': 'test',
+  'inputs': {
+    'technicals': {'close': 26.45, 'change_1d': 1.2, 'change_1y': 12.5, 'high_52w': 29.0, 'low_52w': 19.8, 'volume': 17974700, 'rsi14': 55.2},
+    'fundamentals': {
+      'company': {'ten': 'CTCP Tập đoàn Hòa Phát', 'nganh': 'Vật liệu xây dựng', 'von_hoa_ty_dong': 173000, 'so_huu_nuoc_ngoai': 0.2158, 'vietcap_khuyen_nghi': 'MUA', 'vietcap_gia_muc_tieu': 38000},
+      'chi_so_ttm_theo_quy': [
+        for (var i = 0; i < 8; i++)
+          {'ky': 'Q${i % 4 + 1}/${2023 + i ~/ 4}', 'pe': 13.0 + i, 'pb': 1.5, 'roe': 0.1 + i * 0.01, 'grossMargin': 0.12 + i * 0.01, 'afterTaxProfitMargin': 0.07, 'debtToEquity': 0.9},
+      ],
+      'ket_qua_kinh_doanh_theo_quy_ty_dong': [
+        for (var i = 0; i < 8; i++)
+          {'ky': 'Q${i % 4 + 1}/${2023 + i ~/ 4}', 'doanh_thu_thuan': 30000 + i * 1500, 'loi_nhuan_gop': 4000 + i * 300, 'loi_nhuan_sau_thue_cong_ty_me': 2500 + i * 200},
+      ],
+    },
+  },
+  'result': {
+    'stance': 'Tích cực',
+    'confidence': 'Cao',
+    'headline': 'Tăng tốc nhờ Dung Quất 2',
+    'summary': 'Tóm tắt ' * 30,
+    'scorecard': [
+      for (final d in ['Xu hướng giá', 'Định giá']) {'dimension': d, 'score': 4, 'reason': 'Lý do ' * 10},
+    ],
+    'thesis': {'statement': 'Luận điểm', 'pillars': ['Trụ cột một', 'Trụ cột hai'], 'invalidation': ['Sai nếu một']},
+    'earnings': {'summary': 'Kết quả ' * 20, 'highlights': ['Ý một']},
+    'valuation': 'Định giá ' * 10,
+    'competition': 'Doanh nghiệp đầu ngành ' * 6,
+    'technical': {'summary': 'Kỹ thuật ' * 10, 'key_levels': 'Hỗ trợ 25, kháng cự 29'},
+    'catalysts': [
+      {'event': 'Công bố KQKD', 'timing': 'Dự kiến tháng 1', 'impact': 'Cao', 'why': 'Lý do'},
+    ],
+    'scenarios': {'bull': 'Tốt', 'base': 'Vừa', 'bear': 'Xấu'},
+    'risks': ['Rủi ro một'],
+    'watch_points': ['Theo dõi một'],
+    'data_gaps': ['Thiếu dữ liệu'],
+  },
+};
+
 void main() {
+  for (final w in [1000.0, 700.0, 360.0]) {
+    testWidgets('báo cáo dạng nghiên cứu hiển thị đủ phần, không tràn (${w.toInt()} px)', (tester) async {
+      tester.view.physicalSize = Size(w, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final at = DateTime.now();
+      final bars = [for (var i = 0; i < 300; i++) Bar(at.millisecondsSinceEpoch ~/ 1000 - (300 - i) * 86400, 20 + i * .02, 21 + i * .02, 19 + i * .02, 20 + i * .02, 1e6)];
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(body: SingleChildScrollView(child: SizedBox(width: w, child: ResearchReport(_full(at), bars: bars, indexBars: bars, exchange: 'HOSE')))),
+      ));
+      for (final label in ['BÁO CÁO DOANH NGHIỆP', 'Khuyến nghị', 'Thông tin cổ phiếu', 'Diễn biến giá', 'BẢNG CHẤM ĐIỂM', 'KẾT QUẢ KINH DOANH VÀ CHỈ SỐ TÀI CHÍNH', 'Doanh thu thuần (tỷ đồng)']) {
+        expect(find.text(label), findsOneWidget, reason: label);
+      }
+      expect(find.textContaining('HPG (HOSE)'), findsOneWidget);
+      expect(find.textContaining('Giá mục tiêu Vietcap'), findsOneWidget);
+      expect(find.textContaining('liên hệ', findRichText: true), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   test('lịch sử nhận định chỉ giữ 7 ngày gần nhất, mỗi ngày một bản', () {
     final state = AppState();
     final base = DateTime.utc(2026, 10, 1, 5);
@@ -59,10 +122,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
       expect(find.text('Hôm qua'), findsWidgets);
       expect(find.text('Hôm nay'), findsOneWidget);
-      expect(find.text('hôm qua'), findsOneWidget);
-      expect(find.text('hôm nay'), findsOneWidget);
-      final yesterday = tester.getTopLeft(find.text('hôm qua'));
-      final today = tester.getTopLeft(find.text('hôm nay'));
+      expect(find.text('HÔM QUA'), findsOneWidget);
+      expect(find.text('HÔM NAY'), findsOneWidget);
+      final yesterday = tester.getTopLeft(find.text('HÔM QUA'));
+      final today = tester.getTopLeft(find.text('HÔM NAY'));
       if (w >= 900) {
         expect(yesterday.dx, lessThan(today.dx), reason: 'hôm qua bên trái');
         expect(today.dx, greaterThan(w / 2 - 20));
@@ -77,9 +140,9 @@ void main() {
       await tester.ensureVisible(older);
       await tester.tap(older);
       await tester.pump();
-      expect(find.text('cũ ba ngày'), findsOneWidget);
-      expect(find.text('hôm qua'), findsNothing);
-      expect(find.text('hôm nay'), findsOneWidget);
+      expect(find.text('CŨ BA NGÀY'), findsOneWidget);
+      expect(find.text('HÔM QUA'), findsNothing);
+      expect(find.text('HÔM NAY'), findsOneWidget);
       expect(tester.takeException(), isNull);
       state.dispose();
     });
