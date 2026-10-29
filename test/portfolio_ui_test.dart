@@ -483,7 +483,10 @@ void main() {
       final row = find.byType(ScenarioRow);
       expect(row, findsOneWidget, reason: name);
       final rowWidget = tester.widget<Row>(find.descendant(of: row, matching: find.byType(Row)).first);
-      final cards = [for (final c in rowWidget.children) if (c is Expanded) c];
+      final cards = [
+        for (final c in rowWidget.children)
+          if (c is Expanded) c,
+      ];
       expect(cards.length, 3, reason: name);
       final rects = [for (final c in cards) tester.getRect(find.byWidget(c))];
       expect({for (final r in rects) r.width.toStringAsFixed(1)}.length, 1, reason: '$name: cùng rộng');
@@ -493,5 +496,112 @@ void main() {
       expect(tester.getTopRight(row).dx, greaterThan(w - 60), reason: '$name: khung kịch bản giãn gần hết cửa sổ');
       expect(tester.takeException(), isNull, reason: name);
     }
+  });
+
+  test('số cột lưới KPI báo cáo chọn để hàng cuối ít ô trống nhất', () {
+    expect(ReportTileGrid.columnsFor(12, 6), 6);
+    expect(ReportTileGrid.columnsFor(12, 7), 6, reason: '12 thẻ: 6 cột không thừa ô, hơn 7 cột thừa 2');
+    expect(ReportTileGrid.columnsFor(14, 7), 7);
+    expect(ReportTileGrid.columnsFor(12, 2), 2);
+    expect(ReportTileGrid.columnsFor(12, 1), 1);
+  });
+
+  for (final w in [1900.0, 1100.0, 380.0]) {
+    testWidgets('thẻ KPI báo cáo CFA và danh mục cùng rộng, cùng cao, trải hết khung (${w.toInt()} px)', (tester) async {
+      tester.view.physicalSize = Size(w, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final pa = _analysis();
+      final cfa = {
+        ...pa,
+        'symbol': 'VCB',
+        'series': {
+          'dates': (pa['series'] as Map)['dates'],
+          'stock': (pa['series'] as Map)['danh_muc'],
+          'index': (pa['series'] as Map)['vnindex'],
+        },
+        'inputs': {
+          'quant': {
+            'loi_suat_nam': -0.036,
+            'bien_dong_nam': 0.269,
+            'sharpe': -0.3,
+            'beta': 0.72,
+            'sut_giam_toi_da': -0.283,
+            'var95_1_ngay': 0.024,
+          },
+          'valuation': {
+            'chi_phi_von_chu_so_huu_capm': 0.095,
+            'pb_hien_tai': 1.89,
+            'pb_chinh_dang': 2.51,
+            'gia_noi_tai_uoc_tinh_nghin_dong': 75.9,
+            'chenh_lech_so_voi_gia_pct': 32.7,
+          },
+        },
+        'price': 57.2,
+        'result': {'stance': 'Trung lập', 'confidence': 'Trung bình', 'headline': 'H', 'summary': 'S'},
+      };
+      for (final (name, widget) in [('CFA', CfaReport(cfa)), ('Danh mục', PortfolioReport(newPortfolio('X'), pa))]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: Padding(padding: const EdgeInsets.all(20), child: widget),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        final grid = find.byType(ReportTileGrid);
+        expect(grid, findsOneWidget, reason: name);
+        final tiles = find
+            .descendant(of: grid, matching: find.byType(Container))
+            .evaluate()
+            .map((e) => tester.getRect(find.byWidget(e.widget)))
+            .where((r) => r.height > 30)
+            .toList();
+        expect(tiles.length, name == 'CFA' ? 12 : 14, reason: name);
+        expect({for (final r in tiles) r.width.toStringAsFixed(1)}.length, 1, reason: '$name: cùng rộng');
+        expect({for (final r in tiles) r.height.toStringAsFixed(1)}.length, 1, reason: '$name: cùng cao');
+        final gridRect = tester.getRect(grid);
+        expect(tiles.map((r) => r.left).reduce((a, b) => a < b ? a : b), gridRect.left, reason: name);
+        expect(
+          tiles.map((r) => r.right).reduce((a, b) => a > b ? a : b),
+          closeTo(gridRect.right, 0.6),
+          reason: '$name: trải hết chiều ngang',
+        );
+        expect(tester.takeException(), isNull, reason: name);
+      }
+    });
+  }
+
+  testWidgets('ma trận tương quan danh mục to hơn và căn giữa khung', (tester) async {
+    const w = 1500.0;
+    tester.view.physicalSize = const Size(w, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final pa = _analysis();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: Padding(padding: const EdgeInsets.all(20), child: PortfolioReport(newPortfolio('X'), pa)),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final title = find.textContaining('Tương quan lợi suất ngày giữa các mã');
+    expect(title, findsOneWidget);
+    final cells = find.text('0,75'); // hai ô ngoài đường chéo của ma trận 2x2 (bộ test dùng tương quan 0,75)
+    expect(cells, findsNWidgets(2));
+    final boxes = [for (var i = 0; i < 2; i++) tester.getRect(find.ancestor(of: cells.at(i), matching: find.byType(Container)).first)];
+    for (final r in boxes) {
+      expect(r.width, greaterThanOrEqualTo(56), reason: 'ô rộng tối thiểu 56 px');
+      expect(r.height, greaterThanOrEqualTo(50), reason: 'ô cao tối thiểu 50 px');
+    }
+    // Căn giữa: tâm các ô trùng tâm tiêu đề (cùng một khung) với sai số bằng nửa cột nhãn mã
+    final center = (boxes[0].center.dx + boxes[1].center.dx) / 2;
+    expect(center, closeTo(tester.getCenter(title).dx, 60), reason: 'ma trận nằm giữa khung');
+    expect(tester.takeException(), isNull);
   });
 }

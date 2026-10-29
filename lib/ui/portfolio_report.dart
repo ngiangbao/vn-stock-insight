@@ -138,7 +138,7 @@ class PortfolioReport extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        Wrap(spacing: 8, runSpacing: 8, children: [for (final t in tiles) ReportTile(t.$1, t.$2)]),
+        ReportTileGrid(tiles),
         ReportSection(
           '1. Chính sách đầu tư (IPS)',
           Column(
@@ -554,62 +554,77 @@ class _Correlation extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
     final base = Tone.down(context);
-    Widget cell(String t, {Color? bg, bool bold = false, bool border = false}) => Container(
-      width: 52,
-      height: 34,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: bg,
-        border: border ? Border.all(color: base, width: 1.5) : null,
-      ),
-      child: Text(
-        t,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: bold ? FontWeight.w800 : FontWeight.w400,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        ),
-      ),
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Tương quan lợi suất ngày giữa các mã (ô viền đậm: từ 0,7 trở lên)',
-          style: text.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 6),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  cell(''),
-                  for (final n in names) cell(n, bold: true, bg: cs.surfaceContainerHighest),
-                ],
-              ),
-              for (var i = 0; i < names.length; i++)
-                Row(
+    // Cỡ chữ hệ thống lớn thì ô cao hơn tương ứng
+    final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.8);
+    return LayoutBuilder(
+      builder: (context, box) {
+        // Ma trận to và căn giữa khung: ô rộng theo bề rộng khung (56 đến 130 px), cột nhãn mã rộng 72 px
+        const labelW = 72.0;
+        final cellW = ((box.maxWidth - labelW) / names.length).clamp(56.0, 130.0);
+        final cellH = 52.0 * scale;
+        Widget cell(String t, {double? w, Color? bg, bool bold = false, bool border = false}) => Container(
+          width: w ?? cellW,
+          height: cellH,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: bg,
+            border: border ? Border.all(color: base, width: 2) : null,
+          ),
+          child: Text(
+            t,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              'Tương quan lợi suất ngày giữa các mã (ô viền đậm: từ 0,7 trở lên)',
+              textAlign: TextAlign.center,
+              style: text.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Column(
                   children: [
-                    cell(names[i], bold: true, bg: cs.surfaceContainerHighest),
-                    for (var j = 0; j < names.length; j++)
-                      () {
-                        final v = _n(mat[i][j]) ?? 0;
-                        final high = i != j && v >= 0.7;
-                        return cell(
-                          fmt(v, 2),
-                          bg: i == j ? cs.surfaceContainerHighest : base.withValues(alpha: (v.clamp(0, 1)) * 0.28),
-                          bold: high,
-                          border: high,
-                        );
-                      }(),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        cell('', w: labelW),
+                        for (final n in names) cell(n, bold: true, bg: cs.surfaceContainerHighest),
+                      ],
+                    ),
+                    for (var i = 0; i < names.length; i++)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          cell(names[i], w: labelW, bold: true, bg: cs.surfaceContainerHighest),
+                          for (var j = 0; j < names.length; j++)
+                            () {
+                              final v = _n(mat[i][j]) ?? 0;
+                              final high = i != j && v >= 0.7;
+                              return cell(
+                                fmt(v, 2),
+                                bg: i == j ? cs.surfaceContainerHighest : base.withValues(alpha: (v.clamp(0, 1)) * 0.28),
+                                bold: high,
+                                border: high,
+                              );
+                            }(),
+                        ],
+                      ),
                   ],
                 ),
-            ],
-          ),
-        ),
-      ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

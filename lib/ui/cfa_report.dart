@@ -116,7 +116,7 @@ class CfaReport extends StatelessWidget {
           child: Text('Độ tin cậy: ${r['confidence'] ?? '–'}', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
         ),
         const SizedBox(height: 12),
-        Wrap(spacing: 8, runSpacing: 8, children: [for (final t in tiles) _Tile(t.$1, t.$2)]),
+        ReportTileGrid(tiles),
         ReportSection(
           '1. Phương pháp định lượng',
           Column(
@@ -226,7 +226,6 @@ class _Tile extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
     return Container(
-      constraints: const BoxConstraints(minWidth: 150),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         border: Border.all(color: cs.outlineVariant),
@@ -234,11 +233,18 @@ class _Tile extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(label, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+          Text(
+            label,
+            style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
           Text(
             value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700, fontFeatures: const [FontFeature.tabularFigures()]),
           ),
         ],
@@ -699,3 +705,50 @@ typedef ReportTile = _Tile;
 typedef ReportKV = _KV;
 typedef QuantTable = _QuantTable;
 typedef ScenarioCard = _Scenario;
+
+/// Lưới thẻ chỉ số (KPI): mọi thẻ cùng rộng, cùng cao và trải hết chiều ngang khung báo cáo. Số cột chọn theo bề rộng,
+/// ưu tiên số cột làm hàng cuối ít ô trống nhất (thẻ rộng tối thiểu khoảng 150 px).
+class ReportTileGrid extends StatelessWidget {
+  final List<(String, String)> tiles;
+  const ReportTileGrid(this.tiles, {super.key});
+
+  /// Số cột cho [count] thẻ khi xếp được tối đa [maxCols] cột: thử vài số cột lớn nhất, chọn số ít ô trống nhất (bằng nhau thì chọn nhiều cột hơn).
+  static int columnsFor(int count, int maxCols) {
+    if (maxCols <= 1 || count <= 1) return 1;
+    var best = maxCols, bestEmpty = (maxCols - count % maxCols) % maxCols;
+    for (var n = maxCols - 1; n >= math.max(2, maxCols - 3); n--) {
+      final empty = (n - count % n) % n;
+      if (empty < bestEmpty) {
+        best = n;
+        bestEmpty = empty;
+      }
+    }
+    return best;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Cỡ chữ hệ thống lớn thì thẻ cao hơn tương ứng nên mọi thẻ vẫn bằng nhau và không bị cắt chữ
+    final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.8);
+    return LayoutBuilder(
+      builder: (context, box) {
+        const gap = 8.0, minTile = 150.0;
+        final maxCols = ((box.maxWidth + gap) / (minTile + gap)).floor().clamp(1, 8);
+        final cols = columnsFor(tiles.length, maxCols);
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: cols,
+            mainAxisExtent: 88 * scale,
+            crossAxisSpacing: gap,
+            mainAxisSpacing: gap,
+          ),
+          itemCount: tiles.length,
+          itemBuilder: (context, i) => _Tile(tiles[i].$1, tiles[i].$2),
+        );
+      },
+    );
+  }
+}

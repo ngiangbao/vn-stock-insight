@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../services/macro.dart';
 import '../state.dart';
 import 'macro_chart.dart';
+import 'rates_tab.dart';
 import 'widgets.dart' show fmt, timeLocal;
 
 const _ranges = [('5 năm', 5), ('10 năm', 10), ('20 năm', 20), ('Toàn bộ', 0)];
@@ -70,7 +71,7 @@ class _MacroPageState extends State<MacroPage> {
     final failed = snap?.failed.length ?? 0;
 
     return DefaultTabController(
-      length: macroTabs.length,
+      length: macroTabs.length + 1,
       child: Scaffold(
         appBar: AppBar(
           title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -97,7 +98,7 @@ class _MacroPageState extends State<MacroPage> {
           bottom: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            tabs: [for (final t in macroTabs) Tab(text: t.title)],
+            tabs: [for (final t in macroTabs) Tab(text: t.title), const Tab(text: 'Lãi suất hằng ngày')],
           ),
         ),
         body: Column(children: [
@@ -141,7 +142,7 @@ class _MacroPageState extends State<MacroPage> {
             // Vuốt ngang trên biểu đồ dùng để xem từng kỳ, nên chuyển tab bằng cách bấm vào tab (tránh xung đột cử chỉ)
             child: TabBarView(
               physics: const NeverScrollableScrollPhysics(),
-              children: [for (final t in macroTabs) _TabGrid(t, snap, _loading, _years, () => _load(force: true))],
+              children: [for (final t in macroTabs) _TabGrid(t, snap, _loading, _years, () => _load(force: true)), const RatesTab()],
             ),
           ),
         ]),
