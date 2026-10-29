@@ -1,6 +1,7 @@
 // Cửa sổ pop-up chi tiết một cổ phiếu, hiện lên trên màn hình đang xem: thông tin chính, biểu đồ,
 // chỉ số cơ bản, thông tin phiên và lối vào phân tích AI.
 
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import '../services/market.dart';
 import '../state.dart';
 import 'analysis_page.dart';
 import 'chart.dart';
+import 'liquidity_chart.dart';
 import 'widgets.dart';
 
 /// Mở cửa sổ chi tiết cổ phiếu (pop-up phía trên màn hình hiện tại).
@@ -31,11 +33,43 @@ class _StockDialogState extends State<StockDialog> {
   Map<String, dynamic>? _fund;
   BoardRow? _row;
   bool _barsFailed = false;
+  Timer? _live;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    // Giá và biểu đồ làm mới 30 giây một lần trong giờ giao dịch (cùng nhịp với biểu đồ thanh khoản)
+    _live = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (isTradingTime(DateTime.now())) _refresh();
+    });
+  }
+
+  @override
+  void dispose() {
+    _live?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    final b = await fetchBars(widget.symbol, days: 1900);
+    if (!mounted || b.length < 2) return;
+    BoardRow? row;
+    try {
+      for (final group in ['HOSE', 'HNX', 'UPCOM']) {
+        final hit = (await fetchBoard(group)).where((r) => r.symbol == widget.symbol);
+        if (hit.isNotEmpty) {
+          row = hit.first;
+          break;
+        }
+      }
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _bars = b;
+      _snap = analyze(widget.symbol, b);
+      _row = row ?? _row;
+    });
   }
 
   Future<void> _load() async {
@@ -521,6 +555,8 @@ class _Sidebar extends StatelessWidget {
             ],
           ),
         ),
+        const SizedBox(height: 14),
+        LiquidityChart(symbol),
         const SizedBox(height: 14),
         Container(
           padding: const EdgeInsets.all(14),

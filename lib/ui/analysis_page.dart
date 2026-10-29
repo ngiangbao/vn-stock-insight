@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../main.dart' show appTheme;
+import '../services/pdf_export.dart';
 
 import '../state.dart';
 import 'analysis_report.dart';
@@ -47,14 +52,61 @@ class _AnalysisPageState extends State<AnalysisPage> {
     }
   }
 
-  Widget _report(AppState state, Map<String, dynamic> record, Key key) {
+  /// Cột đang được chụp để xuất PDF ('past' hoặc 'today'); lúc chụp báo cáo hiện theo giao diện sáng để in cho rõ.
+  String? _exporting;
+  final _boundaries = {'past': GlobalKey(), 'today': GlobalKey()};
+
+  Future<void> _exportPdf(String which, String dayKey) async {
+    if (_exporting != null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _exporting = which);
+    try {
+      // Chờ hai khung hình để báo cáo dựng xong theo giao diện sáng
+      await WidgetsBinding.instance.endOfFrame;
+      await WidgetsBinding.instance.endOfFrame;
+      final boundary = _boundaries[which]!.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) throw 'Chưa dựng xong báo cáo, hãy thử lại.';
+      final image = await boundary.toImage(pixelRatio: 2);
+      final bytes = await pdfFromImage(
+        image,
+        title: 'Báo cáo phân tích ${widget.symbol} $dayKey',
+        author: 'VN Stock Insight',
+      );
+      final file = await savePdf(bytes, 'bao-cao-${widget.symbol}-$dayKey.pdf');
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text('Đã lưu ${file.path}'),
+          duration: const Duration(seconds: 8),
+          action: SnackBarAction(label: 'Mở', onPressed: () => launchUrl(Uri.file(file.path))),
+        ));
+    } catch (e) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('Không xuất được PDF: $e')));
+    } finally {
+      if (mounted) setState(() => _exporting = null);
+    }
+  }
+
+  Widget _report(AppState state, Map<String, dynamic> record, Key key, String which) {
     final board = [for (final rows in state.dash.boards.values) ...rows].where((r) => r.symbol == widget.symbol).firstOrNull;
-    return ResearchReport(
-      record,
-      key: key,
-      bars: state.stocks[widget.symbol]?.bars ?? const [],
-      indexBars: state.index?.bars ?? const [],
-      exchange: board?.exchange,
+    final printing = _exporting == which;
+    return RepaintBoundary(
+      key: _boundaries[which],
+      child: Theme(
+        data: printing ? appTheme(Brightness.light) : Theme.of(context),
+        child: ColoredBox(
+          color: printing ? Colors.white : Colors.transparent,
+          child: ResearchReport(
+            record,
+            key: key,
+            bars: state.stocks[widget.symbol]?.bars ?? const [],
+            indexBars: state.index?.bars ?? const [],
+            exchange: board?.exchange,
+          ),
+        ),
+      ),
     );
   }
 
@@ -80,14 +132,18 @@ class _AnalysisPageState extends State<AnalysisPage> {
       selected: picked?.$1,
       todayKey: todayKey,
       onPick: (d) => setState(() => _compareDay = d),
+      onExport: picked == null ? null : () => _exportPdf('past', picked.$1),
+      exporting: _exporting == 'past',
       child: picked == null
           ? const _Empty('Chưa có nhận định của các ngày trước. Nhận định mỗi ngày được lưu lại tối đa ${AppState.historyDays} ngày.')
-          : _report(state, picked.$2, ValueKey('past-${picked.$1}')),
+          : _report(state, picked.$2, ValueKey('past-${picked.$1}'), 'past'),
     );
     final right = _DayColumn(
       title: 'Hôm nay',
       subtitle: todayKey,
       todayKey: todayKey,
+      onExport: today == null || _running ? null : () => _exportPdf('today', todayKey),
+      exporting: _exporting == 'today',
       child: _running
           ? _Loading(widget.symbol, state.aiLabel, state.provider.local, state.engineStatus, state.engineProgress)
           : _error != null
@@ -106,7 +162,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
                   ),
                 )
               : today != null
-                  ? _report(state, today, const ValueKey('today'))
+                  ? _report(state, today, const ValueKey('today'), 'today')
                   : _Empty('Chưa có nhận định hôm nay.', action: FilledButton(onPressed: _run, child: const Text('Phân tích ngay'))),
     );
 
@@ -171,6 +227,8 @@ class _DayColumn extends StatelessWidget {
   final String todayKey;
   final List<(String, Map<String, dynamic>)> days;
   final ValueChanged<String>? onPick;
+  final VoidCallback? onExport;
+  final bool exporting;
   final Widget child;
   const _DayColumn({
     required this.title,
@@ -180,6 +238,8 @@ class _DayColumn extends StatelessWidget {
     this.days = const [],
     this.selected,
     this.onPick,
+    this.onExport,
+    this.exporting = false,
   });
 
   @override
@@ -191,10 +251,22 @@ class _DayColumn extends StatelessWidget {
     }
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-        Text(title, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+      Row(children: [
+        Expanded(
+          child: Wrap(crossAxisAlignment: WrapCrossAlignment.end, spacing: 8, children: [
+            Text(title, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+            if (subtitle != null) Text(vn(subtitle!), style: text.bodyMedium),
+          ]),
+        ),
         const SizedBox(width: 8),
-        if (subtitle != null) Text(vn(subtitle!), style: text.bodyMedium),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48)),
+          onPressed: exporting ? null : onExport,
+          icon: exporting
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.picture_as_pdf_outlined),
+          label: Text(exporting ? 'Đang xuất…' : 'Xuất PDF'),
+        ),
       ]),
       if (days.isNotEmpty) ...[
         const SizedBox(height: 8),

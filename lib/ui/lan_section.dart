@@ -16,7 +16,7 @@ class QrView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final image = QrImage(QrCode(payload: QrPayload.fromString(data)));
+    final image = QrImage(QrCode.fromData(data: data, errorCorrectLevel: QrErrorCorrectLevel.M));
     return Semantics(
       label: 'Mã QR mở trang xem trên thiết bị khác',
       image: true,

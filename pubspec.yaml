@@ -3,7 +3,7 @@ description: Trợ lý phân tích cổ phiếu Việt Nam bằng AI (Claude API
 publish_to: "none"
 
 # Phiên bản app. Khi phát hành: tăng số này và tạo tag git trùng tên (vd: v1.0.1).
-version: 2.2.0+23
+version: 2.3.0+24
 
 environment:
   sdk: ^3.13.0
@@ -19,7 +19,8 @@ dependencies:
   package_info_plus: 10.2.2
   path_provider: 2.1.6
   crypto: 3.0.7
-  qr: 4.0.0
+  qr: 3.0.2
+  pdf: 3.13.1
 
 dev_dependencies:
   flutter_test:
