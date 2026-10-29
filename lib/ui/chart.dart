@@ -1,5 +1,5 @@
 // Biểu đồ giá tương tác: nến, thanh OHLC, đường, vùng, baseline, Heikin-Ashi; chỉ báo MA/EMA/Bollinger,
-// khối lượng, RSI, MACD, Stochastic. Kéo để di chuyển, cuộn chuột/chụm 2 ngón để phóng to,
+// khối lượng, RSI, MACD, Stochastic, MFI. Kéo để di chuyển, cuộn chuột/chụm 2 ngón để phóng to,
 // rê chuột hoặc nhấn giữ để xem chi tiết từng phiên.
 
 import 'dart:math' as math;
@@ -38,12 +38,13 @@ enum Indicator {
   volume('Khối lượng', Color(0xFF26A69A)),
   rsi('RSI 14', Color(0xFF7E57C2)),
   macd('MACD (12, 26, 9)', Color(0xFF2962FF)),
-  stoch('Stochastic (14, 3)', Color(0xFF2962FF));
+  stoch('Stochastic (14, 3)', Color(0xFF2962FF)),
+  mfi('MFI 14', Color(0xFF00897B));
 
   final String label;
   final Color color;
   const Indicator(this.label, this.color);
-  bool get pane => this == rsi || this == macd || this == stoch;
+  bool get pane => this == rsi || this == macd || this == stoch || this == mfi;
 }
 
 const _up = Color(0xFF26A69A), _down = Color(0xFFEF5350);
@@ -151,6 +152,7 @@ class _StockChartState extends State<StockChart> {
       'bbUp': bbUp,
       'bbLo': bbLo,
       'rsi': rsiSeries(closes),
+      'mfi': mfiSeries(bars),
       'macd': macd,
       'signal': signal,
       'hist': hist,
@@ -581,6 +583,9 @@ class _ChartPainter extends CustomPainter {
       case Indicator.rsi:
         a = data.s['rsi']!;
         (lo, hi, guides) = (0, 100, [30, 70]);
+      case Indicator.mfi:
+        a = data.s['mfi']!;
+        (lo, hi, guides) = (0, 100, [20, 80]);
       case Indicator.stoch:
         a = data.s['k']!;
         b = data.s['d']!;
@@ -611,8 +616,8 @@ class _ChartPainter extends CustomPainter {
     }
     canvas.save();
     canvas.clipRect(Rect.fromLTWH(0, top, plotW, h));
-    if (p == Indicator.rsi) {
-      canvas.drawRect(Rect.fromLTRB(0, y(70), plotW, y(30)), Paint()..color = p.color.withValues(alpha: 0.07));
+    if (p == Indicator.rsi || p == Indicator.mfi) {
+      canvas.drawRect(Rect.fromLTRB(0, y(p == Indicator.mfi ? 80 : 70), plotW, y(p == Indicator.mfi ? 20 : 30)), Paint()..color = p.color.withValues(alpha: 0.07));
     }
     if (hist != null) {
       final barW = plotW / count;
@@ -625,7 +630,7 @@ class _ChartPainter extends CustomPainter {
             Paint()..color = color);
       }
     }
-    final mainColor = p == Indicator.rsi ? p.color : const Color(0xFF2962FF);
+    final mainColor = p == Indicator.rsi || p == Indicator.mfi ? p.color : const Color(0xFF2962FF);
     const secondColor = Color(0xFFFF6D00);
     _line(canvas, a, from, to, x, y, mainColor, 1.4);
     if (b != null) _line(canvas, b, from, to, x, y, secondColor, 1.4);

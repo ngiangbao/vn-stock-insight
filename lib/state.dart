@@ -25,6 +25,9 @@ import 'ui/chart.dart' show ChartType, Indicator;
 
 const defaultWatchlist = ['FPT', 'VCB', 'HPG', 'MWG', 'TCB', 'SSI'];
 
+/// Ngày theo giờ Việt Nam: yyyy-MM-dd.
+String vietnamDayKey(DateTime value) => _vietnamDayKey(value);
+
 String _vietnamDayKey(DateTime value) {
   final date = value.toUtc().add(const Duration(hours: 7));
   final month = date.month.toString().padLeft(2, '0');
@@ -138,6 +141,10 @@ class AppState extends ChangeNotifier {
   /// Kết quả phân tích chuyên sâu đã lưu: mã → {created_at, ai, inputs, result}
   Map<String, Map<String, dynamic>> analyses = {};
 
+  /// Nhận định theo ngày (giờ Việt Nam) của từng mã, giữ [historyDays] ngày gần nhất: mã → ngày → bản ghi.
+  Map<String, Map<String, Map<String, dynamic>>> analysisHistory = {};
+  static const historyDays = 7;
+
   Timer? _liveTimer;
 
   Future<void> init({bool startDashboard = true}) async {
@@ -175,6 +182,7 @@ class AppState extends ChangeNotifier {
       });
     }
     await _loadAnalyses();
+    await _loadHistory();
     if (startDashboard) lan.restore();
     notifyListeners();
   }
@@ -314,6 +322,54 @@ class AppState extends ChangeNotifier {
     return record;
   }
 
+  /// Các ngày đã lưu của một mã, mới nhất trước: (yyyy-MM-dd, bản ghi).
+  List<(String, Map<String, dynamic>)> historyFor(String symbol) {
+    final days = analysisHistory[symbol] ?? const {};
+    final keys = days.keys.toList()..sort((a, b) => b.compareTo(a));
+    return [for (final k in keys) (k, days[k]!)];
+  }
+
+  /// Ghi bản phân tích vào lịch sử theo ngày, chỉ giữ [historyDays] ngày gần nhất.
+  void rememberAnalysis(String symbol, Map<String, dynamic> record) {
+    final created = DateTime.tryParse(record['created_at']?.toString() ?? '');
+    if (created == null) return;
+    final days = {...?analysisHistory[symbol], _vietnamDayKey(created): record};
+    final keys = days.keys.toList()..sort((a, b) => b.compareTo(a));
+    analysisHistory = {
+      ...analysisHistory,
+      symbol: {for (final k in keys.take(historyDays)) k: days[k]!},
+    };
+  }
+
+  Future<void> _loadHistory() async {
+    final file = File('${dataDir.path}${Platform.pathSeparator}analysis_history.json');
+    try {
+      if (await file.exists()) {
+        final raw = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        analysisHistory = {
+          for (final e in raw.entries)
+            e.key: {for (final d in (e.value as Map).entries) d.key as String: Map<String, dynamic>.from(d.value as Map)},
+        };
+      }
+    } catch (_) {
+      analysisHistory = {};
+    }
+    // Bản phân tích đã có từ trước khi có lịch sử vẫn được đưa vào đúng ngày của nó.
+    for (final e in analyses.entries) {
+      rememberAnalysis(e.key, e.value);
+    }
+  }
+
+  Future<void> _saveHistory() async {
+    try {
+      final file = File('${dataDir.path}${Platform.pathSeparator}analysis_history.json');
+      await file.parent.create(recursive: true);
+      await file.writeAsString(jsonEncode(analysisHistory), flush: true);
+    } catch (_) {
+      // Không lưu được lịch sử thì vẫn giữ kết quả hiện tại trong bộ nhớ.
+    }
+  }
+
   Future<void> _loadAnalyses() async {
     final file = File('${dataDir.path}${Platform.pathSeparator}analyses.json');
     try {
@@ -403,6 +459,7 @@ class AppState extends ChangeNotifier {
       'result': result,
     };
     analyses = {...analyses, symbol: record};
+    rememberAnalysis(symbol, record);
     // Giữ tối đa 100 mã gần nhất; các kết quả được lưu riêng theo người dùng.
     if (analyses.length > 100) {
       final keep = analyses.entries.toList()
@@ -410,6 +467,7 @@ class AppState extends ChangeNotifier {
       analyses = Map.fromEntries(keep.take(100));
     }
     await _saveAnalyses();
+    await _saveHistory();
     notifyListeners();
     return record;
   }

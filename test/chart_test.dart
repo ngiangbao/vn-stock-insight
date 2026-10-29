@@ -37,6 +37,10 @@ void main() {
     expect(k.last, inInclusiveRange(0, 100));
     expect(d.last, isNotNull);
     expect(heikinAshi(bars).length, 600);
+    final mfi = mfiSeries(bars);
+    expect(mfi.length, 600);
+    expect(mfi.take(14).every((x) => x == null), isTrue);
+    expect(mfi.last, inInclusiveRange(0, 100));
   });
 
   testWidgets('biểu đồ vẽ được mọi dạng với mọi chỉ báo, rê chuột, cuộn để phóng to', (tester) async {

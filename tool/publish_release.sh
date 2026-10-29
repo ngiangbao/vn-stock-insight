@@ -19,10 +19,13 @@ gh run download "$RUN" -R "$REPO" -D "$DIR"
 mapfile -t FILES < <(find "$DIR" -type f | sort)
 [[ ${#FILES[@]} -gt 0 ]] || { echo "Lượt build $RUN không có file nào" >&2; exit 1; }
 
+(cd "$DIR" && find . -type f ! -name SHA256SUMS.txt -exec sha256sum {} + | sed 's# \./.*/# #; s# \./# #' > "$DIR/SHA256SUMS.txt")
+FILES+=("$DIR/SHA256SUMS.txt")
+
 NOTES="Dashboard mới: thanh chỉ số nhanh, bố cục thị trường gọn hơn và bản đồ nhiệt theo biến động, khối ngoại hoặc thanh khoản.
 
 Tải bản cho máy của bạn:
-- Windows: tải file \`-windows-x64-setup.exe\` và làm theo trình cài đặt.
+- Windows: tải file \`-windows-x64-setup.exe\` và làm theo trình cài đặt, hoặc \`-windows-x64-portable.zip\` để giải nén và chạy trực tiếp. Nếu SmartScreen cảnh báo, xem mục Windows trong README. Mã SHA-256 của từng file nằm trong \`SHA256SUMS.txt\`.
 - macOS: tải file \`-macos.pkg\` để cài vào Applications. Gói chưa được ký/notarize bằng Apple Developer ID; macOS có thể yêu cầu xác nhận khi mở.
 - Linux: file \`-linux-x64.tar.gz\`, giải nén rồi chạy \`./vn-stock-insight/install.sh\`.
 - Android: file \`.apk\`, mở để cài (cho phép cài từ nguồn không xác định)."

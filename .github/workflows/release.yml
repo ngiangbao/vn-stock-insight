@@ -99,6 +99,9 @@ jobs:
         run: |
           $packageVersion = $env:VERSION.TrimStart('v')
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$packageVersion" tool\windows-installer.iss
+      - name: Bản portable (không cần cài, không chạy trình cài đặt)
+        shell: pwsh
+        run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath "dist\vn-stock-insight-$env:VERSION-windows-x64-portable.zip"
       - uses: actions/upload-artifact@v7
         with: { name: windows, path: dist/* }
 
@@ -146,7 +149,7 @@ jobs:
           Dashboard mới: thanh chỉ số nhanh, bố cục thị trường gọn hơn và bản đồ nhiệt theo biến động, khối ngoại hoặc thanh khoản.
 
           Tải bản cho máy của bạn:
-          - Windows: tải file `-windows-x64-setup.exe` và làm theo trình cài đặt.
+          - Windows: tải file `-windows-x64-setup.exe` và làm theo trình cài đặt, hoặc `-windows-x64-portable.zip` để giải nén và chạy trực tiếp. Nếu SmartScreen cảnh báo, xem hướng dẫn trong README (mục Windows).
           - macOS: tải file `-macos.pkg` và mở để cài ứng dụng vào Applications. Gói hiện chưa được ký/notarize bằng Apple Developer ID; macOS có thể yêu cầu xác nhận khi mở.
           - Linux: file `-linux-x64.tar.gz`, giải nén rồi chạy `./vn-stock-insight/install.sh`.
           - Android: file `.apk`, mở để cài (cho phép cài từ nguồn không xác định).

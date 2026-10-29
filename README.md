@@ -43,10 +43,20 @@ Cấu hình trong **Cài đặt → AI**: chọn nhà cung cấp, nhập API key
 
 Tải bản mới nhất tại [Releases](https://github.com/ngiangbao/vn-stock-insight/releases):
 
-- **Windows:** `…-windows-x64-setup.exe`, mở trình cài đặt và làm theo hướng dẫn.
+- **Windows:** `…-windows-x64-setup.exe`, mở trình cài đặt và làm theo hướng dẫn (cài cho riêng người dùng, không cần quyền quản trị). Cũng có `…-windows-x64-portable.zip` để giải nén và chạy thẳng `vn_stock_insight.exe`. Xem thêm mục [Cảnh báo SmartScreen và diệt virus](#cảnh-báo-smartscreen-và-diệt-virus-trên-windows).
 - **macOS:** `…-macos.pkg`, mở gói cài đặt để cài vào Applications. Gói chưa được ký/notarize bằng Apple Developer ID; macOS có thể yêu cầu xác nhận khi mở.
 - **Linux:** `…-linux-x64.tar.gz`, giải nén rồi chạy `./vn-stock-insight/install.sh`. Gỡ bằng `install.sh --uninstall`.
 - **Android:** `….apk`, mở file để cài.
+
+### Cảnh báo SmartScreen và diệt virus trên Windows
+
+App chưa được ký số bằng chứng chỉ code signing (chứng chỉ trả phí và cần xác minh danh tính), nên Windows SmartScreen hiện "Windows protected your PC" và một số phần mềm diệt virus có thể chặn file mới, ít người tải. Đây là cảnh báo về file chưa có uy tín, không phải kết quả phát hiện mã độc. Cách cài an toàn:
+
+1. Tải file từ trang Releases của repo này và đối chiếu SHA-256 với `SHA256SUMS.txt` đính kèm (PowerShell: `Get-FileHash .\tên-file`).
+2. Khi SmartScreen hiện cảnh báo: chọn **More info** rồi **Run anyway**. Với file đã tải: chuột phải file, **Properties**, tick **Unblock**, **OK** rồi mở lại.
+3. Nếu phần mềm diệt virus chặn, thêm thư mục `%LOCALAPPDATA%\Programs\VN Stock Insight` (hoặc thư mục giải nén bản portable) vào danh sách loại trừ, hoặc gửi file cho nhà cung cấp để báo nhận diện nhầm. Windows Defender: <https://www.microsoft.com/wdsi/filesubmission>.
+
+Mã nguồn đầy đủ nằm trong repo, bạn có thể tự build bằng `flutter build windows --release`.
 
 ## Phát triển
 

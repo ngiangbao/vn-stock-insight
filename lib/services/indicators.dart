@@ -100,6 +100,26 @@ List<double?> rsiSeries(List<double> xs, {int n = 14}) {
   return (k, dLine);
 }
 
+/// MFI (Money Flow Index, [n] phiên): dòng tiền theo giá điển hình × khối lượng, thang 0–100.
+List<double?> mfiSeries(List<Bar> bars, {int n = 14}) {
+  final out = List<double?>.filled(bars.length, null);
+  if (bars.length <= n) return out;
+  final tp = [for (final b in bars) (b.h + b.l + b.c) / 3];
+  for (var i = n; i < bars.length; i++) {
+    var pos = 0.0, neg = 0.0;
+    for (var j = i - n + 1; j <= i; j++) {
+      final flow = tp[j] * bars[j].v;
+      if (tp[j] > tp[j - 1]) {
+        pos += flow;
+      } else if (tp[j] < tp[j - 1]) {
+        neg += flow;
+      }
+    }
+    out[i] = neg == 0 ? (pos == 0 ? 50 : 100) : 100 - 100 / (1 + pos / neg);
+  }
+  return out;
+}
+
 /// Nến Heikin-Ashi.
 List<Bar> heikinAshi(List<Bar> bars) {
   final out = <Bar>[];

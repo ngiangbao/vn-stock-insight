@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "vn.stockinsight" "\0"
-            VALUE "FileDescription", "vn_stock_insight" "\0"
+            VALUE "CompanyName", "Nguyen Giang Bao" "\0"
+            VALUE "FileDescription", "VN Stock Insight - Vietnam stock analysis" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "vn_stock_insight" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 vn.stockinsight. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Nguyen Giang Bao. All rights reserved." "\0"
             VALUE "OriginalFilename", "vn_stock_insight.exe" "\0"
-            VALUE "ProductName", "vn_stock_insight" "\0"
+            VALUE "ProductName", "VN Stock Insight" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
