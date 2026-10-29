@@ -49,12 +49,75 @@ Future<List<Bar>> fetchBars(String symbol,
       final resp = await http.get(Uri.parse(url), headers: userAgent).timeout(const Duration(seconds: 20));
       if (resp.statusCode != 200) continue;
       final bars = parseBars(jsonDecode(resp.body) as Map<String, dynamic>);
-      if (bars.isNotEmpty) return bars;
+      if (bars.isNotEmpty) return resolution == '1D' ? await withToday(bars, symbol, k) : bars;
     } catch (_) {
       // thử nguồn tiếp theo
     }
   }
   return const [];
+}
+
+/// DNSE chỉ chốt nến ngày sau phiên, nên trong phiên nến cuối là của hôm qua.
+/// Bổ sung nến hôm nay: cổ phiếu lấy từ VNDirect, chỉ số/phái sinh gộp từ nến 1 phút của DNSE.
+Future<List<Bar>> withToday(
+  List<Bar> bars,
+  String symbol,
+  String kind, {
+  DateTime? now,
+}) async {
+  final clock = (now ?? DateTime.now()).toUtc();
+  final today = vnDate(clock.millisecondsSinceEpoch ~/ 1000);
+  if (bars.isEmpty || vnDate(bars.last.t).compareTo(today) >= 0) return bars;
+  final vn = clock.add(const Duration(hours: 7));
+  if (vn.weekday > DateTime.friday || vn.hour < 9) return bars;
+  final end = clock.millisecondsSinceEpoch ~/ 1000;
+  try {
+    Bar? bar;
+    if (kind == 'stock') {
+      final r = await http
+          .get(
+            Uri.parse(
+              'https://dchart-api.vndirect.com.vn/dchart/history?resolution=D&symbol=$symbol&from=${end - 4 * 86400}&to=$end',
+            ),
+            headers: userAgent,
+          )
+          .timeout(const Duration(seconds: 12));
+      if (r.statusCode == 200) {
+        final d = jsonDecode(r.body) as Map<String, dynamic>;
+        if (d['s'] == 'ok') {
+          bar = parseBars(d).where((b) => vnDate(b.t) == today).lastOrNull;
+        }
+      }
+    } else {
+      final r = await http
+          .get(
+            Uri.parse(
+              'https://services.entrade.com.vn/chart-api/v2/ohlcs/$kind?from=${end - 86400}&to=$end&symbol=$symbol&resolution=1',
+            ),
+            headers: userAgent,
+          )
+          .timeout(const Duration(seconds: 12));
+      if (r.statusCode == 200) {
+        final m = parseBars(jsonDecode(r.body) as Map<String, dynamic>)
+            .where((b) => vnDate(b.t) == today)
+            .toList();
+        if (m.isNotEmpty) {
+          bar = Bar(
+            m.first.t,
+            m.first.o,
+            m.map((b) => b.h).reduce(math.max),
+            m.map((b) => b.l).reduce(math.min),
+            m.last.c,
+            m.fold<double>(0, (a, b) => a + b.v),
+          );
+        }
+      }
+    }
+    if (bar != null) return [...bars, bar];
+  } catch (_) {
+    // không có nến hôm nay thì giữ nguyên dữ liệu đến hôm qua
+  }
+  return bars;
 }
 
 /// Chỉ số thế giới từ Yahoo Finance ([symbol] là mã Yahoo như ^GSPC): nến ngày, tối đa 5 năm gần nhất.

@@ -1,6 +1,7 @@
 // Trạng thái chung của app: cài đặt, dữ liệu thị trường, danh sách theo dõi, kết quả phân tích.
 // Mọi thứ lưu trên máy người dùng; API key lưu trong kho bảo mật của hệ điều hành.
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'dart:io';
@@ -137,6 +138,8 @@ class AppState extends ChangeNotifier {
   /// Kết quả phân tích chuyên sâu đã lưu: mã → {created_at, ai, inputs, result}
   Map<String, Map<String, dynamic>> analyses = {};
 
+  Timer? _liveTimer;
+
   Future<void> init({bool startDashboard = true}) async {
     _prefs = await SharedPreferences.getInstance();
     themeMode = ThemeMode.values.byName(_prefs.getString('theme') ?? 'system');
@@ -164,7 +167,13 @@ class AppState extends ChangeNotifier {
     runtime = LlamaRuntime(dataDir, () => rootBundle.loadString('assets/runtime.json'));
     lan = LanShare(this, _prefs, MacroRepository(cacheFile: File('${dataDir.path}${Platform.pathSeparator}macro_cache.json')));
     _autoUpdateEngine();
-    if (startDashboard) dash.start();
+    if (startDashboard) {
+      dash.start();
+      // Giá cổ phiếu/chỉ số theo dõi cập nhật trong phiên (bảng giá đã tự làm mới ở dash)
+      _liveTimer ??= Timer.periodic(const Duration(seconds: 90), (_) {
+        if (isTradingTime(DateTime.now())) refresh();
+      });
+    }
     await _loadAnalyses();
     if (startDashboard) lan.restore();
     notifyListeners();
