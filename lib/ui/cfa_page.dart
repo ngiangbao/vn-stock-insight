@@ -11,6 +11,7 @@ import '../services/quant.dart';
 import '../state.dart';
 import 'cfa_report.dart';
 import 'pdf_capture.dart';
+import 'portfolio_page.dart';
 import 'widgets.dart';
 
 class CfaPage extends StatefulWidget {
@@ -21,7 +22,7 @@ class CfaPage extends StatefulWidget {
 }
 
 class _CfaPageState extends State<CfaPage> with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 2, vsync: this);
+  late final TabController _tabs = TabController(length: 3, vsync: this);
   final _symbol = TextEditingController();
   final _rf = TextEditingController(text: '4,5');
   final _erp = TextEditingController(text: '7');
@@ -79,7 +80,7 @@ class _CfaPageState extends State<CfaPage> with SingleTickerProviderStateMixin {
     final state = AppScope.of(context);
     final text = Theme.of(context).textTheme;
     return ListenableBuilder(
-      listenable: state.cfa,
+      listenable: Listenable.merge([state.cfa, state.portfolios]),
       builder: (context, _) {
         final reports = state.cfa.reports;
         return Scaffold(
@@ -88,7 +89,7 @@ class _CfaPageState extends State<CfaPage> with SingleTickerProviderStateMixin {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('Phân tích theo khung CFA'),
-                Text('${reports.length} bản đã lưu trên máy', style: text.bodySmall),
+                Text('${reports.length} bản phân tích, ${state.portfolios.portfolios.length} danh mục lưu trên máy', style: text.bodySmall),
               ],
             ),
             bottom: TabBar(
@@ -98,13 +99,14 @@ class _CfaPageState extends State<CfaPage> with SingleTickerProviderStateMixin {
               tabs: const [
                 Tab(text: 'Phân tích mới'),
                 Tab(text: 'Đã lưu'),
+                Tab(text: 'Danh mục'),
               ],
             ),
           ),
           body: TabBarView(
             controller: _tabs,
             physics: const NeverScrollableScrollPhysics(),
-            children: [_form(context, state), _saved(context, state, reports)],
+            children: [_form(context, state), _saved(context, state, reports), const PortfolioTab()],
           ),
         );
       },
@@ -126,101 +128,115 @@ class _CfaPageState extends State<CfaPage> with SingleTickerProviderStateMixin {
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 820),
+        constraints: const BoxConstraints(),
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
           children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Chọn cổ phiếu cần phân tích', style: text.titleMedium),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Áp dụng các nhóm kiến thức CFA: định lượng (lợi suất, rủi ro, beta, VaR), kinh tế, báo cáo tài chính, doanh nghiệp, '
-                      'định giá (CAPM, P/B chính đáng, độ nhạy), quản lý danh mục, kịch bản và đạo đức nghề nghiệp. '
-                      'Các chỉ số được tính trên máy bạn từ giá thật, AI chỉ diễn giải.',
-                      style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+            LayoutBuilder(
+              builder: (context, box) {
+                Widget card(List<Widget> children) => Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+                  ),
+                );
+                final left = card([
+                  Text('Chọn cổ phiếu cần phân tích', style: text.titleMedium),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Áp dụng các nhóm kiến thức CFA: định lượng (lợi suất, rủi ro, beta, VaR), kinh tế, báo cáo tài chính, doanh nghiệp, '
+                    'định giá (CAPM, P/B chính đáng, độ nhạy), quản lý danh mục, kịch bản và đạo đức nghề nghiệp. '
+                    'Các chỉ số được tính trên máy bạn từ giá thật, AI chỉ diễn giải.',
+                    style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: 260,
+                    child: TextField(
+                      controller: _symbol,
+                      enabled: !_running,
+                      textCapitalization: TextCapitalization.characters,
+                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp('[A-Za-z0-9]')), LengthLimitingTextInputFormatter(5)],
+                      decoration: const InputDecoration(labelText: 'Mã cổ phiếu', hintText: 'Ví dụ FPT', border: OutlineInputBorder()),
+                      onSubmitted: (_) => _running ? null : _run(),
                     ),
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      width: 260,
-                      child: TextField(
-                        controller: _symbol,
-                        enabled: !_running,
-                        textCapitalization: TextCapitalization.characters,
-                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp('[A-Za-z0-9]')), LengthLimitingTextInputFormatter(5)],
-                        decoration: const InputDecoration(labelText: 'Mã cổ phiếu', hintText: 'Ví dụ FPT', border: OutlineInputBorder()),
-                        onSubmitted: (_) => _running ? null : _run(),
-                      ),
-                    ),
-                    if (state.watchlist.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Text('Hoặc chọn từ danh sách theo dõi', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final s in state.watchlist.take(24))
-                            ActionChip(
-                              label: Text(s),
-                              materialTapTargetSize: MaterialTapTargetSize.padded,
-                              onPressed: _running ? null : () => setState(() => _symbol.text = s),
-                            ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    Text('Giả định thị trường (có thể chỉnh)', style: text.titleSmall),
-                    const SizedBox(height: 8),
+                  ),
+                  if (state.watchlist.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text('Hoặc chọn từ danh sách theo dõi', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                    const SizedBox(height: 6),
                     Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
-                        field(_rf, 'Lãi suất phi rủi ro', 'Lãi suất trái phiếu dài hạn'),
-                        field(_erp, 'Phần bù rủi ro vốn', 'Lợi suất đòi hỏi vượt rf'),
-                        field(_g, 'Tăng trưởng dài hạn', 'Danh nghĩa, hằng năm'),
+                        for (final s in state.watchlist.take(24))
+                          ActionChip(
+                            label: Text(s),
+                            materialTapTargetSize: MaterialTapTargetSize.padded,
+                            onPressed: _running ? null : () => setState(() => _symbol.text = s),
+                          ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
-                      onPressed: _running ? null : _run,
-                      icon: _running
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.school_outlined),
-                      label: Text(_running ? 'Đang phân tích…' : 'Phân tích CFA'),
+                  ],
+                ]);
+                final right = card([
+                  Text('Giả định thị trường (có thể chỉnh)', style: text.titleSmall),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      field(_rf, 'Lãi suất phi rủi ro', 'Lãi suất trái phiếu dài hạn'),
+                      field(_erp, 'Phần bù rủi ro vốn', 'Lợi suất đòi hỏi vượt rf'),
+                      field(_g, 'Tăng trưởng dài hạn', 'Danh nghĩa, hằng năm'),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
+                    onPressed: _running ? null : _run,
+                    icon: _running
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.school_outlined),
+                    label: Text(_running ? 'Đang phân tích…' : 'Phân tích CFA'),
+                  ),
+                  if (_running)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Text('$_step Thường mất 30–90 giây; model chạy trên máy có thể lâu hơn.', style: text.bodySmall),
                     ),
-                    if (_running)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: Text('$_step Thường mất 30–90 giây; model chạy trên máy có thể lâu hơn.', style: text.bodySmall),
-                      ),
-                    if (_error != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(color: cs.errorContainer, borderRadius: BorderRadius.circular(10)),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
-                              children: [
-                                Icon(Icons.error_outline, color: cs.onErrorContainer),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(_error!, style: text.bodyMedium?.copyWith(color: cs.onErrorContainer)),
-                                ),
-                              ],
-                            ),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(color: cs.errorContainer, borderRadius: BorderRadius.circular(10)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            children: [
+                              Icon(Icons.error_outline, color: cs.onErrorContainer),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(_error!, style: text.bodyMedium?.copyWith(color: cs.onErrorContainer)),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                  ],
-                ),
-              ),
+                    ),
+                ]);
+                // Màn hình rộng: hai thẻ cạnh nhau, giãn hết chiều ngang; màn hình hẹp: xếp dọc
+                return box.maxWidth >= 900
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: left),
+                          const SizedBox(width: 16),
+                          Expanded(child: right),
+                        ],
+                      )
+                    : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [left, const SizedBox(height: 12), right]);
+              },
             ),
             const SizedBox(height: 12),
             Text(_note, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
@@ -263,7 +279,7 @@ class _CfaPageState extends State<CfaPage> with SingleTickerProviderStateMixin {
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1600),
+        constraints: const BoxConstraints(),
         child: CustomScrollView(
           slivers: [
             SliverPadding(
@@ -512,7 +528,7 @@ class _CfaReportPageState extends State<CfaReportPage> {
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1100),
+          constraints: const BoxConstraints(),
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
             children: [

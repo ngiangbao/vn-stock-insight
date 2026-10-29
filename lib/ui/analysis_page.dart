@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../main.dart' show appTheme;
-import '../services/cfa.dart';
+import '../services/extras.dart';
 import 'pdf_capture.dart';
 
 import '../state.dart';
@@ -83,22 +83,22 @@ class _AnalysisPageState extends State<AnalysisPage> {
     }
   }
 
-  /// Cột đang lập báo cáo bổ sung khắc phục hạn chế dữ liệu.
-  String? _followUpBusy;
+  /// Chủ đề phân tích bổ sung đang chạy: 'cột:chủ đề'.
+  String? _extraBusy;
 
-  Future<void> _followUp(String which, String dayKey, Map<String, dynamic> record, List<String> gaps) async {
-    if (_followUpBusy != null) return;
+  Future<void> _extra(String which, String dayKey, Map<String, dynamic> record, String kind) async {
+    if (_extraBusy != null) return;
     final messenger = ScaffoldMessenger.of(context);
     final state = AppScope.of(context);
-    setState(() => _followUpBusy = which);
+    setState(() => _extraBusy = '$which:$kind');
     try {
-      await state.followUpStock(widget.symbol, dayKey, record, gaps);
+      await state.runExtra(widget.symbol, dayKey, record, kind);
     } catch (e) {
       messenger
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text('Không lập được báo cáo bổ sung: $e')));
+        ..showSnackBar(SnackBar(content: Text('Không phân tích được: $e')));
     } finally {
-      if (mounted) setState(() => _followUpBusy = null);
+      if (mounted) setState(() => _extraBusy = null);
     }
   }
 
@@ -118,8 +118,8 @@ class _AnalysisPageState extends State<AnalysisPage> {
             bars: state.stocks[widget.symbol]?.bars ?? const [],
             indexBars: state.index?.bars ?? const [],
             exchange: board?.exchange,
-            followUpBusy: _followUpBusy == which,
-            onFollowUp: (gaps) => _followUp(which, dayKey, record, gaps),
+            extraBusy: _extraBusy?.startsWith('$which:') == true ? _extraBusy!.substring(which.length + 1) : null,
+            onExtra: (kind) => _extra(which, dayKey, record, kind),
           ),
         ),
       ),

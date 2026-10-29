@@ -9,7 +9,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 /// Chọn các vị trí cắt trang cho ảnh cao [total] px, mỗi trang tối đa [pageH] px. [atomic] là các khoảng (top, bottom) không
-/// được cắt ngang (dòng chữ, biểu đồ): vị trí cắt dời lên đầu khoảng đó. Nếu phải dời quá nửa trang thì cắt cứng tại [pageH].
+/// được cắt ngang (dòng chữ, biểu đồ): vị trí cắt dời lên đầu khoảng đó. Nếu phải dời quá 65% trang thì cắt cứng tại [pageH].
 /// Trả về điểm bắt đầu của từng trang, kèm điểm kết thúc [total].
 List<int> planCuts(int total, int pageH, List<(double, double)> atomic) {
   final cuts = <int>[0];
@@ -21,7 +21,7 @@ List<int> planCuts(int total, int pageH, List<(double, double)> atomic) {
       if (hit.isEmpty) break;
       c = hit.map((a) => a.$1).reduce((a, b) => a < b ? a : b);
     }
-    if (c <= y0 + pageH * 0.5) c = (y0 + pageH).toDouble();
+    if (c <= y0 + pageH * 0.35) c = (y0 + pageH).toDouble();
     y0 = c.floor();
     cuts.add(y0);
   }

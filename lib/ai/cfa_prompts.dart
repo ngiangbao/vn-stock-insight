@@ -1,5 +1,4 @@
-// Prompt và schema cho tab CFA: phân tích một cổ phiếu theo khung kiến thức của chương trình CFA (3 cấp) và báo cáo
-// bổ sung khắc phục hạn chế dữ liệu của báo cáo AI.
+// Prompt và schema cho tab CFA: phân tích một cổ phiếu theo khung kiến thức của chương trình CFA (3 cấp).
 //
 // Khung phân tích được viết lại bằng tiếng Việt, dựa trên các nhóm kiến thức của chương trình CFA (Quantitative Methods,
 // Economics, Financial Statement Analysis, Corporate Issuers, Equity Valuation, Portfolio Management, Ethics) và các skill
@@ -99,56 +98,3 @@ ${jsonEncode(inputs['news'])}
 
 Yêu cầu độ dài: headline 1 câu; summary 3–5 câu; mỗi đoạn 2–4 câu; mỗi danh sách 2–5 ý ngắn.
 scenarios có đủ 3 kịch bản, tổng xác suất đúng 100. data_gaps liệt kê dữ liệu còn thiếu làm hạn chế phân tích.''';
-
-// ---------- Báo cáo bổ sung khắc phục hạn chế dữ liệu ----------
-
-const followUpSystem = '''Bạn là chuyên viên phân tích cổ phiếu Việt Nam. Nhiệm vụ: lập BÁO CÁO THỨ HAI để khắc phục các hạn chế dữ liệu mà báo cáo thứ nhất đã nêu, bằng dữ liệu bổ sung được cung cấp thêm.
-
-Nguyên tắc:
-- Với mỗi hạn chế: dùng dữ liệu bổ sung để trả lời. Nếu dữ liệu bổ sung vẫn không đủ thì đặt trạng thái "Chưa thể bổ sung" và nói rõ cần nguồn nào; tuyệt đối không bịa số liệu, ngày tháng hay sự kiện.
-- Trích số cụ thể từ dữ liệu bổ sung và nêu nguồn (ví dụ "so với 4 doanh nghiệp cùng ngành", "tin tức 14 ngày").
-- Nói rõ hạn chế này làm thay đổi nhận định ở báo cáo thứ nhất đến đâu (giữ nguyên, điều chỉnh tích cực hay tiêu cực) và vì sao.
-- Là tài liệu tham khảo, không phải lời khuyên mua/bán. Giá cổ phiếu tính theo nghìn đồng, số liệu tài chính theo tỷ đồng.''';
-
-final followUpSchema = _obj({
-  'headline': _str,
-  'summary': _str,
-  'items': {
-    'type': 'array',
-    'items': _obj({
-      'gap': _str,
-      'status': {
-        'type': 'string',
-        'enum': ['Đã bổ sung', 'Bổ sung một phần', 'Chưa thể bổ sung'],
-      },
-      'finding': _str,
-      'evidence': _str,
-      'impact': _str,
-    }),
-  },
-  'revised_view': _obj({
-    'stance': {'type': 'string', 'enum': stances},
-    'change': {
-      'type': 'string',
-      'enum': ['Giữ nguyên', 'Điều chỉnh tích cực', 'Điều chỉnh tiêu cực'],
-    },
-    'reason': _str,
-  }),
-  'remaining_gaps': _strList,
-  'next_steps': _strList,
-});
-
-String followUpPrompt(String symbol, Map<String, dynamic> first, List<String> gaps, Map<String, dynamic> extra) =>
-    '''Hôm nay là ${_today()}. Lập báo cáo bổ sung cho cổ phiếu $symbol.
-
-## Tóm tắt báo cáo thứ nhất
-${jsonEncode(first)}
-
-## Các hạn chế dữ liệu cần khắc phục
-${jsonEncode(gaps)}
-
-## Dữ liệu bổ sung vừa thu thập
-${jsonEncode(extra)}
-
-Yêu cầu: items có một mục cho MỖI hạn chế ở trên theo đúng thứ tự, trường gap chép lại đúng nội dung hạn chế.
-headline 1 câu, summary 3–4 câu; finding và impact mỗi mục 1–3 câu; evidence nêu số liệu và nguồn.''';

@@ -54,6 +54,9 @@ Xu hướng giá; Động lượng; Dòng tiền & thanh khoản; Định giá; 
 
 const marketSystem = _common;
 
+/// Nguyên tắc chung dùng lại cho các phân tích bổ sung.
+const stockCommon = _common;
+
 const _str = {'type': 'string'};
 const _strList = {'type': 'array', 'items': _str};
 

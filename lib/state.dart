@@ -18,6 +18,7 @@ import 'ai/providers.dart';
 import 'services/cfa.dart' show CfaStore;
 import 'services/fundamentals.dart';
 import 'services/lan_share.dart';
+import 'services/portfolio.dart' show PortfolioStore;
 import 'services/macro.dart';
 import 'services/llama_runtime.dart';
 import 'services/market.dart';
@@ -81,6 +82,7 @@ class AppState extends ChangeNotifier {
   late final MarketDashboard dash;
   late final LanShare lan;
   late final CfaStore cfa;
+  late final PortfolioStore portfolios;
   String? embeddedModel; // đường dẫn file GGUF đang dùng
   String? engineStatus;
   double? engineProgress;
@@ -175,6 +177,7 @@ class AppState extends ChangeNotifier {
     dash.addListener(notifyListeners);
     runtime = LlamaRuntime(dataDir, () => rootBundle.loadString('assets/runtime.json'));
     cfa = CfaStore(File('${dataDir.path}${Platform.pathSeparator}cfa_reports.json'));
+    portfolios = PortfolioStore(File('${dataDir.path}${Platform.pathSeparator}portfolios.json'));
     lan = LanShare(this, _prefs, MacroRepository(cacheFile: File('${dataDir.path}${Platform.pathSeparator}macro_cache.json')));
     _autoUpdateEngine();
     if (startDashboard) {
@@ -187,6 +190,7 @@ class AppState extends ChangeNotifier {
     await _loadAnalyses();
     await _loadHistory();
     await cfa.load();
+    await portfolios.load();
     if (startDashboard) lan.restore();
     notifyListeners();
   }
@@ -345,13 +349,14 @@ class AppState extends ChangeNotifier {
     };
   }
 
-  /// Gắn báo cáo bổ sung (khắc phục hạn chế dữ liệu) vào nhận định ngày [dayKey] của [symbol] và lưu xuống máy.
-  Future<void> saveFollowUp(String symbol, String dayKey, Map<String, dynamic> followUp) async {
+  /// Gắn một phân tích bổ sung theo chủ đề ([kind]: sector, peers, flow...) vào nhận định ngày [dayKey] của [symbol] và lưu xuống máy.
+  Future<void> saveExtra(String symbol, String dayKey, String kind, Map<String, dynamic> extra) async {
     final rec = analysisHistory[symbol]?[dayKey];
     if (rec == null) return;
-    rec['followup'] = followUp;
+    Map<String, dynamic> put(Map<String, dynamic> r) => {...?(r['extras'] as Map?)?.cast<String, dynamic>(), kind: extra};
+    rec['extras'] = put(rec);
     final cur = analyses[symbol];
-    if (cur != null && cur['created_at'] == rec['created_at']) cur['followup'] = followUp;
+    if (cur != null && cur['created_at'] == rec['created_at']) cur['extras'] = put(cur);
     await _saveAnalyses();
     await _saveHistory();
     notifyListeners();

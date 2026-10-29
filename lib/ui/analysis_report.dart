@@ -8,6 +8,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../ai/extra_prompts.dart' show extraKinds;
 import '../services/market.dart' show Bar, vnDate;
 import '../state.dart' show vietnamDayKey;
 import 'widgets.dart';
@@ -28,17 +29,17 @@ class ResearchReport extends StatelessWidget {
   final List<Bar> bars, indexBars;
   final String? exchange;
 
-  /// Bấm nút gợi ý ở mục "Hạn chế dữ liệu": nhận danh sách hạn chế cần AI khắc phục bằng báo cáo thứ hai.
-  final ValueChanged<List<String>>? onFollowUp;
-  final bool followUpBusy;
+  /// Bấm một nút phân tích bổ sung (chuyển động ngành, cổ phiếu cùng ngành...): nhận mã chủ đề; [extraBusy] là chủ đề đang chạy.
+  final ValueChanged<String>? onExtra;
+  final String? extraBusy;
   const ResearchReport(
     this.saved, {
     super.key,
     this.bars = const [],
     this.indexBars = const [],
     this.exchange,
-    this.onFollowUp,
-    this.followUpBusy = false,
+    this.onExtra,
+    this.extraBusy,
   });
 
   @override
@@ -216,24 +217,15 @@ class ResearchReport extends StatelessWidget {
             ),
           ),
           _FinancialSection(f),
-          if ((r['data_gaps'] as List?)?.isNotEmpty ?? false)
+          if ((r['data_gaps'] as List?)?.isNotEmpty ?? false) _Section('Hạn chế dữ liệu', Bullets(r['data_gaps'])),
+          if (onExtra != null || saved['extras'] is Map)
             _Section(
-              'Hạn chế dữ liệu',
-              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Bullets(r['data_gaps']),
-                if (onFollowUp != null)
-                  _GapActions(
-                    [for (final g in r['data_gaps'] as List) g.toString()],
-                    onFollowUp!,
-                    busy: followUpBusy,
-                    done: saved['followup'] != null,
-                  ),
-              ]),
-            ),
-          if (saved['followup'] is Map)
-            _Section(
-              'Báo cáo bổ sung: khắc phục hạn chế dữ liệu',
-              FollowUpView(Map<String, dynamic>.from(saved['followup'] as Map)),
+              'Phân tích sâu hơn',
+              ExtraPanel(
+                Map<String, dynamic>.from((saved['extras'] as Map?) ?? const {}),
+                busy: extraBusy,
+                onRun: onExtra,
+              ),
             ),
           Divider(height: 28, color: cs.outlineVariant),
           Text(
@@ -1005,147 +997,141 @@ class _BarPainter extends CustomPainter {
 typedef ReportSection = _Section;
 typedef ReportBlock = _Block;
 
-/// Nút gợi ý cho AI: khắc phục từng hạn chế dữ liệu hoặc tất cả cùng lúc bằng một báo cáo thứ hai.
-class _GapActions extends StatelessWidget {
-  final List<String> gaps;
-  final ValueChanged<List<String>> onPick;
-  final bool busy, done;
-  const _GapActions(this.gaps, this.onPick, {required this.busy, required this.done});
+/// Các nút phân tích bổ sung và kết quả đã có của từng chủ đề.
+class ExtraPanel extends StatelessWidget {
+  final Map<String, dynamic> extras;
+  final String? busy;
+  final ValueChanged<String>? onRun;
+  const ExtraPanel(this.extras, {super.key, this.busy, this.onRun});
 
-  String _short(String g) => g.length > 56 ? '${g.substring(0, 54)}…' : g;
+  static const _icons = {
+    'sector': Icons.stacked_line_chart,
+    'peers': Icons.compare_arrows,
+    'flow': Icons.water_drop_outlined,
+    'macro': Icons.public,
+    'news': Icons.newspaper_outlined,
+    'risk': Icons.warning_amber_outlined,
+  };
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
-    const tall = Size(48, 48);
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (onRun != null) ...[
         Text(
-          done ? 'Đã có báo cáo bổ sung. Chọn lại để AI lập bản mới:' : 'Gợi ý cho AI lập báo cáo thứ hai bổ sung các dữ liệu còn thiếu:',
+          'Chọn chủ đề để AI phân tích thêm bằng dữ liệu bổ sung. Mỗi kết quả được lưu và hiện ngay bên dưới.',
           style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
         ),
         const SizedBox(height: 8),
         Wrap(spacing: 8, runSpacing: 8, children: [
-          FilledButton.icon(
-            style: FilledButton.styleFrom(minimumSize: tall),
-            onPressed: busy ? null : () => onPick(gaps),
-            icon: busy
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.auto_fix_high),
-            label: Text(busy ? 'Đang lập báo cáo bổ sung…' : 'Khắc phục tất cả hạn chế'),
-          ),
-          if (gaps.length > 1)
-            for (final g in gaps.take(6))
-              Tooltip(
-                message: g,
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(minimumSize: tall),
-                  onPressed: busy ? null : () => onPick([g]),
-                  icon: const Icon(Icons.add_circle_outline),
-                  label: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 360), child: Text(_short(g))),
-                ),
-              ),
+          for (final k in extraKinds)
+            Builder(builder: (context) {
+              final done = extras[k.id] != null;
+              final running = busy == k.id;
+              return OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48)),
+                onPressed: busy != null ? null : () => onRun!(k.id),
+                icon: running
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : Icon(done ? Icons.check_circle_outline : _icons[k.id]),
+                label: Text(running ? 'Đang phân tích…' : (done ? '${k.button} (làm lại)' : k.button)),
+              );
+            }),
         ]),
-      ]),
-    );
+      ],
+      for (final k in extraKinds)
+        if (extras[k.id] is Map)
+          Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: ExtraView(k.title, Map<String, dynamic>.from(extras[k.id] as Map)),
+          ),
+    ]);
   }
 }
 
-/// Báo cáo thứ hai do AI lập để khắc phục hạn chế dữ liệu của báo cáo thứ nhất.
-class FollowUpView extends StatelessWidget {
-  final Map<String, dynamic> followUp;
-  const FollowUpView(this.followUp, {super.key});
+/// Kết quả một phân tích bổ sung: kết luận, phát hiện kèm bằng chứng, chỉ số then chốt, ảnh hưởng đến nhận định và giới hạn.
+class ExtraView extends StatelessWidget {
+  final String title;
+  final Map<String, dynamic> extra;
+  const ExtraView(this.title, this.extra, {super.key});
 
   @override
   Widget build(BuildContext context) {
-    final r = Map<String, dynamic>.from((followUp['result'] as Map?) ?? const {});
+    final r = Map<String, dynamic>.from((extra['result'] as Map?) ?? const {});
     final text = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
-    final items = ((r['items'] as List?) ?? const []).cast<Map>();
-    final view = Map<String, dynamic>.from((r['revised_view'] as Map?) ?? const {});
-    final created = DateTime.tryParse('${followUp['created_at']}');
-
-    Color statusColor(String s) => switch (s) {
-          'Đã bổ sung' => Tone.up(context),
-          'Bổ sung một phần' => Tone.flat(context),
-          _ => Tone.down(context),
-        };
-    // Trạng thái luôn có chữ và biểu tượng, không chỉ dựa vào màu
-    IconData statusIcon(String s) => switch (s) {
-          'Đã bổ sung' => Icons.check_circle_outline,
-          'Bổ sung một phần' => Icons.timelapse,
-          _ => Icons.error_outline,
-        };
-
-    Widget labeled(String label, dynamic v) => (v == null || '$v'.isEmpty)
-        ? const SizedBox.shrink()
-        : Padding(
-            padding: const EdgeInsets.only(top: 4),
+    final findings = ((r['findings'] as List?) ?? const []).cast<Map>();
+    final metrics = ((r['metrics'] as List?) ?? const []).cast<Map>();
+    final created = DateTime.tryParse('${extra['created_at']}');
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(border: Border.all(color: cs.outlineVariant), borderRadius: BorderRadius.circular(12)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text(title.toUpperCase(), style: text.labelLarge?.copyWith(fontWeight: FontWeight.w800, color: Tone.up(context), letterSpacing: 0.4)),
+        const SizedBox(height: 4),
+        Text('${r['headline'] ?? ''}', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 6),
+        Text('${r['summary'] ?? ''}'),
+        if (metrics.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final m in metrics)
+              Container(
+                constraints: const BoxConstraints(minWidth: 140, maxWidth: 260),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(border: Border.all(color: cs.outlineVariant), borderRadius: BorderRadius.circular(8)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  Text('${m['label']}', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                  Text('${m['value']}', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                  if ('${m['note'] ?? ''}'.isNotEmpty) Text('${m['note']}', style: text.bodySmall),
+                ]),
+              ),
+          ]),
+        ],
+        for (final f in findings)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('${f['title']}', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 2),
+              Text('${f['detail']}'),
+              if ('${f['evidence'] ?? ''}'.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text('Bằng chứng: ${f['evidence']}', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                ),
+            ]),
+          ),
+        if ('${r['implication'] ?? ''}'.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: cs.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
             child: Text.rich(TextSpan(children: [
-              TextSpan(text: '$label: ', style: const TextStyle(fontWeight: FontWeight.w700)),
-              TextSpan(text: '$v'),
+              const TextSpan(text: 'Ảnh hưởng đến nhận định: ', style: TextStyle(fontWeight: FontWeight.w700)),
+              TextSpan(text: '${r['implication']}'),
             ])),
-          );
-
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('${r['headline'] ?? ''}', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800, color: Tone.up(context))),
-      const SizedBox(height: 6),
-      Text('${r['summary'] ?? ''}'),
-      const SizedBox(height: 10),
-      for (final it in items)
-        Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(border: Border.all(color: cs.outlineVariant), borderRadius: BorderRadius.circular(10)),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(child: Text('${it['gap']}', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700))),
-              const SizedBox(width: 8),
-              Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(statusIcon('${it['status']}'), size: 16, color: statusColor('${it['status']}')),
-                const SizedBox(width: 4),
-                Tag('${it['status']}', color: statusColor('${it['status']}')),
-              ]),
-            ]),
-            labeled('Phát hiện', it['finding']),
-            labeled('Bằng chứng', it['evidence']),
-            labeled('Ảnh hưởng đến nhận định', it['impact']),
-          ]),
-        ),
-      if (view.isNotEmpty)
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: cs.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-              Text('Nhận định sau bổ sung', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-              Tag('${view['stance']}', color: Tone.stance(context, '${view['stance']}')),
-              Tag('${view['change']}'),
-            ]),
-            const SizedBox(height: 4),
-            Text('${view['reason'] ?? ''}'),
-          ]),
-        ),
-      if ((r['remaining_gaps'] as List?)?.isNotEmpty ?? false) ...[
-        const SizedBox(height: 10),
-        Text('Vẫn còn thiếu', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 4),
-        Bullets(r['remaining_gaps']),
-      ],
-      if ((r['next_steps'] as List?)?.isNotEmpty ?? false) ...[
-        const SizedBox(height: 10),
-        Text('Bước tiếp theo', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 4),
-        Bullets(r['next_steps']),
-      ],
-      if (created != null)
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Text('Lập lúc ${timeVN(created)} · ${followUp['ai']}. Dữ liệu bổ sung: doanh nghiệp cùng ngành, vĩ mô, tin 14 ngày, khối ngoại.',
-              style: text.bodySmall),
-        ),
-    ]);
+          ),
+        ],
+        if ((r['watch_points'] as List?)?.isNotEmpty ?? false) ...[
+          const SizedBox(height: 10),
+          Text('Cần theo dõi', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Bullets(r['watch_points']),
+        ],
+        if ((r['limits'] as List?)?.isNotEmpty ?? false) ...[
+          const SizedBox(height: 10),
+          Text('Giới hạn dữ liệu', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Bullets(r['limits']),
+        ],
+        if (created != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text('Phân tích lúc ${timeVN(created)} · ${extra['ai']}.', style: text.bodySmall),
+          ),
+      ]),
+    );
   }
 }

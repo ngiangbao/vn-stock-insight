@@ -122,7 +122,7 @@ class CfaReport extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if ((series['dates'] as List?)?.isNotEmpty ?? false) _RelChart(series),
+              if ((series['dates'] as List?)?.isNotEmpty ?? false) RelChart(series),
               const SizedBox(height: 10),
               _QuantTable(q),
               const SizedBox(height: 10),
@@ -481,22 +481,32 @@ class _Scenario extends StatelessWidget {
 }
 
 /// Lợi suất tích lũy 1 năm của cổ phiếu (nét liền) và VN-Index (nét đứt), rê chuột/chạm để xem từng ngày.
-class _RelChart extends StatefulWidget {
+class RelChart extends StatefulWidget {
   final Map<String, dynamic> series;
-  const _RelChart(this.series);
+
+  /// Khóa chuỗi chính trong [series] ('stock' hoặc 'danh_muc'), khóa chuỗi so sánh ('index' hoặc 'vnindex') và nhãn.
+  final String mainKey, benchKey, mainLabel, title;
+  const RelChart(
+    this.series, {
+    super.key,
+    this.mainKey = 'stock',
+    this.benchKey = 'index',
+    this.mainLabel = 'Cổ phiếu',
+    this.title = 'Lợi suất tích lũy 1 năm: cổ phiếu so với VN-Index',
+  });
 
   @override
-  State<_RelChart> createState() => _RelChartState();
+  State<RelChart> createState() => _RelChartState();
 }
 
-class _RelChartState extends State<_RelChart> {
+class _RelChartState extends State<RelChart> {
   int? _hover;
 
   @override
   Widget build(BuildContext context) {
     final dates = (widget.series['dates'] as List).cast<String>();
-    final stock = (widget.series['stock'] as List).map((e) => (e as num).toDouble()).toList();
-    final index = (widget.series['index'] as List).map((e) => (e as num).toDouble()).toList();
+    final stock = (widget.series[widget.mainKey] as List).map((e) => (e as num).toDouble()).toList();
+    final index = (widget.series[widget.benchKey] as List).map((e) => (e as num).toDouble()).toList();
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final c1 = Tone.up(context), c2 = cs.onSurfaceVariant;
@@ -507,12 +517,12 @@ class _RelChartState extends State<_RelChart> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Lợi suất tích lũy 1 năm: cổ phiếu so với VN-Index', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
+        Text(widget.title, style: text.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
         const SizedBox(height: 6),
         Wrap(
           spacing: 16,
           runSpacing: 4,
-          children: [_Key(c1, false, 'Cổ phiếu ${f(stock.last)}'), _Key(c2, true, 'VN-Index ${f(index.last)}')],
+          children: [_Key(c1, false, '${widget.mainLabel} ${f(stock.last)}'), _Key(c2, true, 'VN-Index ${f(index.last)}')],
         ),
         const SizedBox(height: 6),
         LayoutBuilder(
@@ -524,7 +534,7 @@ class _RelChartState extends State<_RelChart> {
             }
 
             return Semantics(
-              label: 'Biểu đồ lợi suất tích lũy 1 năm. Cổ phiếu ${f(stock.last)}, VN-Index ${f(index.last)}.',
+              label: 'Biểu đồ lợi suất tích lũy 1 năm. ${widget.mainLabel} ${f(stock.last)}, VN-Index ${f(index.last)}.',
               child: MouseRegion(
                 onHover: (e) => track(e.localPosition),
                 onExit: (_) => setState(() => _hover = null),
@@ -547,7 +557,7 @@ class _RelChartState extends State<_RelChart> {
           child: Text(
             h == null
                 ? 'Rê chuột hoặc chạm vào biểu đồ để xem từng ngày.'
-                : '${d(dates[h])}  ·  Cổ phiếu ${f(stock[h])}  ·  VN-Index ${f(index[h])}',
+                : '${d(dates[h])}  ·  ${widget.mainLabel} ${f(stock[h])}  ·  VN-Index ${f(index[h])}',
             style: text.bodySmall?.copyWith(fontWeight: h == null ? FontWeight.w400 : FontWeight.w700),
           ),
         ),
@@ -701,3 +711,9 @@ class _RelPainter extends CustomPainter {
   @override
   bool shouldRepaint(_RelPainter old) => old.hover != hover || old.a != a || old.b != b || old.ca != ca || old.cb != cb;
 }
+
+/// Cho các báo cáo khác dùng chung.
+typedef ReportTile = _Tile;
+typedef ReportKV = _KV;
+typedef QuantTable = _QuantTable;
+typedef ScenarioCard = _Scenario;

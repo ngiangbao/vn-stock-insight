@@ -214,7 +214,7 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('1 bản đã lưu trên máy'), findsOneWidget);
+    expect(find.text('1 bản phân tích, 0 danh mục lưu trên máy'), findsOneWidget);
     expect(find.text('Chọn cổ phiếu cần phân tích'), findsOneWidget);
 
     // Mã sai: báo lỗi, không gọi AI
@@ -279,11 +279,11 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('nút gợi ý khắc phục hạn chế dữ liệu và báo cáo bổ sung', (tester) async {
+  testWidgets('các nút phân tích sâu hơn (ngành, cùng ngành, dòng tiền...) thay cho nút khắc phục hạn chế', (tester) async {
     tester.view.physicalSize = const Size(1000, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final picked = <List<String>>[];
+    final picked = <String>[];
     final rec = {
       'symbol': 'FPT',
       'created_at': DateTime.now().toIso8601String(),
@@ -296,80 +296,73 @@ void main() {
         'confidence': 'Vừa',
         'headline': 'H',
         'summary': 'S',
-        'data_gaps': ['Thiếu dòng tiền khối ngoại', 'Thiếu so sánh cùng ngành'],
+        'data_gaps': ['Thiếu dòng tiền khối ngoại'],
       },
     };
-    Widget host(Map<String, dynamic> r, {bool busy = false}) => MaterialApp(
+    Widget host(Map<String, dynamic> r, {String? busy}) => MaterialApp(
       home: Scaffold(
         body: SingleChildScrollView(
-          child: ResearchReport(r, onFollowUp: picked.add, followUpBusy: busy),
+          child: ResearchReport(r, onExtra: picked.add, extraBusy: busy),
         ),
       ),
     );
     await tester.pumpWidget(host(rec));
     await tester.pump();
-    expect(find.text('Khắc phục tất cả hạn chế'), findsOneWidget);
-    final one = find.widgetWithText(OutlinedButton, 'Bổ sung: ').evaluate().isEmpty
-        ? find.byTooltip('Thiếu so sánh cùng ngành')
-        : find.byTooltip('Thiếu so sánh cùng ngành');
-    expect(one, findsOneWidget);
-    await tester.ensureVisible(find.text('Khắc phục tất cả hạn chế'));
-    await tester.tap(find.text('Khắc phục tất cả hạn chế'));
-    await tester.tap(one);
-    expect(picked, [
-      ['Thiếu dòng tiền khối ngoại', 'Thiếu so sánh cùng ngành'],
-      ['Thiếu so sánh cùng ngành'],
-    ]);
-    final btn = tester.getSize(find.ancestor(of: find.text('Khắc phục tất cả hạn chế'), matching: find.byType(FilledButton)));
-    expect(btn.height, greaterThanOrEqualTo(48));
+    expect(find.text('Khắc phục tất cả hạn chế'), findsNothing, reason: 'đã bỏ nút khắc phục hạn chế dữ liệu');
+    for (final label in [
+      'Phân tích chuyển động ngành',
+      'Phân tích các cổ phiếu cùng ngành',
+      'Phân tích dòng tiền',
+      'Phân tích tác động vĩ mô',
+    ]) {
+      final btn = find.widgetWithText(OutlinedButton, label);
+      expect(btn, findsOneWidget, reason: label);
+      expect(tester.getSize(btn).height, greaterThanOrEqualTo(48), reason: label);
+    }
+    await tester.ensureVisible(find.text('Phân tích chuyển động ngành'));
+    await tester.tap(find.text('Phân tích chuyển động ngành'));
+    await tester.tap(find.text('Phân tích các cổ phiếu cùng ngành'));
+    expect(picked, ['sector', 'peers']);
 
-    // Đang lập báo cáo: nút khóa
-    await tester.pumpWidget(host(rec, busy: true));
+    // Đang chạy một chủ đề: nút khóa và hiện trạng thái
+    await tester.pumpWidget(host(rec, busy: 'sector'));
     await tester.pump();
-    expect(find.text('Đang lập báo cáo bổ sung…'), findsOneWidget);
+    expect(find.text('Đang phân tích…'), findsOneWidget);
+    expect(tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton, 'Phân tích dòng tiền')).onPressed, isNull);
 
-    // Đã có báo cáo bổ sung: hiển thị ở dưới
-    final withFollowUp = {
+    // Đã có kết quả: hiển thị dưới nút, nút ghi "làm lại"
+    final withExtras = {
       ...rec,
-      'followup': {
-        'created_at': DateTime.now().toIso8601String(),
-        'ai': 'test',
-        'gaps': ['Thiếu dòng tiền khối ngoại'],
-        'result': {
-          'headline': 'Đã bổ sung phần lớn',
-          'summary': 'Tóm tắt bổ sung',
-          'items': [
-            {
-              'gap': 'Thiếu dòng tiền khối ngoại',
-              'status': 'Đã bổ sung',
-              'finding': 'Khối ngoại bán ròng',
-              'evidence': 'Bảng giá',
-              'impact': 'Thận trọng hơn',
-            },
-            {
-              'gap': 'Thiếu so sánh cùng ngành',
-              'status': 'Chưa thể bổ sung',
-              'finding': 'Không có dữ liệu',
-              'evidence': '–',
-              'impact': 'Không đổi',
-            },
-          ],
-          'revised_view': {'stance': 'Trung lập', 'change': 'Giữ nguyên', 'reason': 'Không đổi'},
-          'remaining_gaps': ['Còn thiếu một'],
-          'next_steps': ['Theo dõi thêm'],
+      'extras': {
+        'sector': {
+          'created_at': DateTime.now().toIso8601String(),
+          'ai': 'test',
+          'result': {
+            'headline': 'Ngành ngân hàng hút tiền',
+            'summary': 'Tóm tắt ngành',
+            'findings': [
+              {'title': 'Dòng tiền vào', 'detail': 'Chi tiết', 'evidence': 'Giá trị 1.200 tỷ'},
+            ],
+            'metrics': [
+              {'label': 'Biến động hôm nay', 'value': '+1,2%', 'note': 'theo vốn hóa'},
+            ],
+            'implication': 'Ủng hộ nhận định',
+            'watch_points': ['Theo dõi khối ngoại'],
+            'limits': ['Thiếu chỉ số ngành chính thức'],
+          },
         },
       },
     };
-    await tester.pumpWidget(host(withFollowUp));
+    await tester.pumpWidget(host(withExtras));
     await tester.pump();
-    expect(find.text('BÁO CÁO BỔ SUNG: KHẮC PHỤC HẠN CHẾ DỮ LIỆU'), findsOneWidget);
-    expect(find.text('Đã bổ sung'), findsOneWidget);
-    expect(find.text('Chưa thể bổ sung'), findsOneWidget);
-    expect(find.text('Nhận định sau bổ sung'), findsOneWidget);
+    expect(find.text('CHUYỂN ĐỘNG NGÀNH'), findsOneWidget);
+    expect(find.text('Ngành ngân hàng hút tiền'), findsOneWidget);
+    expect(find.text('Phân tích chuyển động ngành (làm lại)'), findsOneWidget);
+    expect(find.textContaining('Ảnh hưởng đến nhận định'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('lưu báo cáo bổ sung vào lịch sử nhận định', (tester) async {
+  testWidgets('lưu phân tích bổ sung vào lịch sử nhận định', (tester) async {
     final state = await _state(tester);
     final rec = {
       'symbol': 'FPT',
@@ -380,12 +373,18 @@ void main() {
     };
     state.rememberAnalysis('FPT', rec);
     state.analyses['FPT'] = rec;
+    final day = vietnamDayKey(DateTime.now());
     await tester.runAsync(
-      () => state.saveFollowUp('FPT', vietnamDayKey(DateTime.now()), {
+      () => state.saveExtra('FPT', day, 'sector', {
         'result': {'headline': 'x'},
       }),
     );
-    expect(state.analyses['FPT']!['followup'], isNotNull);
-    expect(state.historyFor('FPT').first.$2['followup'], isNotNull);
+    await tester.runAsync(
+      () => state.saveExtra('FPT', day, 'peers', {
+        'result': {'headline': 'y'},
+      }),
+    );
+    expect((state.analyses['FPT']!['extras'] as Map).keys, containsAll(['sector', 'peers']));
+    expect((state.historyFor('FPT').first.$2['extras'] as Map).keys, containsAll(['sector', 'peers']));
   });
 }

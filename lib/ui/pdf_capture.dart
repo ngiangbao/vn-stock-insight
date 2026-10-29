@@ -20,21 +20,23 @@ Future<File> capturePdf(GlobalKey key, {required String title, required String f
 /// Các khoảng dọc (px của ảnh chụp) không nên bị cắt ngang khi chia trang: từng dòng chữ và từng biểu đồ vẽ tay.
 List<(double, double)> unbreakableRanges(RenderRepaintBoundary boundary, double ratio) {
   final out = <(double, double)>[];
+  // Không đệm thêm: các dòng liền kề chạm nhau, đệm sẽ làm chúng chồng lên nhau và không còn chỗ cắt giữa hai dòng
+  void add(double top, double bottom) => out.add((top * ratio, bottom * ratio));
   void visit(RenderObject o) {
     if (o is RenderParagraph && o.hasSize) {
       final origin = o.localToGlobal(Offset.zero, ancestor: boundary);
       final len = o.text.toPlainText().length;
       final boxes = len == 0 ? const <TextBox>[] : o.getBoxesForSelection(TextSelection(baseOffset: 0, extentOffset: len));
       if (boxes.isEmpty) {
-        out.add((origin.dy * ratio, (origin.dy + o.size.height) * ratio));
+        add(origin.dy, origin.dy + o.size.height);
       } else {
         for (final b in boxes) {
-          out.add(((origin.dy + b.top) * ratio, (origin.dy + b.bottom) * ratio));
+          add(origin.dy + b.top, origin.dy + b.bottom);
         }
       }
     } else if (o is RenderCustomPaint && o.hasSize && o.painter != null && o.size.height > 4) {
       final origin = o.localToGlobal(Offset.zero, ancestor: boundary);
-      out.add((origin.dy * ratio, (origin.dy + o.size.height) * ratio));
+      add(origin.dy, origin.dy + o.size.height);
     }
     o.visitChildren(visit);
   }
