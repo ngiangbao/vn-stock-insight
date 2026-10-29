@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../main.dart' show appTheme;
-import '../services/pdf_export.dart';
+import '../services/cfa.dart';
+import 'pdf_capture.dart';
 
 import '../state.dart';
 import 'analysis_report.dart';
@@ -61,18 +61,12 @@ class _AnalysisPageState extends State<AnalysisPage> {
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _exporting = which);
     try {
-      // Chờ hai khung hình để báo cáo dựng xong theo giao diện sáng
-      await WidgetsBinding.instance.endOfFrame;
-      await WidgetsBinding.instance.endOfFrame;
-      final boundary = _boundaries[which]!.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary == null) throw 'Chưa dựng xong báo cáo, hãy thử lại.';
-      final image = await boundary.toImage(pixelRatio: 2);
-      final bytes = await pdfFromImage(
-        image,
+      await settleFrames();
+      final file = await capturePdf(
+        _boundaries[which]!,
         title: 'Báo cáo phân tích ${widget.symbol} $dayKey',
-        author: 'VN Stock Insight',
+        fileName: 'bao-cao-${widget.symbol}-$dayKey.pdf',
       );
-      final file = await savePdf(bytes, 'bao-cao-${widget.symbol}-$dayKey.pdf');
       messenger
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(
@@ -89,14 +83,34 @@ class _AnalysisPageState extends State<AnalysisPage> {
     }
   }
 
-  Widget _report(AppState state, Map<String, dynamic> record, Key key, String which) {
+  /// Cột đang lập báo cáo bổ sung khắc phục hạn chế dữ liệu.
+  String? _followUpBusy;
+
+  Future<void> _followUp(String which, String dayKey, Map<String, dynamic> record, List<String> gaps) async {
+    if (_followUpBusy != null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final state = AppScope.of(context);
+    setState(() => _followUpBusy = which);
+    try {
+      await state.followUpStock(widget.symbol, dayKey, record, gaps);
+    } catch (e) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('Không lập được báo cáo bổ sung: $e')));
+    } finally {
+      if (mounted) setState(() => _followUpBusy = null);
+    }
+  }
+
+  Widget _report(AppState state, Map<String, dynamic> record, Key key, String which, String dayKey) {
     final board = [for (final rows in state.dash.boards.values) ...rows].where((r) => r.symbol == widget.symbol).firstOrNull;
     final printing = _exporting == which;
     return RepaintBoundary(
       key: _boundaries[which],
       child: Theme(
         data: printing ? appTheme(Brightness.light) : Theme.of(context),
-        child: ColoredBox(
+        child: Material(
+          // Material đặt kiểu chữ mặc định theo theme sáng; thiếu nó, chữ vẫn lấy màu của giao diện tối và bị nhạt khi in
           color: printing ? Colors.white : Colors.transparent,
           child: ResearchReport(
             record,
@@ -104,6 +118,8 @@ class _AnalysisPageState extends State<AnalysisPage> {
             bars: state.stocks[widget.symbol]?.bars ?? const [],
             indexBars: state.index?.bars ?? const [],
             exchange: board?.exchange,
+            followUpBusy: _followUpBusy == which,
+            onFollowUp: (gaps) => _followUp(which, dayKey, record, gaps),
           ),
         ),
       ),
@@ -136,7 +152,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
       exporting: _exporting == 'past',
       child: picked == null
           ? const _Empty('Chưa có nhận định của các ngày trước. Nhận định mỗi ngày được lưu lại tối đa ${AppState.historyDays} ngày.')
-          : _report(state, picked.$2, ValueKey('past-${picked.$1}'), 'past'),
+          : _report(state, picked.$2, ValueKey('past-${picked.$1}'), 'past', picked.$1),
     );
     final right = _DayColumn(
       title: 'Hôm nay',
@@ -162,7 +178,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
                   ),
                 )
               : today != null
-                  ? _report(state, today, const ValueKey('today'), 'today')
+                  ? _report(state, today, const ValueKey('today'), 'today', todayKey)
                   : _Empty('Chưa có nhận định hôm nay.', action: FilledButton(onPressed: _run, child: const Text('Phân tích ngay'))),
     );
 

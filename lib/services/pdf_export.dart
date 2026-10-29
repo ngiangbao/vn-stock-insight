@@ -8,15 +8,39 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
-/// Cắt ảnh dài [image] thành các lát có tỉ lệ vừa trang A4 (chừa lề) và ghép thành PDF.
-Future<Uint8List> pdfFromImage(ui.Image image, {String? title, String? author}) async {
+/// Chọn các vị trí cắt trang cho ảnh cao [total] px, mỗi trang tối đa [pageH] px. [atomic] là các khoảng (top, bottom) không
+/// được cắt ngang (dòng chữ, biểu đồ): vị trí cắt dời lên đầu khoảng đó. Nếu phải dời quá nửa trang thì cắt cứng tại [pageH].
+/// Trả về điểm bắt đầu của từng trang, kèm điểm kết thúc [total].
+List<int> planCuts(int total, int pageH, List<(double, double)> atomic) {
+  final cuts = <int>[0];
+  var y0 = 0;
+  while (total - y0 > pageH) {
+    var c = (y0 + pageH).toDouble();
+    for (var i = 0; i < 64; i++) {
+      final hit = atomic.where((a) => a.$1 < c - 0.5 && a.$2 > c + 0.5).toList();
+      if (hit.isEmpty) break;
+      c = hit.map((a) => a.$1).reduce((a, b) => a < b ? a : b);
+    }
+    if (c <= y0 + pageH * 0.5) c = (y0 + pageH).toDouble();
+    y0 = c.floor();
+    cuts.add(y0);
+  }
+  cuts.add(total);
+  return cuts;
+}
+
+/// Cắt ảnh dài [image] thành các trang A4 (chừa lề) và ghép thành PDF. [atomic] tính theo px của ảnh (xem [planCuts]).
+Future<Uint8List> pdfFromImage(ui.Image image, {String? title, String? author, List<(double, double)> atomic = const []}) async {
   const margin = 24.0;
   final format = PdfPageFormat.a4;
   final contentW = format.width - 2 * margin, contentH = format.height - 2 * margin;
   final sliceH = (image.width * contentH / contentW).floor();
   final doc = pw.Document(title: title, author: author, creator: 'VN Stock Insight');
-  for (var top = 0; top < image.height; top += sliceH) {
-    final h = top + sliceH > image.height ? image.height - top : sliceH;
+  final cuts = planCuts(image.height, sliceH, atomic);
+  for (var k = 0; k + 1 < cuts.length; k++) {
+    final top = cuts[k];
+    final h = cuts[k + 1] - top;
+    if (h <= 0) continue;
     final recorder = ui.PictureRecorder();
     ui.Canvas(recorder).drawImageRect(
       image,

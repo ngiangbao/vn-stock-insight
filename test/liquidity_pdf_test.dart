@@ -30,13 +30,27 @@ void main() {
     for (final w in [340.0, 900.0]) {
       tester.view.physicalSize = Size(w, 800);
       tester.view.devicePixelRatio = 1;
-      await tester.pumpWidget(MaterialApp(home: Scaffold(body: SingleChildScrollView(child: LiquidityChart('FPT')))));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: SingleChildScrollView(child: LiquidityChart('FPT'))),
+        ),
+      );
       await tester.pump();
       expect(tester.takeException(), isNull);
       expect(find.text('THANH KHOẢN TRONG PHIÊN'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
     }
     addTearDown(tester.view.reset);
+  });
+
+  test('chia trang không cắt ngang dòng chữ', () {
+    // Trang cao 100 px; dòng chữ ở 90–110 nằm vắt qua điểm cắt 100 nên cắt dời lên 90
+    final cuts = planCuts(250, 100, [(90, 110), (190, 205), (225, 240)]);
+    expect(cuts, [0, 90, 190, 250]);
+    // Không có ranh giới tốt (khoảng chữ quá cao): cắt cứng
+    expect(planCuts(250, 100, [(10, 300)]), [0, 100, 200, 250]);
+    // Ảnh vừa một trang
+    expect(planCuts(80, 100, const []), [0, 80]);
   });
 
   testWidgets('xuất PDF nhiều trang từ ảnh dài', (tester) async {

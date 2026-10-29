@@ -27,7 +27,19 @@ class ResearchReport extends StatelessWidget {
   final Map<String, dynamic> saved;
   final List<Bar> bars, indexBars;
   final String? exchange;
-  const ResearchReport(this.saved, {super.key, this.bars = const [], this.indexBars = const [], this.exchange});
+
+  /// Bấm nút gợi ý ở mục "Hạn chế dữ liệu": nhận danh sách hạn chế cần AI khắc phục bằng báo cáo thứ hai.
+  final ValueChanged<List<String>>? onFollowUp;
+  final bool followUpBusy;
+  const ResearchReport(
+    this.saved, {
+    super.key,
+    this.bars = const [],
+    this.indexBars = const [],
+    this.exchange,
+    this.onFollowUp,
+    this.followUpBusy = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -204,7 +216,25 @@ class ResearchReport extends StatelessWidget {
             ),
           ),
           _FinancialSection(f),
-          if ((r['data_gaps'] as List?)?.isNotEmpty ?? false) _Section('Hạn chế dữ liệu', Bullets(r['data_gaps'])),
+          if ((r['data_gaps'] as List?)?.isNotEmpty ?? false)
+            _Section(
+              'Hạn chế dữ liệu',
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Bullets(r['data_gaps']),
+                if (onFollowUp != null)
+                  _GapActions(
+                    [for (final g in r['data_gaps'] as List) g.toString()],
+                    onFollowUp!,
+                    busy: followUpBusy,
+                    done: saved['followup'] != null,
+                  ),
+              ]),
+            ),
+          if (saved['followup'] is Map)
+            _Section(
+              'Báo cáo bổ sung: khắc phục hạn chế dữ liệu',
+              FollowUpView(Map<String, dynamic>.from(saved['followup'] as Map)),
+            ),
           Divider(height: 28, color: cs.outlineVariant),
           Text(
             'Phân tích lúc ${timeVN(created)} · ${saved['ai']}. Số liệu: DNSE, Vietcap IQ, tin RSS. $disclaimer',
@@ -969,4 +999,153 @@ class _BarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BarPainter old) => old.series != series || old.labels != labels;
+}
+
+/// Cho các tab khác dùng chung kiểu mục và khối của báo cáo.
+typedef ReportSection = _Section;
+typedef ReportBlock = _Block;
+
+/// Nút gợi ý cho AI: khắc phục từng hạn chế dữ liệu hoặc tất cả cùng lúc bằng một báo cáo thứ hai.
+class _GapActions extends StatelessWidget {
+  final List<String> gaps;
+  final ValueChanged<List<String>> onPick;
+  final bool busy, done;
+  const _GapActions(this.gaps, this.onPick, {required this.busy, required this.done});
+
+  String _short(String g) => g.length > 56 ? '${g.substring(0, 54)}…' : g;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    const tall = Size(48, 48);
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(
+          done ? 'Đã có báo cáo bổ sung. Chọn lại để AI lập bản mới:' : 'Gợi ý cho AI lập báo cáo thứ hai bổ sung các dữ liệu còn thiếu:',
+          style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+        ),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          FilledButton.icon(
+            style: FilledButton.styleFrom(minimumSize: tall),
+            onPressed: busy ? null : () => onPick(gaps),
+            icon: busy
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.auto_fix_high),
+            label: Text(busy ? 'Đang lập báo cáo bổ sung…' : 'Khắc phục tất cả hạn chế'),
+          ),
+          if (gaps.length > 1)
+            for (final g in gaps.take(6))
+              Tooltip(
+                message: g,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(minimumSize: tall),
+                  onPressed: busy ? null : () => onPick([g]),
+                  icon: const Icon(Icons.add_circle_outline),
+                  label: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 360), child: Text(_short(g))),
+                ),
+              ),
+        ]),
+      ]),
+    );
+  }
+}
+
+/// Báo cáo thứ hai do AI lập để khắc phục hạn chế dữ liệu của báo cáo thứ nhất.
+class FollowUpView extends StatelessWidget {
+  final Map<String, dynamic> followUp;
+  const FollowUpView(this.followUp, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final r = Map<String, dynamic>.from((followUp['result'] as Map?) ?? const {});
+    final text = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final items = ((r['items'] as List?) ?? const []).cast<Map>();
+    final view = Map<String, dynamic>.from((r['revised_view'] as Map?) ?? const {});
+    final created = DateTime.tryParse('${followUp['created_at']}');
+
+    Color statusColor(String s) => switch (s) {
+          'Đã bổ sung' => Tone.up(context),
+          'Bổ sung một phần' => Tone.flat(context),
+          _ => Tone.down(context),
+        };
+    // Trạng thái luôn có chữ và biểu tượng, không chỉ dựa vào màu
+    IconData statusIcon(String s) => switch (s) {
+          'Đã bổ sung' => Icons.check_circle_outline,
+          'Bổ sung một phần' => Icons.timelapse,
+          _ => Icons.error_outline,
+        };
+
+    Widget labeled(String label, dynamic v) => (v == null || '$v'.isEmpty)
+        ? const SizedBox.shrink()
+        : Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text.rich(TextSpan(children: [
+              TextSpan(text: '$label: ', style: const TextStyle(fontWeight: FontWeight.w700)),
+              TextSpan(text: '$v'),
+            ])),
+          );
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Text('${r['headline'] ?? ''}', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800, color: Tone.up(context))),
+      const SizedBox(height: 6),
+      Text('${r['summary'] ?? ''}'),
+      const SizedBox(height: 10),
+      for (final it in items)
+        Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(border: Border.all(color: cs.outlineVariant), borderRadius: BorderRadius.circular(10)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(child: Text('${it['gap']}', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700))),
+              const SizedBox(width: 8),
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(statusIcon('${it['status']}'), size: 16, color: statusColor('${it['status']}')),
+                const SizedBox(width: 4),
+                Tag('${it['status']}', color: statusColor('${it['status']}')),
+              ]),
+            ]),
+            labeled('Phát hiện', it['finding']),
+            labeled('Bằng chứng', it['evidence']),
+            labeled('Ảnh hưởng đến nhận định', it['impact']),
+          ]),
+        ),
+      if (view.isNotEmpty)
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: cs.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+              Text('Nhận định sau bổ sung', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+              Tag('${view['stance']}', color: Tone.stance(context, '${view['stance']}')),
+              Tag('${view['change']}'),
+            ]),
+            const SizedBox(height: 4),
+            Text('${view['reason'] ?? ''}'),
+          ]),
+        ),
+      if ((r['remaining_gaps'] as List?)?.isNotEmpty ?? false) ...[
+        const SizedBox(height: 10),
+        Text('Vẫn còn thiếu', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 4),
+        Bullets(r['remaining_gaps']),
+      ],
+      if ((r['next_steps'] as List?)?.isNotEmpty ?? false) ...[
+        const SizedBox(height: 10),
+        Text('Bước tiếp theo', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 4),
+        Bullets(r['next_steps']),
+      ],
+      if (created != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text('Lập lúc ${timeVN(created)} · ${followUp['ai']}. Dữ liệu bổ sung: doanh nghiệp cùng ngành, vĩ mô, tin 14 ngày, khối ngoại.',
+              style: text.bodySmall),
+        ),
+    ]);
+  }
 }

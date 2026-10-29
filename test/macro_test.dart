@@ -410,14 +410,21 @@ void main() {
       return state;
     }
 
-    const labels = ['Tổng quan', 'Theo dõi', 'Bộ lọc', 'Vĩ mô', 'Tin tức', 'Cài đặt'];
+    const labels = ['Tổng quan', 'Theo dõi', 'Bộ lọc', 'CFA', 'Vĩ mô', 'Tin tức', 'Cài đặt'];
 
-    testWidgets('cửa sổ vừa (900 px): thanh bên có đủ 6 mục, chọn Vĩ mô hiện trang Kinh tế vĩ mô', (tester) async {
+    testWidgets('cửa sổ vừa (900 px): thanh bên có đủ 7 mục, CFA nằm giữa Bộ lọc và Vĩ mô, chọn Vĩ mô hiện trang Kinh tế vĩ mô', (tester) async {
       await pumpApp(tester, const Size(900, 800));
       expect(find.byType(NavigationRail), findsOneWidget);
       for (final l in labels) {
         expect(find.descendant(of: find.byType(NavigationRail), matching: find.text(l)), findsOneWidget, reason: l);
       }
+      double y(String l) => tester.getCenter(find.descendant(of: find.byType(NavigationRail), matching: find.text(l))).dy;
+      expect(y('Bộ lọc'), lessThan(y('CFA')));
+      expect(y('CFA'), lessThan(y('Vĩ mô')));
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('CFA')));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Phân tích theo khung CFA'), findsOneWidget);
+      expect(find.text('Chọn cổ phiếu cần phân tích'), findsOneWidget);
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Vĩ mô')));
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('Kinh tế vĩ mô'), findsOneWidget);
@@ -430,25 +437,39 @@ void main() {
       for (final l in labels) {
         expect(find.text(l), findsWidgets, reason: l);
       }
+      double x(String l) => tester.getCenter(find.text(l).first).dx;
+      expect(x('Bộ lọc'), lessThan(x('CFA')));
+      expect(x('CFA'), lessThan(x('Vĩ mô')));
       await tester.tap(find.text('Vĩ mô').first);
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('Kinh tế vĩ mô'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('điện thoại: thanh dưới tối đa 5 mục, Tin tức và Cài đặt nằm trong "Thêm"', (tester) async {
+    testWidgets('điện thoại: thanh dưới tối đa 5 mục có CFA, Vĩ mô, Tin tức và Cài đặt nằm trong "Thêm"', (tester) async {
       await pumpApp(tester, const Size(375, 812));
       expect(find.byType(NavigationBar), findsOneWidget);
       expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).destinations.length, lessThanOrEqualTo(5));
 
-      await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('Vĩ mô')));
+      await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('CFA')));
       await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text('Kinh tế vĩ mô'), findsOneWidget);
+      expect(find.text('Phân tích theo khung CFA'), findsOneWidget);
 
-      await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('Thêm')));
-      // Hoạt ảnh hộp thoại chỉ bắt đầu ở khung hình sau khi dựng, nên cần hai lần pump (spinner của trang Tổng quan chạy mãi nên không dùng pumpAndSettle)
+      Future<void> openMore() async {
+        await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('Thêm')));
+        // Hoạt ảnh hộp thoại chỉ bắt đầu ở khung hình sau khi dựng, nên cần hai lần pump (spinner của trang Tổng quan chạy mãi nên không dùng pumpAndSettle)
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 600));
+      }
+
+      await openMore();
+      expect(find.widgetWithText(ListTile, 'Vĩ mô'), findsOneWidget);
+      await tester.tap(find.widgetWithText(ListTile, 'Vĩ mô'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 600));
+      expect(find.text('Kinh tế vĩ mô'), findsOneWidget);
+
+      await openMore();
       expect(find.widgetWithText(ListTile, 'Tin tức'), findsOneWidget);
       expect(find.widgetWithText(ListTile, 'Cài đặt'), findsOneWidget);
       expect(tester.getSize(find.widgetWithText(ListTile, 'Cài đặt')).height, greaterThanOrEqualTo(48), reason: 'mục trong "Thêm"');

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart' show LogicalKeyboardKey;
 
 import 'services/updater.dart';
 import 'state.dart';
+import 'ui/cfa_page.dart';
 import 'ui/macro_page.dart';
 import 'ui/news_page.dart';
 import 'ui/overview_page.dart';
@@ -144,6 +145,7 @@ class _HomeShellState extends State<HomeShell> {
     (Icons.dashboard_outlined, Icons.dashboard, 'Tổng quan'),
     (Icons.star_outline, Icons.star, 'Theo dõi'),
     (Icons.filter_list, Icons.filter_list, 'Bộ lọc'),
+    (Icons.school_outlined, Icons.school, 'CFA'),
     (Icons.account_balance_outlined, Icons.account_balance, 'Vĩ mô'),
     (Icons.newspaper_outlined, Icons.newspaper, 'Tin tức'),
     (Icons.settings_outlined, Icons.settings, 'Cài đặt'),
@@ -181,6 +183,7 @@ class _HomeShellState extends State<HomeShell> {
       const OverviewPage(),
       const WatchlistPage(),
       const ScreenerPage(),
+      const CfaPage(),
       MacroPage(active: _tab == _macroTab),
       const NewsPage(),
       const SettingsPage(),
@@ -249,7 +252,7 @@ class _HomeShellState extends State<HomeShell> {
     );
   }
 
-  static const _macroTab = 3; // vị trí của 'Vĩ mô' trong _destinations
+  static const _macroTab = 4; // vị trí của 'Vĩ mô' trong _destinations
 
   /// Số mục hiện thẳng trên thanh dưới của điện thoại; các mục còn lại nằm trong "Thêm".
   static const _primaryCount = 4;
