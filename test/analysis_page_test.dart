@@ -9,6 +9,7 @@ import 'package:vn_stock_insight/services/market.dart';
 import 'package:vn_stock_insight/state.dart';
 import 'package:vn_stock_insight/ui/analysis_report.dart';
 import 'package:vn_stock_insight/ui/analysis_page.dart';
+import 'package:vn_stock_insight/ui/chart.dart' show StockChart;
 
 class _FakePaths extends PathProviderPlatform {
   @override
@@ -160,6 +161,8 @@ void main() {
     state.dispose();
   });
 
+  testWidgets('trang phân tích AI không có biểu đồ giá ở đầu trang', _noChartCheck);
+
   for (final w in [1400.0, 1000.0, 600.0]) {
     testWidgets('trang phân tích AI: hôm qua bên trái, hôm nay bên phải, chọn ngày so sánh (${w.toInt()} px)', (tester) async {
       SharedPreferences.setMockInitialValues({});
@@ -256,6 +259,32 @@ void main() {
     expect(find.textContaining('Đã lưu'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+}
+
+Future<void> _noChartCheck(WidgetTester tester) async {
+  SharedPreferences.setMockInitialValues({});
+  FlutterSecureStorage.setMockInitialValues({});
+  PathProviderPlatform.instance = _FakePaths();
+  tester.view.physicalSize = const Size(1200, 900);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  final state = AppState();
+  await tester.runAsync(() => state.init(startDashboard: false));
+  final bars = [for (var i = 0; i < 80; i++) Bar(1700000000 + i * 86400, 50 + i * 0.1, 51 + i * 0.1, 49 + i * 0.1, 50.5 + i * 0.1, 1000)];
+  state.stocks = {'FPT': analyze('FPT', bars)}; // có dữ liệu giá: trước đây trang này vẽ biểu đồ nến lớn ở đầu trang
+  final r = _record(DateTime.now(), 'hôm nay');
+  state.rememberAnalysis('FPT', r);
+  state.analyses['FPT'] = r;
+  await tester.pumpWidget(
+    AppScope(
+      state: state,
+      child: const MaterialApp(home: AnalysisPage('FPT')),
+    ),
+  );
+  await tester.pump(const Duration(milliseconds: 200));
+  expect(find.byType(StockChart), findsNothing, reason: 'trang báo cáo AI không còn biểu đồ giá lớn');
+  expect(find.text('HÔM NAY'), findsOneWidget);
+  expect(tester.takeException(), isNull);
 }
 
 String vnShort(DateTime d) {
