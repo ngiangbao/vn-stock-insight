@@ -362,6 +362,43 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  test('số cột lưới chỉ số chọn để hàng cuối ít ô trống nhất', () {
+    expect(ExtraMetricsGrid.columnsFor(8, 3), 2, reason: '8 thẻ: 2 cột (4 hàng) không thừa ô, ưu tiên hơn 3 cột thừa 1 ô');
+    expect(ExtraMetricsGrid.columnsFor(6, 3), 3);
+    expect(ExtraMetricsGrid.columnsFor(8, 4), 4);
+    expect(ExtraMetricsGrid.columnsFor(5, 1), 1);
+    expect(ExtraMetricsGrid.columnsFor(7, 2), 2);
+  });
+
+  for (final w in [1500.0, 900.0, 400.0]) {
+    testWidgets('thẻ KPI của phân tích bổ sung cùng rộng, cùng cao, trải hết khung (${w.toInt()} px)', (tester) async {
+      tester.view.physicalSize = Size(w, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final metrics = [
+        for (var i = 0; i < 8; i++) {'label': 'Chỉ tiêu $i', 'value': '${i * 10},5%', 'note': 'Ghi chú ${'dài ' * (i * 3)}'},
+      ];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Padding(padding: const EdgeInsets.all(16), child: ExtraMetricsGrid(metrics)),
+          ),
+        ),
+      );
+      await tester.pump();
+      final tiles = find.descendant(of: find.byType(GridView), matching: find.byType(Container));
+      final rects = [for (final e in tiles.evaluate()) tester.getRect(find.byWidget(e.widget))].where((r) => r.height > 60).toList();
+      expect(rects.length, 8);
+      expect({for (final r in rects) r.width.toStringAsFixed(1)}.length, 1, reason: 'cùng rộng');
+      expect({for (final r in rects) r.height.toStringAsFixed(1)}.length, 1, reason: 'cùng cao');
+      final left = rects.map((r) => r.left).reduce((a, b) => a < b ? a : b);
+      final right = rects.map((r) => r.right).reduce((a, b) => a > b ? a : b);
+      expect(left, 16);
+      expect(right, closeTo(w - 16, 0.5), reason: 'trải hết chiều ngang khung');
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('lưu phân tích bổ sung vào lịch sử nhận định', (tester) async {
     final state = await _state(tester);
     final rec = {

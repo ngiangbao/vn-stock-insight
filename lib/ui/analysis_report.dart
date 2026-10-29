@@ -1075,19 +1075,7 @@ class ExtraView extends StatelessWidget {
         Text('${r['summary'] ?? ''}'),
         if (metrics.isNotEmpty) ...[
           const SizedBox(height: 10),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            for (final m in metrics)
-              Container(
-                constraints: const BoxConstraints(minWidth: 140, maxWidth: 260),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(border: Border.all(color: cs.outlineVariant), borderRadius: BorderRadius.circular(8)),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Text('${m['label']}', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-                  Text('${m['value']}', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                  if ('${m['note'] ?? ''}'.isNotEmpty) Text('${m['note']}', style: text.bodySmall),
-                ]),
-              ),
-          ]),
+          ExtraMetricsGrid(metrics),
         ],
         for (final f in findings)
           Padding(
@@ -1132,6 +1120,66 @@ class ExtraView extends StatelessWidget {
             child: Text('Phân tích lúc ${timeVN(created)} · ${extra['ai']}.', style: text.bodySmall),
           ),
       ]),
+    );
+  }
+}
+
+/// Lưới chỉ số then chốt: mọi thẻ cùng rộng, cùng cao và trải đều hết chiều ngang khung phân tích.
+/// Số cột chọn theo bề rộng (tối đa 4), ưu tiên số cột làm hàng cuối ít ô trống nhất.
+class ExtraMetricsGrid extends StatelessWidget {
+  final List<Map> metrics;
+  const ExtraMetricsGrid(this.metrics, {super.key});
+
+  /// Số cột cho [count] thẻ khi có thể xếp tối đa [maxCols] cột.
+  static int columnsFor(int count, int maxCols) {
+    if (maxCols <= 1 || count <= 1) return 1;
+    var best = maxCols.clamp(2, 4), bestEmpty = (best - count % best) % best;
+    for (var n = maxCols.clamp(2, 4); n >= 2; n--) {
+      final empty = (n - count % n) % n;
+      if (empty < bestEmpty) {
+        best = n;
+        bestEmpty = empty;
+      }
+    }
+    return best;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    // Cỡ chữ hệ thống lớn thì thẻ cao hơn tương ứng nên các thẻ vẫn bằng nhau và không bị cắt chữ
+    final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.8);
+    return LayoutBuilder(
+      builder: (context, box) {
+        const gap = 10.0, minTile = 250.0;
+        final maxCols = ((box.maxWidth + gap) / (minTile + gap)).floor().clamp(1, 4);
+        final cols = columnsFor(metrics.length, maxCols);
+        final tileW = (box.maxWidth - gap * (cols - 1)) / cols;
+        // Thẻ hẹp thì ghi chú xuống dòng nhiều hơn
+        final extent = (tileW < 300 ? 168.0 : 140.0) * scale;
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: cols, mainAxisExtent: extent, crossAxisSpacing: gap, mainAxisSpacing: gap),
+          itemCount: metrics.length,
+          itemBuilder: (context, i) {
+            final m = metrics[i];
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(border: Border.all(color: cs.outlineVariant), borderRadius: BorderRadius.circular(8)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${m['label']}', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant), maxLines: 2, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 2),
+                Text('${m['value']}', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700), maxLines: 2, overflow: TextOverflow.ellipsis),
+                if ('${m['note'] ?? ''}'.isNotEmpty)
+                  Expanded(child: Padding(padding: const EdgeInsets.only(top: 4), child: Text('${m['note']}', style: text.bodySmall, overflow: TextOverflow.ellipsis, maxLines: 6))),
+              ]),
+            );
+          },
+        );
+      },
     );
   }
 }
