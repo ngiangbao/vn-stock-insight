@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'ai/prompts.dart';
 import 'dashboard.dart';
 import 'ai/providers.dart';
+import 'services/brokers.dart' show brokerSummary;
 import 'services/cfa.dart' show CfaStore;
 import 'services/fundamentals.dart';
 import 'services/lan_share.dart';
@@ -460,9 +461,12 @@ class AppState extends ChangeNotifier {
     if (bars.length < 30) throw AiException('Không tìm thấy dữ liệu giá cho mã $symbol.');
     final snap = analyze(symbol, bars);
     stocks = {...stocks, symbol: snap};
+    final fundamentals = await fetchFundamentals(symbol);
+    final brokers = await brokerSummary(symbol, company: fundamentals['company'] as Map?);
     final inputs = {
       'technicals': snap.toPromptJson(),
-      'fundamentals': await fetchFundamentals(symbol),
+      'fundamentals': fundamentals,
+      'brokers': [for (final r in brokers) r.toJson()],
       'news': newsFor(news, symbol).map((n) => n.toPromptJson()).toList(),
     };
     final result = await generateJson(

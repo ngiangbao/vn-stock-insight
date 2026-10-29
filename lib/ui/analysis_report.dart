@@ -9,6 +9,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../ai/extra_prompts.dart' show extraKinds;
+import '../services/brokers.dart';
 import '../services/market.dart' show Bar, vnDate;
 import '../state.dart' show vietnamDayKey;
 import 'widgets.dart';
@@ -95,6 +96,7 @@ class ResearchReport extends StatelessWidget {
         ]),
       ),
       _Block('Khuyến nghị', _Recommendation(r, t, c, avg, stance)),
+      _Block('Khuyến nghị của các công ty chứng khoán', BrokerRecs(symbol: '$symbol', closeThousand: _num(t['close']), saved: saved, company: c)),
       _Block('Thông tin cổ phiếu', _StockInfo(t, f, c, day)),
       if (history.length > 2) _Block('Diễn biến giá', _PriceBlock(symbol, history, market)),
     ]);
@@ -1199,4 +1201,89 @@ class ScenarioRow extends StatelessWidget {
                 for (final w in cards) Padding(padding: const EdgeInsets.only(bottom: 8), child: w),
               ]),
       );
+}
+
+/// Bảng khuyến nghị của các công ty chứng khoán. Dùng danh sách đã lưu trong bản phân tích; bản cũ chưa lưu thì tải trực tiếp.
+class BrokerRecs extends StatefulWidget {
+  final String symbol;
+  final double? closeThousand; // giá hiện tại, nghìn đồng
+  final Map<String, dynamic> saved, company;
+  const BrokerRecs({super.key, required this.symbol, required this.closeThousand, required this.saved, required this.company});
+
+  @override
+  State<BrokerRecs> createState() => _BrokerRecsState();
+}
+
+class _BrokerRecsState extends State<BrokerRecs> {
+  List<BrokerRec>? _recs;
+
+  @override
+  void initState() {
+    super.initState();
+    final stored = widget.saved['brokers'];
+    if (stored is List) {
+      _recs = [for (final j in stored.cast<Map>()) BrokerRec.fromJson(j)];
+    } else {
+      brokerSummary(widget.symbol, company: widget.company).then((r) {
+        if (mounted) setState(() => _recs = r);
+      }).catchError((_) {
+        if (mounted) setState(() => _recs = const []);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final recs = _recs;
+    if (recs == null) {
+      return Row(children: [
+        const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+        const SizedBox(width: 8),
+        Expanded(child: Text('Đang tải khuyến nghị…', style: text.bodySmall)),
+      ]);
+    }
+    if (recs.isEmpty) {
+      return Text('Chưa có khuyến nghị công khai nào trong 12 tháng qua cho mã này.', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant));
+    }
+    final close = widget.closeThousand == null ? null : widget.closeThousand! * 1000;
+    final cons = consensusOf(recs);
+    Color tone(String rating) => switch (rating) {
+          'MUA' => Tone.up(context),
+          'BÁN' => Tone.down(context),
+          _ => Tone.flat(context),
+        };
+    String d(DateTime x) => '${x.day.toString().padLeft(2, '0')}/${x.month.toString().padLeft(2, '0')}/${x.year}';
+    final medianUp = cons.medianTarget != null && close != null && close > 0 ? (cons.medianTarget! / close - 1) * 100 : null;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Text(
+        '${cons.total} công ty: ${cons.buy} mua, ${cons.hold} nắm giữ, ${cons.sell} bán'
+        '${cons.medianTarget == null ? '' : '. Giá mục tiêu trung vị ${fmt(cons.medianTarget, 0)} đ${medianUp == null ? '' : ' (${medianUp >= 0 ? '+' : ''}${fmt(medianUp, 1)}%)'}'}.',
+        style: text.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: 6),
+      for (final r in recs.take(10))
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(child: Text(firmName(r.firm), style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w700), maxLines: 1, overflow: TextOverflow.ellipsis)),
+              Tag(r.rating, color: tone(r.rating)),
+            ]),
+            Text(
+              [
+                if (r.target != null) 'Mục tiêu ${fmt(r.target, 0)} đ${close != null && close > 0 ? ' (${r.target! >= close ? '+' : ''}${fmt((r.target! / close - 1) * 100, 1)}%)' : ''}',
+                d(r.date) + (DateTime.now().difference(r.date).inDays > 180 ? ' (báo cáo cũ)' : ''),
+              ].join(' · '),
+              style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
+          ]),
+        ),
+      Text(
+        'Nguồn: Bloomberg qua VNDirect và Vietcap IQ, bên thứ ba, chỉ để tham chiếu. TCBS và một số công ty chứng khoán không công bố qua nguồn công khai nên không có trong danh sách.',
+        style: text.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+      ),
+    ]);
+  }
 }

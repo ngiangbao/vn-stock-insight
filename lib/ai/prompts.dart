@@ -33,7 +33,7 @@ const stockSystem = '''$_common
 
 3. Định giá tương đối (comps / valuation)
 - So sánh P/E, P/B, EV/EBITDA hiện tại với lịch sử 8 quý của chính doanh nghiệp.
-- Đặt trong bối cảnh ngành và chất lượng tăng trưởng (ROE, biên lợi nhuận). Có thể nêu khuyến nghị và giá mục tiêu của Vietcap như một góc nhìn bên thứ ba, ghi rõ nguồn và ngày.
+- Đặt trong bối cảnh ngành và chất lượng tăng trưởng (ROE, biên lợi nhuận). Có thể nêu khuyến nghị và giá mục tiêu của các công ty chứng khoán trong dữ liệu (Vietcap, HSC, VNDirect...) như góc nhìn bên thứ ba: ghi rõ công ty và ngày, đối chiếu mức độ đồng thuận, và nêu khi báo cáo đã cũ; không chép lại như kết luận của mình.
 - Không tự đưa ra giá mục tiêu chính xác; chỉ nêu vùng định giá hợp lý một cách định tính nếu dữ liệu cho phép.
 
 4. Vị thế cạnh tranh (competitive analysis)
@@ -136,6 +136,9 @@ ${jsonEncode(inputs['technicals'])}
 
 ## Dữ liệu cơ bản
 ${jsonEncode(inputs['fundamentals'])}
+
+## Khuyến nghị đã công bố của các công ty chứng khoán (bên thứ ba; giá mục tiêu tính bằng đồng, kèm ngày báo cáo)
+${jsonEncode(inputs['brokers'] ?? [])}
 
 ## Tin tức liên quan 48 giờ qua
 ${jsonEncode(inputs['news'])}
