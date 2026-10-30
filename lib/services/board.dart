@@ -61,11 +61,14 @@ class PriceLevel {
 
 double _d(dynamic x) => x is num ? x.toDouble() : 0;
 
-/// Chuyển phản hồi bảng giá thành danh sách cổ phiếu (bỏ chứng chỉ quỹ, ETF, chứng quyền).
-List<BoardRow> parseBoard(List<dynamic> json) {
+/// Lọc theo loại chứng khoán; mặc định chỉ cổ phiếu để giữ thống kê thị trường độc lập với quỹ.
+List<BoardRow> parseBoard(
+  List<dynamic> json, {
+  Set<String> securityTypes = const {'STOCK'},
+}) {
   final out = <BoardRow>[];
   for (final e in json) {
-    if (e is! Map || e['st'] != 'STOCK') continue;
+    if (e is! Map || !securityTypes.contains(e['st'])) continue;
     final ref = _d(e['ref']);
     if (ref <= 0) continue;
     final c = _d(e['c']);
@@ -105,7 +108,10 @@ List<BoardRow> parseBoard(List<dynamic> json) {
   return out;
 }
 
-Future<List<BoardRow>> fetchBoard(String group) async {
+Future<List<BoardRow>> fetchBoard(
+  String group, {
+  Set<String> securityTypes = const {'STOCK'},
+}) async {
   final resp = await http
       .post(
         Uri.parse(_boardUrl),
@@ -121,7 +127,10 @@ Future<List<BoardRow>> fetchBoard(String group) async {
   if (resp.statusCode != 200) {
     throw Exception('Bảng giá $group: HTTP ${resp.statusCode}');
   }
-  return parseBoard(jsonDecode(utf8.decode(resp.bodyBytes)) as List);
+  return parseBoard(
+    jsonDecode(utf8.decode(resp.bodyBytes)) as List,
+    securityTypes: securityTypes,
+  );
 }
 
 /// Tổng hợp bảng giá: số mã tăng/giảm/đứng, dòng tiền theo nhóm, tổng KL/giá trị, khối ngoại.

@@ -95,3 +95,20 @@ Muốn APK được ký ổn định (để cài bản mới đè lên bản cũ
 Giá: DNSE (dự phòng VNDirect). Số liệu tài chính: Vietcap IQ. Tin tức: RSS của các báo nói trên. Đây là các API công khai không chính thức, có thể thay đổi bất cứ lúc nào. App chỉ phục vụ mục đích cá nhân.
 
 Bản web cũ (GitHub Pages + Supabase) được lưu ở tag [`web-v1`](https://github.com/ngiangbao/vn-stock-insight/tree/web-v1).
+
+## Thị trường mở rộng
+
+- **Trái phiếu:** đường cong lợi suất TPCP dùng chung nguồn và bộ đệm với Vĩ mô; công cụ tính giá theo coupon/lợi suất/kỳ hạn (coupon hằng năm, mệnh giá 100, chưa gồm lãi dồn tích); liên kết tra cứu HNX. Chưa tích hợp bảng giá trái phiếu doanh nghiệp.
+- **Chứng chỉ quỹ:** tìm mã ETF/quỹ niêm yết từ bảng giá Vietcap, tải lịch sử giá từ DNSE/VNDirect; khi không tìm được danh sách thì thử E1VFVN30, FUEVFVND và FUEVN100. Đây không phải danh sách toàn bộ quỹ. Giá theo nghìn đồng/CCQ, không phải NAV. Quỹ mở có sổ NAV nhập thủ công, lưu trên máy theo quỹ/ngày; lưu lại cùng quỹ/ngày sẽ thay bản ghi.
+- **Phái sinh:** giá, biến động, khối lượng, biểu đồ các chuỗi kỳ hạn VN30F1M/F2M/F1Q/F2Q từ nguồn hiện có. Basis với VN30 chỉ hiển thị khi cùng ngày dữ liệu. Đây là chuỗi luân chuyển, không phải mã đáo hạn cụ thể. Không có chức năng đặt lệnh.
+- **Điều hướng:** desktop/tablet gom Vĩ mô, Tin tức và Cài đặt trong menu **Thêm**, mở khi rê chuột hoặc nhấp; hỗ trợ bàn phím và Escape. Điện thoại dùng **Thêm** ở thanh dưới để mở các mục còn lại, gồm ba trang tài sản mới.
+
+Bảng giá quỹ/phái sinh làm mới mỗi 45 giây khi đang xem trong giờ giao dịch; giữ dữ liệu đã tải khi lần tiếp theo lỗi. Ngày dữ liệu hiển thị theo từng mã; dữ liệu bên ngoài có thể chậm hoặc không tải được.
+
+## Chat AI nổi
+
+Nút chat chỉ có icon, có thể kéo tự do và tự bám cạnh trái/phải gần nhất khi thả. Nút xuất hiện trên mọi trang và cửa sổ chi tiết. Mở nút để hỏi AI đang chọn trong Cài đặt; đóng rồi mở lại giữ cuộc trò chuyện trong phiên, nút xóa xóa ngữ cảnh và bỏ qua kết quả đang chờ. Khởi động lại app không giữ lịch sử chat.
+
+Chat chỉ hỗ trợ tài chính/chứng khoán. Mỗi câu hỏi hợp lệ sử dụng tối đa ba lượt AI: kiểm tra đầu vào, tạo câu trả lời, kiểm tra đầu ra, nên có thể chậm hơn và phát sinh thêm chi phí API. Nếu không kiểm tra được hoặc kết quả không hợp lệ, app không hiển thị câu trả lời sinh ra. Chat không có công cụ, không đọc file/key/cài đặt vào prompt, không đặt lệnh, không tự mở URL và chưa có dữ liệu giá trực tiếp. Lịch sử gửi sang nhà cung cấp AI chỉ gồm tối đa sáu lượt đã được chấp nhận; câu hỏi và nội dung trả lời được coi là dữ liệu không đáng tin.
+
+Bảo vệ gồm kiểm tra mẫu tấn công rõ ràng, giới hạn kích thước, tách system prompt khỏi dữ liệu JSON, kiểm tra phạm vi đầu vào/đầu ra và hiển thị văn bản thuần. Đây là các lớp giảm thiểu, **không phải bảo đảm chống mọi prompt injection**, đặc biệt khi sử dụng model khác nhau. Cần thử thêm với model thực tế trước khi tăng quyền cho chat. Tham khảo [OWASP Prompt Injection Prevention](https://cheatsheetseries.owasp.org/cheatsheets/LLM_Prompt_Injection_Prevention_Cheat_Sheet.html).

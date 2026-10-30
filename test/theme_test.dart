@@ -23,7 +23,9 @@ void main() {
     final state = AppState();
     await tester.runAsync(() => state.init(startDashboard: false));
     await tester.pumpWidget(AppScope(state: state, child: const StockApp()));
-    await tester.tap(find.text('Cài đặt').first);
+    await tester.tap(find.widgetWithText(TextButton, 'Thêm'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(MenuItemButton, 'Cài đặt'));
     await tester.pumpAndSettle();
 
     Brightness brightness() => Theme.of(tester.element(find.text('Giao diện'))).brightness;

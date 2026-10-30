@@ -15,7 +15,8 @@ import 'widgets.dart' show fmt, timeLocal;
 class RatesTab extends StatefulWidget {
   /// Chỉ dùng trong kiểm thử để thay nguồn dữ liệu.
   final RatesRepository? repository;
-  const RatesTab({super.key, this.repository});
+  final bool bondsOnly;
+  const RatesTab({super.key, this.repository, this.bondsOnly = false});
 
   @override
   State<RatesTab> createState() => _RatesTabState();
@@ -168,7 +169,7 @@ class _RatesTabState extends State<RatesTab> {
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
               ),
-              delegate: SliverChildListDelegate(cards),
+              delegate: SliverChildListDelegate(widget.bondsOnly ? cards.take(1).toList() : cards),
             ),
           ),
           SliverToBoxAdapter(

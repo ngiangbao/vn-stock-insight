@@ -410,9 +410,9 @@ void main() {
       return state;
     }
 
-    const labels = ['Tổng quan', 'Theo dõi', 'Bộ lọc', 'CFA', 'Vĩ mô', 'Tin tức', 'Cài đặt'];
+    const labels = ['Tổng quan', 'Theo dõi', 'Bộ lọc', 'CFA', 'Trái phiếu', 'Chứng chỉ quỹ', 'Phái sinh'];
 
-    testWidgets('cửa sổ vừa (900 px): thanh bên có đủ 7 mục, CFA nằm giữa Bộ lọc và Vĩ mô, chọn Vĩ mô hiện trang Kinh tế vĩ mô', (tester) async {
+    testWidgets('cửa sổ vừa (900 px): thanh bên có 7 mục tài sản và menu ẩn, chọn Vĩ mô hiện trang Kinh tế vĩ mô', (tester) async {
       await pumpApp(tester, const Size(900, 800));
       expect(find.byType(NavigationRail), findsOneWidget);
       for (final l in labels) {
@@ -420,18 +420,21 @@ void main() {
       }
       double y(String l) => tester.getCenter(find.descendant(of: find.byType(NavigationRail), matching: find.text(l))).dy;
       expect(y('Bộ lọc'), lessThan(y('CFA')));
-      expect(y('CFA'), lessThan(y('Vĩ mô')));
+      expect(y('CFA'), lessThan(y('Trái phiếu')));
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('CFA')));
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('Phân tích theo khung CFA'), findsOneWidget);
       expect(find.text('Chọn cổ phiếu cần phân tích'), findsOneWidget);
-      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Vĩ mô')));
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.widgetWithText(TextButton, 'Thêm'));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(MenuItemButton, 'Vĩ mô'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
       expect(find.text('Kinh tế vĩ mô'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('màn hình rộng (1400 px): thanh điều hướng ngang có mục Vĩ mô', (tester) async {
+    testWidgets('màn hình rộng (1400 px): menu ẩn mở Vĩ mô', (tester) async {
       await pumpApp(tester, const Size(1400, 900));
       expect(find.byType(NavigationRail), findsNothing);
       for (final l in labels) {
@@ -439,9 +442,12 @@ void main() {
       }
       double x(String l) => tester.getCenter(find.text(l).first).dx;
       expect(x('Bộ lọc'), lessThan(x('CFA')));
-      expect(x('CFA'), lessThan(x('Vĩ mô')));
-      await tester.tap(find.text('Vĩ mô').first);
-      await tester.pump(const Duration(milliseconds: 300));
+      expect(x('CFA'), lessThan(x('Trái phiếu')));
+      await tester.tap(find.widgetWithText(TextButton, 'Thêm'));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(MenuItemButton, 'Vĩ mô'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
       expect(find.text('Kinh tế vĩ mô'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });

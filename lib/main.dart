@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,8 @@ import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'services/updater.dart';
 import 'state.dart';
 import 'ui/cfa_page.dart';
+import 'ui/floating_chat.dart';
+import 'ui/asset_pages.dart';
 import 'ui/macro_page.dart';
 import 'ui/news_page.dart';
 import 'ui/overview_page.dart';
@@ -26,26 +29,33 @@ Future<void> main() async {
 ThemeData _theme(Brightness brightness) {
   // Navy for navigation and actions; reserve green/red for market movement.
   final dark = brightness == Brightness.dark;
-  final scheme = ColorScheme.fromSeed(
-    seedColor: const Color(0xFF163A5F),
-    brightness: brightness,
-    surface: dark ? const Color(0xFF111923) : const Color(0xFFF3F6FA),
-  ).copyWith(
-    primary: dark ? const Color(0xFF82B7E8) : const Color(0xFF163A5F),
-    onPrimary: dark ? const Color(0xFF102033) : Colors.white,
-    secondary: dark ? const Color(0xFF8FAFCB) : const Color(0xFF526B84),
-    surfaceContainerLowest: dark ? const Color(0xFF151F2B) : Colors.white,
-  );
+  final scheme =
+      ColorScheme.fromSeed(
+        seedColor: const Color(0xFF163A5F),
+        brightness: brightness,
+        surface: dark ? const Color(0xFF111923) : const Color(0xFFF3F6FA),
+      ).copyWith(
+        primary: dark ? const Color(0xFF82B7E8) : const Color(0xFF163A5F),
+        onPrimary: dark ? const Color(0xFF102033) : Colors.white,
+        secondary: dark ? const Color(0xFF8FAFCB) : const Color(0xFF526B84),
+        surfaceContainerLowest: dark ? const Color(0xFF151F2B) : Colors.white,
+      );
   final outline = dark ? const Color(0xFF2B3948) : const Color(0xFFDCE4ED);
   final card = dark ? const Color(0xFF182331) : Colors.white;
-  final textTheme = ThemeData(brightness: brightness).textTheme.apply(
+  final textTheme = ThemeData(brightness: brightness).textTheme
+      .apply(
         bodyColor: scheme.onSurface,
         displayColor: scheme.onSurface,
         fontFamily: 'Roboto',
-      ).copyWith(
+      )
+      .copyWith(
         bodyMedium: const TextStyle(fontSize: 14, height: 1.45),
         bodySmall: const TextStyle(fontSize: 12, height: 1.4),
-        titleLarge: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.25),
+        titleLarge: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.25,
+        ),
         titleMedium: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
       );
   return ThemeData(
@@ -56,23 +66,33 @@ ThemeData _theme(Brightness brightness) {
     navigationRailTheme: NavigationRailThemeData(
       backgroundColor: card,
       selectedIconTheme: IconThemeData(color: scheme.primary),
-      selectedLabelTextStyle: TextStyle(color: scheme.primary, fontWeight: FontWeight.w700),
+      selectedLabelTextStyle: TextStyle(
+        color: scheme.primary,
+        fontWeight: FontWeight.w700,
+      ),
       unselectedIconTheme: IconThemeData(color: scheme.onSurfaceVariant),
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: card,
       indicatorColor: scheme.primary.withValues(alpha: 0.12),
-      labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
-            fontSize: 11,
-            fontWeight: states.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500,
-          )),
+      labelTextStyle: WidgetStateProperty.resolveWith(
+        (states) => TextStyle(
+          fontSize: 11,
+          fontWeight: states.contains(WidgetState.selected)
+              ? FontWeight.w700
+              : FontWeight.w500,
+        ),
+      ),
     ),
     appBarTheme: AppBarTheme(
       backgroundColor: scheme.surface,
       // Màu chữ phải đặt rõ ràng: titleLarge của app không có màu nên tiêu đề trắng trên nền sáng (không đọc được)
       foregroundColor: scheme.onSurface,
       surfaceTintColor: Colors.transparent,
-      titleTextStyle: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurface),
+      titleTextStyle: textTheme.titleLarge?.copyWith(
+        fontWeight: FontWeight.w700,
+        color: scheme.onSurface,
+      ),
     ),
     cardTheme: CardThemeData(
       color: card,
@@ -87,7 +107,10 @@ ThemeData _theme(Brightness brightness) {
     dividerTheme: DividerThemeData(color: outline, thickness: 1),
     inputDecorationTheme: InputDecorationTheme(
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: outline)),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: outline),
+      ),
       isDense: true,
     ),
     visualDensity: VisualDensity.standard,
@@ -112,12 +135,20 @@ class StockApp extends StatelessWidget {
       // Ctrl + / Ctrl - để phóng to/thu nhỏ giao diện, Ctrl 0 để trở về tự động
       builder: (context, child) => CallbackShortcuts(
         bindings: {
-          const SingleActivator(LogicalKeyboardKey.equal, control: true): () => state.setUiScale((state.uiScale ?? 1) + 0.1),
-          const SingleActivator(LogicalKeyboardKey.add, control: true): () => state.setUiScale((state.uiScale ?? 1) + 0.1),
-          const SingleActivator(LogicalKeyboardKey.minus, control: true): () => state.setUiScale((state.uiScale ?? 1) - 0.1),
-          const SingleActivator(LogicalKeyboardKey.digit0, control: true): () => state.setUiScale(null),
+          const SingleActivator(LogicalKeyboardKey.equal, control: true): () =>
+              state.setUiScale((state.uiScale ?? 1) + 0.1),
+          const SingleActivator(LogicalKeyboardKey.add, control: true): () =>
+              state.setUiScale((state.uiScale ?? 1) + 0.1),
+          const SingleActivator(LogicalKeyboardKey.minus, control: true): () =>
+              state.setUiScale((state.uiScale ?? 1) - 0.1),
+          const SingleActivator(LogicalKeyboardKey.digit0, control: true): () =>
+              state.setUiScale(null),
         },
-        child: AutoScale(enabled: state.autoScale, manual: state.uiScale, child: child!),
+        child: AutoScale(
+          enabled: state.autoScale,
+          manual: state.uiScale,
+          child: Overlay.wrap(child: FloatingFinanceChat(child: child!)),
+        ),
       ),
       home: const HomeShell(),
     );
@@ -133,6 +164,12 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
+  final _visited = <int>{0};
+
+  void _select(int index) => setState(() {
+    _tab = index;
+    _visited.add(index);
+  });
   late final AppLifecycleListener _lifecycle;
 
   @override
@@ -146,6 +183,9 @@ class _HomeShellState extends State<HomeShell> {
     (Icons.star_outline, Icons.star, 'Theo dõi'),
     (Icons.filter_list, Icons.filter_list, 'Bộ lọc'),
     (Icons.school_outlined, Icons.school, 'CFA'),
+    (Icons.receipt_long_outlined, Icons.receipt_long, 'Trái phiếu'),
+    (Icons.pie_chart_outline, Icons.pie_chart, 'Chứng chỉ quỹ'),
+    (Icons.swap_vert, Icons.swap_vert, 'Phái sinh'),
     (Icons.account_balance_outlined, Icons.account_balance, 'Vĩ mô'),
     (Icons.newspaper_outlined, Icons.newspaper, 'Tin tức'),
     (Icons.settings_outlined, Icons.settings, 'Cài đặt'),
@@ -184,6 +224,13 @@ class _HomeShellState extends State<HomeShell> {
       const WatchlistPage(),
       const ScreenerPage(),
       const CfaPage(),
+      _visited.contains(4) ? const BondsPage() : const SizedBox.shrink(),
+      _visited.contains(5)
+          ? ListedFundsPage(active: _tab == 5)
+          : const SizedBox.shrink(),
+      _visited.contains(6)
+          ? DerivativesPage(active: _tab == 6)
+          : const SizedBox.shrink(),
       MacroPage(active: _tab == _macroTab),
       const NewsPage(),
       const SettingsPage(),
@@ -194,65 +241,86 @@ class _HomeShellState extends State<HomeShell> {
 
     if (width >= 1100) {
       return Scaffold(
-        body: Column(children: [
-          _DesktopHeader(
-            selectedIndex: _tab,
-            onDestinationSelected: (i) => setState(() => _tab = i),
-            destinations: _destinations,
-          ),
-          const Divider(height: 1),
-          Expanded(child: body),
-        ]),
+        body: Column(
+          children: [
+            _DesktopHeader(
+              selectedIndex: _tab,
+              onDestinationSelected: _select,
+              destinations: _destinations,
+            ),
+            const Divider(height: 1),
+            Expanded(child: body),
+          ],
+        ),
       );
     }
 
     if (wide) {
       return Scaffold(
-        body: Row(children: [
-          // Cuộn được khi cửa sổ thấp để không tràn khi có nhiều mục
-          LayoutBuilder(
-            builder: (context, c) => SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: c.maxHeight),
-                child: IntrinsicHeight(
-                  child: NavigationRail(
-                    selectedIndex: _tab,
-                    onDestinationSelected: (i) => setState(() => _tab = i),
-                    labelType: NavigationRailLabelType.all,
-                    leading: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Icon(Icons.show_chart, size: 30),
+        body: Row(
+          children: [
+            // Cuộn được khi cửa sổ thấp để không tràn khi có nhiều mục
+            LayoutBuilder(
+              builder: (context, c) => SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: c.maxHeight),
+                  child: IntrinsicHeight(
+                    child: NavigationRail(
+                      selectedIndex: _tab < 7 ? _tab : null,
+                      onDestinationSelected: _select,
+                      trailing: AppMoreMenu(
+                        selectedIndex: _tab,
+                        onSelected: _select,
+                        destinations: _destinations,
+                      ),
+                      labelType: NavigationRailLabelType.all,
+                      leading: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Icon(Icons.show_chart, size: 30),
+                      ),
+                      destinations: [
+                        for (final d in _destinations.take(7))
+                          NavigationRailDestination(
+                            icon: Icon(d.$1),
+                            selectedIcon: Icon(d.$2),
+                            label: Text(d.$3),
+                          ),
+                      ],
                     ),
-                    destinations: [
-                      for (final d in _destinations)
-                        NavigationRailDestination(icon: Icon(d.$1), selectedIcon: Icon(d.$2), label: Text(d.$3)),
-                    ],
                   ),
                 ),
               ),
             ),
-          ),
-          const VerticalDivider(width: 1),
-          Expanded(child: body),
-        ]),
+            const VerticalDivider(width: 1),
+            Expanded(child: body),
+          ],
+        ),
       );
     }
-    // Điện thoại: thanh dưới tối đa 5 mục. 4 mục chính + "Thêm" (Tin tức, Cài đặt)
+    // Điện thoại: 4 mục chính và "Thêm" chứa các thị trường mới cùng tiện ích.
     return Scaffold(
       body: body,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab < _primaryCount ? _tab : _primaryCount,
-        onDestinationSelected: (i) => i < _primaryCount ? setState(() => _tab = i) : _openMore(),
+        onDestinationSelected: (i) =>
+            i < _primaryCount ? _select(i) : _openMore(),
         destinations: [
           for (final d in _destinations.take(_primaryCount))
-            NavigationDestination(icon: Icon(d.$1), selectedIcon: Icon(d.$2), label: d.$3),
-          const NavigationDestination(icon: Icon(Icons.more_horiz), label: 'Thêm'),
+            NavigationDestination(
+              icon: Icon(d.$1),
+              selectedIcon: Icon(d.$2),
+              label: d.$3,
+            ),
+          const NavigationDestination(
+            icon: Icon(Icons.more_horiz),
+            label: 'Thêm',
+          ),
         ],
       ),
     );
   }
 
-  static const _macroTab = 4; // vị trí của 'Vĩ mô' trong _destinations
+  static const _macroTab = 7; // vị trí của 'Vĩ mô' trong _destinations
 
   /// Số mục hiện thẳng trên thanh dưới của điện thoại; các mục còn lại nằm trong "Thêm".
   static const _primaryCount = 4;
@@ -262,18 +330,23 @@ class _HomeShellState extends State<HomeShell> {
       context: context,
       showDragHandle: true,
       builder: (c) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          for (var i = _primaryCount; i < _destinations.length; i++)
-            ListTile(
-              leading: Icon(_destinations[i].$1),
-              title: Text(_destinations[i].$3),
-              selected: _tab == i,
-              onTap: () => Navigator.pop(c, i),
-            ),
-        ]),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = _primaryCount; i < _destinations.length; i++)
+                ListTile(
+                  leading: Icon(_destinations[i].$1),
+                  title: Text(_destinations[i].$3),
+                  selected: _tab == i,
+                  onTap: () => Navigator.pop(c, i),
+                ),
+            ],
+          ),
+        ),
       ),
     );
-    if (picked != null && mounted) setState(() => _tab = picked);
+    if (picked != null && mounted) _select(picked);
   }
 }
 
@@ -297,32 +370,49 @@ class _DesktopHeader extends StatelessWidget {
         height: 62,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 18),
-          child: Row(children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(color: cs.primary, borderRadius: BorderRadius.circular(10)),
-              child: Icon(Icons.show_chart_rounded, color: cs.onPrimary, size: 23),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              'VN Stock Insight',
-              maxLines: 1,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(width: 22),
-            const VerticalDivider(width: 1, indent: 14, endIndent: 14),
-            const SizedBox(width: 14),
-            for (var i = 0; i < destinations.length; i++)
-              Expanded(
-                child: _DesktopNavItem(
-                  icon: selectedIndex == i ? destinations[i].$2 : destinations[i].$1,
-                  label: destinations[i].$3,
-                  selected: selectedIndex == i,
-                  onTap: () => onDestinationSelected(i),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: cs.primary,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.show_chart_rounded,
+                  color: cs.onPrimary,
+                  size: 23,
                 ),
               ),
-          ]),
+              const SizedBox(width: 10),
+              Text(
+                'VN Stock Insight',
+                maxLines: 1,
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(width: 22),
+              const VerticalDivider(width: 1, indent: 14, endIndent: 14),
+              const SizedBox(width: 14),
+              for (var i = 0; i < 7; i++)
+                Expanded(
+                  child: _DesktopNavItem(
+                    icon: selectedIndex == i
+                        ? destinations[i].$2
+                        : destinations[i].$1,
+                    label: destinations[i].$3,
+                    selected: selectedIndex == i,
+                    onTap: () => onDestinationSelected(i),
+                  ),
+                ),
+              AppMoreMenu(
+                selectedIndex: selectedIndex,
+                onSelected: onDestinationSelected,
+                destinations: destinations,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -335,7 +425,12 @@ class _DesktopNavItem extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _DesktopNavItem({required this.icon, required this.label, required this.selected, required this.onTap});
+  const _DesktopNavItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -343,32 +438,125 @@ class _DesktopNavItem extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 8),
       child: Material(
-        color: selected ? cs.primary.withValues(alpha: 0.09) : Colors.transparent,
+        color: selected
+            ? cs.primary.withValues(alpha: 0.09)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(10),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(icon, size: 19, color: selected ? cs.primary : cs.onSurfaceVariant),
-              const SizedBox(width: 7),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: selected ? cs.primary : cs.onSurfaceVariant,
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 19,
+                  color: selected ? cs.primary : cs.onSurfaceVariant,
+                ),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: selected ? cs.primary : cs.onSurfaceVariant,
+                      fontSize: 13,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-            ]),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+/// Hover, click and keyboard accessible menu; delay bridges the gap to the overlay.
+class AppMoreMenu extends StatefulWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+  final List<(IconData, IconData, String)> destinations;
+  const AppMoreMenu({
+    super.key,
+    required this.selectedIndex,
+    required this.onSelected,
+    required this.destinations,
+  });
+
+  @override
+  State<AppMoreMenu> createState() => _AppMoreMenuState();
+}
+
+class _AppMoreMenuState extends State<AppMoreMenu> {
+  final _controller = MenuController();
+  final _firstItemFocus = FocusNode();
+  Timer? _closeTimer;
+
+  void _enter() {
+    _closeTimer?.cancel();
+    if (!_controller.isOpen) _controller.open();
+  }
+
+  void _leave() {
+    _closeTimer?.cancel();
+    _closeTimer = Timer(const Duration(milliseconds: 220), () {
+      if (mounted && _controller.isOpen) _controller.close();
+    });
+  }
+
+  @override
+  void dispose() {
+    _closeTimer?.cancel();
+    _firstItemFocus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => MenuAnchor(
+    controller: _controller,
+    onOpen: () => WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _controller.isOpen) _firstItemFocus.requestFocus();
+    }),
+    menuChildren: [
+      for (var i = 7; i < widget.destinations.length; i++)
+        MouseRegion(
+          onEnter: (_) => _enter(),
+          onExit: (_) => _leave(),
+          child: MenuItemButton(
+            focusNode: i == 7 ? _firstItemFocus : null,
+            leadingIcon: Icon(widget.destinations[i].$1),
+            trailingIcon: widget.selectedIndex == i
+                ? const Icon(Icons.check, size: 18)
+                : null,
+            onPressed: () {
+              _closeTimer?.cancel();
+              widget.onSelected(i);
+            },
+            child: Text(widget.destinations[i].$3),
+          ),
+        ),
+    ],
+    builder: (context, controller, child) => MouseRegion(
+      onEnter: (_) => _enter(),
+      onExit: (_) => _leave(),
+      child: TextButton.icon(
+        onPressed: () {
+          _closeTimer?.cancel();
+          controller.isOpen ? controller.close() : controller.open();
+        },
+        icon: const Icon(Icons.more_horiz),
+        label: Text(
+          widget.selectedIndex >= 7
+              ? widget.destinations[widget.selectedIndex].$3
+              : 'Thêm',
+        ),
+      ),
+    ),
+  );
 }

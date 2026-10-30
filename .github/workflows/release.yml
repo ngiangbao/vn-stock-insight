@@ -193,8 +193,13 @@ jobs:
     needs: [android, linux, windows, macos]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with: { path: dist, merge-multiple: true }
+      - name: Tạo mã kiểm tra SHA-256
+        run: |
+          sha256sum dist/* | sed 's#  dist/#  #' > SHA256SUMS.txt
+          mv SHA256SUMS.txt dist/
       - name: Tạo bản phát hành (nếu có RELEASE_TOKEN)
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
@@ -203,13 +208,4 @@ jobs:
             echo "::notice::Chưa có RELEASE_TOKEN. Chạy tool/publish_release.sh $GITHUB_REF_NAME trên máy để phát hành dưới tên bạn."
             exit 0
           fi
-          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --verify-tag --title "VN Stock Insight $GITHUB_REF_NAME" --notes "$(cat <<'EOF'
-          Dashboard mới: thanh chỉ số nhanh, bố cục thị trường gọn hơn và bản đồ nhiệt theo biến động, khối ngoại hoặc thanh khoản.
-
-          Tải bản cho máy của bạn:
-          - Windows: tải file `-windows-x64-setup.exe` và làm theo trình cài đặt, hoặc `-windows-x64-portable.zip` để giải nén và chạy trực tiếp. Nếu SmartScreen cảnh báo, xem hướng dẫn trong README (mục Windows).
-          - macOS: tải file `-macos.pkg` và mở để cài ứng dụng vào Applications. Gói hiện chưa được ký/notarize bằng Apple Developer ID; macOS có thể yêu cầu xác nhận khi mở. File `-macos.zip` dùng cho cập nhật tự động trong app.
-          - Linux: file `-linux-x64.tar.gz`, giải nén rồi chạy `./vn-stock-insight/install.sh`.
-          - Android: file `.apk`, mở để cài (cho phép cài từ nguồn không xác định).
-          EOF
-          )"
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --verify-tag --title "VN Stock Insight $GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md
