@@ -19,6 +19,7 @@ import 'services/brokers.dart' show brokerSummary;
 import 'services/cfa.dart' show CfaStore;
 import 'services/fundamentals.dart';
 import 'services/lan_share.dart';
+import 'services/ssi.dart' show SsiSource;
 import 'services/portfolio.dart' show PortfolioStore;
 import 'services/macro.dart';
 import 'services/llama_runtime.dart';
@@ -171,6 +172,8 @@ class AppState extends ChangeNotifier {
       final key = await _readKey(p.id);
       if (key != null) _keys[p.id] = key;
     }
+    final ssiId = await _readKey('ssi_id'), ssiSecret = await _readKey('ssi_secret');
+    SsiSource.instance.configure(id: ssiId ?? '', secret: ssiSecret ?? '', enable: _prefs.getBool('ssiEnabled') ?? false);
     watchlist = _prefs.getStringList('watchlist') ?? [...defaultWatchlist];
     chartType = ChartType.values.asNameMap()[_prefs.getString('chartType')] ?? ChartType.candle;
     final inds = _prefs.getStringList('chartIndicators');
@@ -268,6 +271,20 @@ class AppState extends ChangeNotifier {
   void setAutoCheckUpdates(bool value) {
     autoCheckUpdates = value;
     _prefs.setBool('autoUpdate', value);
+    notifyListeners();
+  }
+
+  // ---------- Nguồn giá SSI (tùy chọn) ----------
+  String get ssiId => SsiSource.instance.consumerId ?? '';
+  String get ssiSecret => SsiSource.instance.consumerSecret ?? '';
+  bool get ssiEnabled => SsiSource.instance.enabled;
+
+  /// Lưu ConsumerID/ConsumerSecret (két an toàn của hệ điều hành, nếu không có thì cài đặt của app) và bật/tắt nguồn SSI.
+  Future<void> setSsi({String? id, String? secret, bool? enabled}) async {
+    SsiSource.instance.configure(id: id == null ? null : cleanApiKey(id), secret: secret == null ? null : cleanApiKey(secret), enable: enabled);
+    if (id != null) await _writeKey('ssi_id', SsiSource.instance.consumerId ?? '');
+    if (secret != null) await _writeKey('ssi_secret', SsiSource.instance.consumerSecret ?? '');
+    if (enabled != null) await _prefs.setBool('ssiEnabled', enabled);
     notifyListeners();
   }
 

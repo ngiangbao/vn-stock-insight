@@ -6,6 +6,8 @@ import 'dart:math' as math;
 
 import 'package:http/http.dart' as http;
 
+import 'ssi.dart' show SsiSource;
+
 const userAgent = {'User-Agent': 'Mozilla/5.0 (vn-stock-insight)'};
 
 /// Rổ VN30 dùng cho tổng quan và bộ lọc. Rổ được điều chỉnh mỗi 6 tháng.
@@ -67,8 +69,16 @@ Future<List<Bar>> withToday(
 }) async {
   final clock = (now ?? DateTime.now()).toUtc();
   final today = vnDate(clock.millisecondsSinceEpoch ~/ 1000);
+  final vnNow = clock.add(const Duration(hours: 7));
+  // Nguồn SSI (tùy chọn, người dùng tự bật trong Cài đặt): nến hôm nay của SSI được ưu tiên, ghi đè nến hôm nay của nguồn khác
+  if (kind == 'stock' && bars.isNotEmpty && vnNow.weekday <= DateTime.friday && vnNow.hour >= 9) {
+    final ssi = await SsiSource.instance.todayBar(symbol, now: clock);
+    if (ssi != null && vnDate(ssi.t) == today) {
+      return [for (final b in bars) if (vnDate(b.t) != today) b, ssi];
+    }
+  }
   if (bars.isEmpty || vnDate(bars.last.t).compareTo(today) >= 0) return bars;
-  final vn = clock.add(const Duration(hours: 7));
+  final vn = vnNow;
   if (vn.weekday > DateTime.friday || vn.hour < 9) return bars;
   final end = clock.millisecondsSinceEpoch ~/ 1000;
   try {
