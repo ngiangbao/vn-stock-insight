@@ -104,7 +104,10 @@ class AppState extends ChangeNotifier {
 
   /// Cấu hình AI để gọi. Với model chạy trong app: tự cài/cập nhật engine và nạp model nếu cần.
   Future<AiConfig> resolveAiConfig() async {
-    if (providerId != 'embedded') return aiConfig;
+    if (providerId != 'embedded') {
+      await ensureKey(providerId);
+      return aiConfig;
+    }
     final model = embeddedModel;
     if (model == null || !File(model).existsSync()) {
       throw AiException('Chưa chọn model chạy trong app. Vào Cài đặt → Model trên máy để tải và chọn model.');
@@ -196,22 +199,36 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Một số máy Linux không có dịch vụ keyring: khi đó lưu tạm trong cài đặt của app.
+  // Một số máy Linux không có dịch vụ keyring hoặc keyring bị khóa lúc mở app: khi đó key nằm trong cài đặt của app.
+  // Đọc thử két an toàn trước; trống hoặc lỗi thì đọc bản trong cài đặt (không bỏ sót key chỉ vì két chưa sẵn sàng).
   Future<String?> _readKey(String id) async {
     try {
-      return await _secure.read(key: 'key_$id');
+      final v = await _secure.read(key: 'key_$id');
+      if (v != null && v.isNotEmpty) return v;
     } catch (_) {
       secureStorageOk = false;
-      return _prefs.getString('key_$id');
     }
+    final fallback = _prefs.getString('key_$id');
+    return fallback == null || fallback.isEmpty ? null : fallback;
   }
 
   Future<void> _writeKey(String id, String value) async {
     try {
       await _secure.write(key: 'key_$id', value: value);
+      await _prefs.remove('key_$id'); // két an toàn đã giữ key: bỏ bản sao trong cài đặt
     } catch (_) {
       secureStorageOk = false;
       await _prefs.setString('key_$id', value);
+    }
+  }
+
+  /// Nạp lại key của [id] nếu đang trống (két khóa lúc mở app nhưng đã mở khóa sau đó).
+  Future<void> ensureKey(String id) async {
+    if (_keys[id]?.isNotEmpty ?? false) return;
+    final k = await _readKey(id);
+    if (k != null && k.isNotEmpty) {
+      _keys[id] = cleanApiKey(k);
+      notifyListeners();
     }
   }
 
@@ -264,8 +281,9 @@ class AppState extends ChangeNotifier {
       await _prefs.setString('model_$id', model.trim());
     }
     if (apiKey != null) {
-      _keys[id] = apiKey.trim();
-      await _writeKey(id, apiKey.trim());
+      final key = cleanApiKey(apiKey);
+      _keys[id] = key;
+      await _writeKey(id, key);
     }
     notifyListeners();
   }
