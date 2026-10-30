@@ -410,7 +410,7 @@ void main() {
       return state;
     }
 
-    const labels = ['Tổng quan', 'Theo dõi', 'Bộ lọc', 'CFA', 'Trái phiếu', 'Chứng chỉ quỹ', 'Phái sinh'];
+    const labels = ['Tổng quan', 'Theo dõi', 'Bộ lọc', 'CFA', 'Trái phiếu', 'Quỹ', 'Phái sinh'];
 
     testWidgets('cửa sổ vừa (900 px): thanh bên có 7 mục tài sản và menu ẩn, chọn Vĩ mô hiện trang Kinh tế vĩ mô', (tester) async {
       await pumpApp(tester, const Size(900, 800));

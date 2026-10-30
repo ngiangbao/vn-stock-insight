@@ -69,9 +69,7 @@ class _BondCalculatorState extends State<BondCalculator> {
       const SizedBox(height: 16),
       Form(
         key: _form,
-        child: Wrap(
-          spacing: 12,
-          runSpacing: 12,
+        child: _AssetFields(
           children: [
             _number(_coupon, 'Coupon (%/năm)'),
             _number(_yield, 'Lợi suất yêu cầu (%/năm)'),
@@ -127,22 +125,19 @@ Widget _number(
   TextEditingController controller,
   String label, {
   bool integer = false,
-}) => SizedBox(
-  width: 260,
-  child: TextFormField(
-    controller: controller,
-    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-    decoration: InputDecoration(labelText: label),
-    validator: (s) {
-      final n = _parse(s ?? '');
-      if (n == null || !n.isFinite || n < 0) return 'Nhập số không âm hợp lệ';
-      if (integer &&
-          (int.tryParse((s ?? '').trim()) == null || n < 1 || n > 100)) {
-        return 'Nhập số nguyên từ 1 đến 100';
-      }
-      return null;
-    },
-  ),
+}) => TextFormField(
+  controller: controller,
+  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+  decoration: InputDecoration(labelText: label),
+  validator: (s) {
+    final n = _parse(s ?? '');
+    if (n == null || !n.isFinite || n < 0) return 'Nhập số không âm hợp lệ';
+    if (integer &&
+        (int.tryParse((s ?? '').trim()) == null || n < 1 || n > 100)) {
+      return 'Nhập số nguyên từ 1 đến 100';
+    }
+    return null;
+  },
 );
 
 class _SourceLink extends StatelessWidget {
@@ -180,7 +175,7 @@ class ListedFundsPage extends StatelessWidget {
     length: 2,
     child: Scaffold(
       appBar: AppBar(
-        title: const Text('Chứng chỉ quỹ'),
+        title: const Text('Quỹ'),
         bottom: const TabBar(
           tabs: [
             Tab(text: 'Quỹ niêm yết / ETF'),
@@ -362,11 +357,11 @@ class _InstrumentQuotesPageState extends State<InstrumentQuotesPage> {
             padding: EdgeInsets.all(24),
             child: Text('Không có mã phù hợp.'),
           ),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            sortColumnIndex: _sort,
-            sortAscending: _ascending,
+        Card(
+          margin: EdgeInsets.zero,
+          clipBehavior: Clip.antiAlias,
+          child: FlexTable(
+            minWidth: widget.derivative ? 1050 : 900,
             columns: [
               for (final (i, label) in [
                 'Mã',
@@ -377,41 +372,38 @@ class _InstrumentQuotesPageState extends State<InstrumentQuotesPage> {
                 if (widget.derivative) 'Basis (điểm)',
                 'Biểu đồ',
               ].indexed)
-                DataColumn(
-                  label: Text(label),
-                  numeric: i > 0 && i < 4,
+                FlexCol(
+                  label,
+                  1,
+                  align: Alignment.center,
+                  ascending: i < 4 && _sort == i ? _ascending : null,
                   onSort: i < 4
-                      ? (index, ascending) => setState(() {
-                          _sort = index;
-                          _ascending = ascending;
+                      ? () => setState(() {
+                          _ascending = _sort == i ? !_ascending : true;
+                          _sort = i;
                         })
                       : null,
                 ),
             ],
             rows: [
               for (final q in rows)
-                DataRow(
-                  cells: [
-                    DataCell(Text(q.symbol)),
-                    DataCell(Text(fmt(q.price))),
-                    DataCell(Pct(q.change)),
-                    DataCell(Text(fmt(q.bars.last.v, 0))),
-                    DataCell(Text(q.date)),
-                    if (widget.derivative)
-                      DataCell(Text(fmt(sameSessionBasis(q, _spot)))),
-                    DataCell(
-                      IconButton(
-                        tooltip: 'Biểu đồ ${q.symbol}',
-                        icon: const Icon(Icons.candlestick_chart),
-                        onPressed: () => openChart(
-                          context,
-                          q.symbol,
-                          kind: q.derivative ? 'derivative' : 'stock',
-                        ),
-                      ),
+                FlexRow([
+                  Text(q.symbol),
+                  Text(fmt(q.price)),
+                  Pct(q.change),
+                  Text(fmt(q.bars.last.v, 0)),
+                  Text(q.date),
+                  if (widget.derivative) Text(fmt(sameSessionBasis(q, _spot))),
+                  IconButton(
+                    tooltip: 'Biểu đồ ${q.symbol}',
+                    icon: const Icon(Icons.candlestick_chart),
+                    onPressed: () => openChart(
+                      context,
+                      q.symbol,
+                      kind: q.derivative ? 'derivative' : 'stock',
                     ),
-                  ],
-                ),
+                  ),
+                ]),
             ],
           ),
         ),
@@ -507,12 +499,9 @@ class _FundNavTrackerState extends State<FundNavTracker> {
       const SizedBox(height: 16),
       Form(
         key: _form,
-        child: Wrap(
-          spacing: 12,
-          runSpacing: 12,
+        child: _AssetFields(
           children: [
             SizedBox(
-              width: 260,
               child: TextFormField(
                 controller: _name,
                 decoration: const InputDecoration(labelText: 'Mã / tên quỹ'),
@@ -522,7 +511,6 @@ class _FundNavTrackerState extends State<FundNavTracker> {
             ),
             _number(_nav, 'NAV/CCQ (đồng)'),
             SizedBox(
-              width: 260,
               child: TextFormField(
                 controller: _date,
                 decoration: const InputDecoration(
@@ -588,5 +576,35 @@ class _FundNavTrackerState extends State<FundNavTracker> {
           ),
         ),
     ],
+  );
+}
+
+/// Equal columns use the entire available width, then wrap on narrow screens.
+class _AssetFields extends StatelessWidget {
+  final List<Widget> children;
+  const _AssetFields({required this.children});
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      final columns = box.maxWidth >= 1000 ? 4 : (box.maxWidth >= 560 ? 2 : 1);
+      final width = (box.maxWidth - (columns - 1) * 12) / columns;
+      return Wrap(
+        spacing: 12,
+        runSpacing: 16,
+        children: [
+          for (final child in children)
+            SizedBox(
+              width: width,
+              child: child is FilledButton
+                  ? ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 56),
+                      child: child,
+                    )
+                  : child,
+            ),
+        ],
+      );
+    },
   );
 }

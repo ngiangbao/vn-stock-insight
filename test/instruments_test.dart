@@ -8,6 +8,7 @@ import 'package:vn_stock_insight/services/board.dart';
 import 'package:vn_stock_insight/services/instruments.dart';
 import 'package:vn_stock_insight/services/market.dart';
 import 'package:vn_stock_insight/ui/asset_pages.dart';
+import 'package:vn_stock_insight/ui/widgets.dart';
 
 void main() {
   test(
@@ -75,7 +76,7 @@ void main() {
           'Bộ lọc',
           'CFA',
           'Trái phiếu',
-          'Chứng chỉ quỹ',
+          'Quỹ',
           'Phái sinh',
           'Vĩ mô',
           'Tin tức',
@@ -212,4 +213,67 @@ void main() {
       expect(find.textContaining('MYFUND ·'), findsNothing);
     },
   );
+  for (final width in [390.0, 700.0, 1100.0, 1900.0]) {
+    testWidgets('asset forms fill window and share equal widths ($width)', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      SharedPreferences.setMockInitialValues({});
+      for (final page in [const BondCalculator(), const FundNavTracker()]) {
+        await tester.pumpWidget(MaterialApp(home: Scaffold(body: page)));
+        await tester.pumpAndSettle();
+        final fields = find.byType(TextFormField);
+        final first = tester.getRect(fields.at(0));
+        expect(first.left, closeTo(16, 0.1));
+        for (var i = 1; i < 3; i++) {
+          expect(tester.getSize(fields.at(i)).width, closeTo(first.width, 0.1));
+        }
+        final button = find.byType(FilledButton);
+        expect(tester.getSize(button).width, closeTo(first.width, 0.1));
+        expect(tester.getRect(button).right, closeTo(width - 16, 0.1));
+        if (width >= 1100) {
+          expect(tester.getRect(button).top, closeTo(first.top, 0.1));
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      }
+    });
+  }
+
+  for (final derivative in [false, true]) {
+    testWidgets(
+      'asset table fills wide window; columns spread evenly ($derivative)',
+      (tester) async {
+        tester.view.physicalSize = const Size(1900, 1000);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: InstrumentQuotesPage(
+                derivative: derivative,
+                loader: () async => [
+                  InstrumentQuote('TEST', [
+                    const Bar(86400, 10, 11, 9, 10, 100),
+                  ], derivative: derivative),
+                ],
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final table = find.byType(FlexTable);
+        expect(tester.getSize(table).width, closeTo(1868, 0.1));
+        final first = tester.getCenter(find.text('TEST'));
+        final last = tester.getCenter(find.byTooltip('Biểu đồ TEST'));
+        final columns = derivative ? 7 : 6;
+        final cell = (tester.getSize(table).width - 12) / columns;
+        expect(last.dx - first.dx, closeTo(cell * (columns - 1), 1));
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
 }

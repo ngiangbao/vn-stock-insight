@@ -184,7 +184,7 @@ class _HomeShellState extends State<HomeShell> {
     (Icons.filter_list, Icons.filter_list, 'Bộ lọc'),
     (Icons.school_outlined, Icons.school, 'CFA'),
     (Icons.receipt_long_outlined, Icons.receipt_long, 'Trái phiếu'),
-    (Icons.pie_chart_outline, Icons.pie_chart, 'Chứng chỉ quỹ'),
+    (Icons.pie_chart_outline, Icons.pie_chart, 'Quỹ'),
     (Icons.swap_vert, Icons.swap_vert, 'Phái sinh'),
     (Icons.account_balance_outlined, Icons.account_balance, 'Vĩ mô'),
     (Icons.newspaper_outlined, Icons.newspaper, 'Tin tức'),

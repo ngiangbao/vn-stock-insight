@@ -141,4 +141,29 @@ void main() {
     expect(tester.getSize(find.byTooltip('Làm mới lãi suất')).shortestSide, greaterThanOrEqualTo(48));
     expect(tester.takeException(), isNull);
   });
+  testWidgets('trái phiếu: biểu đồ lợi suất giãn hết chiều ngang cửa sổ', (tester) async {
+    tester.view.physicalSize = const Size(1900, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    SharedPreferences.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({});
+    PathProviderPlatform.instance = _FakePaths();
+    final state = AppState();
+    await tester.runAsync(() => state.init(startDashboard: false));
+    await tester.pumpWidget(AppScope(state: state, child: MaterialApp(
+      theme: appTheme(Brightness.light),
+      home: Scaffold(body: RatesTab(bondsOnly: true, repository: RatesRepository(client: _client(), maxAge: Duration.zero))),
+    )));
+    for (var i = 0; i < 20 && find.text('Đang tải lãi suất…').evaluate().isNotEmpty; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(Card), findsOneWidget);
+    expect(tester.getSize(find.byType(Card)).width, closeTo(1868, 0.1));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    state.dispose();
+  });
+
 }

@@ -163,7 +163,9 @@ class _RatesTabState extends State<RatesTab> {
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             sliver: SliverGrid(
-              gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+              gridDelegate: widget.bondsOnly
+                  ? SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 1, mainAxisExtent: 360 * scale)
+                  : SliverGridDelegateWithMaxCrossAxisExtent(
                 maxCrossAxisExtent: 520,
                 mainAxisExtent: 360 * scale,
                 crossAxisSpacing: 16,
