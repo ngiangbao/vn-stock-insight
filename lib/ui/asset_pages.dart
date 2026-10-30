@@ -9,11 +9,12 @@ import '../dashboard.dart' show isTradingTime;
 import '../services/instruments.dart';
 import '../services/market.dart';
 import 'chart.dart';
-import 'rates_tab.dart';
+import 'corporate_bonds_page.dart';
 import 'widgets.dart';
 
 class BondsPage extends StatelessWidget {
-  const BondsPage({super.key});
+  final bool active;
+  const BondsPage({super.key, this.active = true});
   @override
   Widget build(BuildContext context) => DefaultTabController(
     length: 2,
@@ -22,13 +23,16 @@ class BondsPage extends StatelessWidget {
         title: const Text('Trái phiếu'),
         bottom: const TabBar(
           tabs: [
-            Tab(text: 'Lợi suất Chính phủ'),
+            Tab(text: 'Doanh nghiệp'),
             Tab(text: 'Định giá & tra cứu'),
           ],
         ),
       ),
-      body: const TabBarView(
-        children: [RatesTab(bondsOnly: true), BondCalculator()],
+      body: TabBarView(
+        children: [
+          CorporateBondsPage(active: active),
+          const BondCalculator(),
+        ],
       ),
     ),
   );
@@ -104,15 +108,7 @@ class _BondCalculatorState extends State<BondCalculator> {
         style: Theme.of(context).textTheme.titleMedium,
       ),
       const Text(
-        'Chưa kết nối bảng giá và hồ sơ trái phiếu doanh nghiệp tự động. Tra cứu mã, đơn vị phát hành, kỳ hạn và công bố tại HNX.',
-      ),
-      _SourceLink(
-        'Trái phiếu Chính phủ — HNX',
-        'https://www.hnx.vn/vi-vn/trai-phieu.html',
-      ),
-      _SourceLink(
-        'Danh sách trái phiếu — HNX',
-        'https://stoxvn.hnx.vn/vi-vn/trai-phieu/danh-sach-trai-phieu.html',
+        'Danh mục doanh nghiệp được tải tự động ở tab Doanh nghiệp. Các liên kết dưới đây dùng đối chiếu công bố HNX.',
       ),
       _SourceLink('Trái phiếu doanh nghiệp — HNX', 'https://cbonds.hnx.vn/'),
     ],

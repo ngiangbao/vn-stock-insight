@@ -224,7 +224,9 @@ class _HomeShellState extends State<HomeShell> {
       const WatchlistPage(),
       const ScreenerPage(),
       const CfaPage(),
-      _visited.contains(4) ? const BondsPage() : const SizedBox.shrink(),
+      _visited.contains(4)
+          ? BondsPage(active: _tab == 4)
+          : const SizedBox.shrink(),
       _visited.contains(5)
           ? ListedFundsPage(active: _tab == 5)
           : const SizedBox.shrink(),
