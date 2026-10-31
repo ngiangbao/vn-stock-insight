@@ -1,4 +1,5 @@
 // Kiểm tra thủ công với Claude CLI thật: dart run tool/check_claude_cli.dart [model]
+// ignore_for_file: avoid_print
 import 'package:vn_stock_insight/services/claude_cli.dart';
 
 Future<void> main(List<String> args) async {

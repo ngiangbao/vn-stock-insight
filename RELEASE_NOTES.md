@@ -1,4 +1,4 @@
-## VN Stock Insight v2.11.0
+## VN Stock Insight v2.11.1
 
 - **Hỗ trợ Claude CLI:** trong Cài đặt → AI chọn “Claude CLI” để dùng tài khoản Claude (Pro/Max) qua lệnh `claude`, không cần API key. Phân tích mã, bản tin thị trường, chat và CFA đều dùng được.
 - **Chọn model của Claude CLI:** mặc định của CLI, Fable, Opus, Sonnet, Haiku hoặc nhập tên model đầy đủ; có chọn mức suy luận và nút thử model.
