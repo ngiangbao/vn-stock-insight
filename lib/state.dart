@@ -60,7 +60,7 @@ class AppState extends ChangeNotifier {
   AiConfig get aiConfig => AiConfig(provider, baseUrlOf(providerId), modelOf(providerId), keyOf(providerId), effort: effort);
   String get aiLabel => providerId == 'embedded'
       ? '${provider.name} · ${embeddedModel == null ? 'chưa chọn model' : embeddedModel!.split(Platform.pathSeparator).last}'
-      : '${provider.name} · ${modelOf(providerId).isEmpty ? 'chưa chọn model' : modelOf(providerId)}';
+      : '${provider.name} · ${modelOf(providerId).isEmpty ? (provider.style == ApiStyle.claudeCli ? 'model mặc định' : 'chưa chọn model') : modelOf(providerId)}';
 
   // ---------- Biểu đồ ----------
   ChartType chartType = ChartType.candle;

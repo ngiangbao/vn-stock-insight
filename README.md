@@ -4,6 +4,16 @@ App phân tích cổ phiếu Việt Nam bằng AI cho **Windows, macOS, Linux v�
 
 > Công cụ tham khảo. App **không đặt lệnh**, và phân tích của AI **không phải khuyến nghị đầu tư**.
 
+## Ảnh chụp màn hình
+
+Giao diện tối trên Linux, dữ liệu thị trường thật tại thời điểm chụp (ảnh Cài đặt dùng tài khoản minh họa, không phải tài khoản thật).
+
+| Tổng quan thị trường | Bảng giá và bộ lọc |
+|---|---|
+| ![Trang Tổng quan: chỉ số, biểu đồ nến VN-Index và số liệu khối ngoại](docs/screenshots/tong-quan.png) | ![Trang Bộ lọc: bảng giá realtime, tìm nhiều mã cùng lúc và chi tiết từng mã](docs/screenshots/bo-loc.png) |
+| **Claude CLI trong Cài đặt** | **Chọn model của Claude CLI** |
+| ![Cài đặt AI: nhà cung cấp Claude CLI, phiên bản, trạng thái đăng nhập và model](docs/screenshots/claude-cli-settings.png) | ![Danh sách model của Claude CLI: mặc định, Fable, Opus, Sonnet, Haiku hoặc tên đầy đủ](docs/screenshots/claude-cli-models.png) |
+
 ## Tính năng
 
 - **Tổng quan:** dashboard thị trường với các chỉ số, biểu đồ, độ rộng thị trường và bản đồ nhiệt có thể xem theo biến động, giao dịch khối ngoại hoặc thanh khoản.
@@ -26,9 +36,19 @@ Khung phân tích được chuyển thể từ các plugin **equity-research** v
 |---|---|
 | Qua API | Claude (Anthropic), OpenAI, Google Gemini, OpenRouter, Groq, Mistral, DeepSeek, xAI Grok, Together AI |
 | Chạy trên máy | LM Studio, Ollama |
+| Claude CLI (máy tính) | Dùng gói đăng ký Claude có sẵn qua lệnh `claude`, không cần API key |
 | Tùy chỉnh | Mọi dịch vụ có API tương thích OpenAI (llama.cpp server, vLLM, Azure…) |
 
 Cấu hình trong **Cài đặt → AI**: chọn nhà cung cấp, nhập API key (lưu trong kho bảo mật của hệ điều hành), rồi bấm **Tải danh sách** để chọn model.
+
+### Claude CLI
+
+Trên Windows, macOS và Linux, chọn **Claude CLI** trong **Cài đặt → AI** để dùng tài khoản Claude (Pro/Max) qua lệnh `claude` thay vì API key. Mọi tính năng AI (phân tích mã, bản tin thị trường, chat, CFA) đều chạy qua lựa chọn này.
+
+- **Chọn model:** Mặc định của CLI, Fable, Opus, Sonnet, Haiku (luôn là bản mới nhất), hoặc nhập tên model đầy đủ như `claude-opus-5-5`. Mức suy luận chọn cùng chỗ. Nút **Thử model đã chọn** gửi một câu hỏi nhỏ để kiểm tra.
+- **Chưa cài:** bấm **Cài Claude CLI**. App hiện hộp xác nhận cùng lệnh tương đương, rồi tải script chính thức từ `claude.ai` (từ chối nếu bị chuyển hướng sang tên miền khác), chạy và hiển thị nhật ký. Cũng có cách cài bằng npm nếu máy có sẵn. Chưa đăng nhập thì bấm **Đăng nhập tài khoản Claude**.
+- **Cách gọi:** chạy `claude -p` ở thư mục tạm, tắt toàn bộ công cụ và không nạp cấu hình/dự án nào, nên Claude chỉ nhận văn bản app gửi. Tìm `claude` trong PATH, các thư mục cài thường gặp và shell đăng nhập (mise, nvm…), hoặc dùng đường dẫn bạn nhập.
+- **Lưu ý:** phân tích dùng hạn mức của gói đăng ký. Chỉ có trên Windows, macOS và Linux (Android không có).
 
 ### Model trên máy
 

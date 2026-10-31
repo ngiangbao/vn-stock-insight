@@ -5,6 +5,7 @@ import '../services/ssi.dart';
 import '../services/updater.dart';
 import '../state.dart';
 import 'lan_section.dart';
+import 'claude_cli_section.dart';
 import 'local_models_page.dart';
 import 'update_dialog.dart';
 import 'widgets.dart';
@@ -283,12 +284,12 @@ class _SettingsPageState extends State<SettingsPage> {
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'Nhà cung cấp'),
             items: [
-              for (final x in providers)
+              for (final x in availableProviders)
                 DropdownMenuItem(
                   value: x.id,
                   child: Row(
                     children: [
-                      Icon(x.local ? Icons.computer : Icons.cloud_outlined, size: 18),
+                      Icon(x.style == ApiStyle.claudeCli ? Icons.terminal : (x.local ? Icons.computer : Icons.cloud_outlined), size: 18),
                       const SizedBox(width: 8),
                       // Co lại và cắt bằng "…" khi tên dài hoặc màn hình hẹp / cỡ chữ lớn
                       Expanded(child: Text(x.name, overflow: TextOverflow.ellipsis)),
@@ -319,6 +320,10 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: Text(state.embeddedModel == null ? 'Tải & chọn model' : 'Đổi model'),
               ),
             ),
+          ] else if (p.style == ApiStyle.claudeCli) ...[
+            const SizedBox(height: 12),
+            // Dùng chung ô đường dẫn (_url) và ô model (_model) của trang để nút "Lưu" không ghi đè bằng giá trị cũ
+            ClaudeCliSection(pathController: _url, modelController: _model, onChanged: () => _save(state)),
           ] else ...[
             const SizedBox(height: 12),
             Focus(
@@ -404,7 +409,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: Text(_status!, style: TextStyle(color: _statusOk ? Tone.up(context) : Tone.down(context))),
               ),
           ],
-          if (p.style == ApiStyle.anthropic) ...[
+          if (p.style == ApiStyle.anthropic || p.style == ApiStyle.claudeCli) ...[
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: state.effort,

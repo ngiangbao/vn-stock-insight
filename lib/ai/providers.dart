@@ -6,7 +6,9 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-enum ApiStyle { anthropic, openai }
+import '../services/claude_cli.dart';
+
+enum ApiStyle { anthropic, openai, claudeCli }
 
 class ProviderPreset {
   final String id, name, baseUrl, defaultModel, keyHint, note;
@@ -28,6 +30,12 @@ class ProviderPreset {
   });
 }
 
+/// Model gợi ý cho Claude CLI: bí danh (luôn trỏ tới bản mới nhất của dòng đó) và tên đầy đủ. Gõ tên khác vẫn được.
+const cliModelSuggestions = ['default', 'fable', 'opus', 'sonnet', 'haiku', 'claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5', 'claude-fable-5-1'];
+
+/// Nhà cung cấp dùng được trên nền tảng này (Claude CLI chỉ có trên máy tính).
+List<ProviderPreset> get availableProviders => [for (final p in providers) if (p.style != ApiStyle.claudeCli || ClaudeCli.supported) p];
+
 const providers = [
   ProviderPreset(
     id: 'anthropic',
@@ -37,6 +45,18 @@ const providers = [
     defaultModel: 'claude-opus-5-5',
     suggestedModels: ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'],
     keyHint: 'Tạo key tại platform.claude.com',
+  ),
+  ProviderPreset(
+    id: 'claude_cli',
+    name: 'Claude CLI (dùng gói Claude của bạn)',
+    style: ApiStyle.claudeCli,
+    // Ô "địa chỉ" của nhà cung cấp này là đường dẫn tới chương trình `claude`; để trống = tự tìm
+    baseUrl: '',
+    defaultModel: '',
+    needsKey: false,
+    suggestedModels: cliModelSuggestions,
+    note: 'Dùng chương trình `claude` (Claude Code) đã đăng nhập trên máy này: tính vào gói Claude của bạn, không cần API key. '
+        'Chỉ có trên máy tính (Windows, macOS, Linux).',
   ),
   ProviderPreset(
     id: 'openai',
@@ -224,6 +244,7 @@ Future<Map<String, dynamic>> generateJson(
   String schemaName = 'result',
   int maxTokens = 16000,
 }) async {
+  if (c.preset.style == ApiStyle.claudeCli) return _claudeCli(c, system, prompt, schema);
   if (c.model.isEmpty) throw AiException('Chưa chọn model. Vào Cài đặt → AI để chọn model.');
   if (c.preset.needsKey && c.apiKey.isEmpty) throw AiException('Chưa nhập API key cho ${c.preset.name}.');
   // Model chạy trên máy có ngữ cảnh ngắn: chừa chỗ cho dữ liệu đầu vào
@@ -231,6 +252,24 @@ Future<Map<String, dynamic>> generateJson(
   return c.preset.style == ApiStyle.anthropic
       ? _anthropic(c, system, prompt, schema, maxTokens)
       : _openai(c, system, prompt, schema, schemaName, maxTokens);
+}
+
+// ---------- Claude CLI ----------
+Future<Map<String, dynamic>> _claudeCli(AiConfig c, String system, String prompt, Map<String, dynamic> schema) async {
+  if (!ClaudeCli.supported) throw AiException('Claude CLI chỉ dùng được trên máy tính (Windows, macOS, Linux).');
+  final path = await claudeCli.find(override: c.baseUrl);
+  if (path == null) {
+    throw AiException(c.baseUrl.trim().isEmpty
+        ? 'Không tìm thấy Claude CLI trên máy. Vào Cài đặt → AI → Claude CLI để cài đặt.'
+        : 'Không tìm thấy Claude CLI tại "${c.baseUrl.trim()}". Kiểm tra lại đường dẫn trong Cài đặt → AI.');
+  }
+  final CliReply reply;
+  try {
+    reply = await claudeCli.generate(path: path, system: system, prompt: prompt, schema: schema, model: c.model, effort: c.effort);
+  } on ClaudeCliException catch (e) {
+    throw AiException(e.message, retryable: e.retryable);
+  }
+  return reply.structured ?? extractJson(reply.text) ?? (throw AiException('Claude CLI trả về nội dung không đúng định dạng JSON. Hãy thử lại.', retryable: true));
 }
 
 const _maxAttempts = 3;
