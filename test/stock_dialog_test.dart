@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
@@ -92,6 +93,22 @@ void main() {
         expect(health.dx, greaterThan(w * 0.6), reason: 'cột phải');
       } else {
         expect(health.dx, lessThan(w * 0.3), reason: 'xếp dọc');
+      }
+      // Điểm, nhãn xếp hạng và "tuần trước" cùng một đường cơ sở chữ
+      double base(Finder f) {
+        final r = tester.renderObject<RenderParagraph>(f.first);
+        // ignore: invalid_use_of_protected_member
+        return r.localToGlobal(Offset.zero).dy + r.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+      }
+
+      if (find.textContaining('tuần trước').evaluate().isNotEmpty) {
+        final score = base(find.text('/100'));
+        // ignore: avoid_print
+        print(
+          'DBG $score ${base(find.textContaining('tuần trước'))} ${base(find.textContaining('● '))} ${tester.getTopLeft(find.text('/100'))}',
+        );
+        expect((base(find.textContaining('tuần trước')) - score).abs(), lessThan(1.5), reason: 'tuần trước ngang hàng điểm');
+        expect((base(find.textContaining('● ')) - score).abs(), lessThan(1.5), reason: 'nhãn xếp hạng ngang hàng điểm');
       }
       expect(tester.takeException(), isNull);
       await tester.tap(find.byType(BackButton));

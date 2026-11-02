@@ -654,32 +654,28 @@ class _HealthCard extends StatelessWidget {
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Wrap(
-            crossAxisAlignment: WrapCrossAlignment.end,
-            spacing: 10,
-            runSpacing: 4,
-            children: [
-              Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: '${h.total}',
-                      style: text.displaySmall?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    TextSpan(
-                      text: '/100',
-                      style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-                    ),
-                  ],
-                ),
-              ),
-              Tag('● ${h.label}', color: tone),
-              if (h.previous != null)
-                Text(
-                  '${(h.backSessions / 5).round()} tuần trước ${h.previous} (${d! >= 0 ? '+' : '−'}${d.abs()})',
-                  style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                ),
-            ],
+          // Điểm, nhãn xếp hạng và so sánh các tuần trước cùng một đường cơ sở chữ.
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text('${h.total}', style: text.displaySmall?.copyWith(fontWeight: FontWeight.w800)),
+                Text('/100', style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                const SizedBox(width: 10),
+                Tag('● ${h.label}', color: tone),
+                if (h.previous != null) ...[
+                  const SizedBox(width: 10),
+                  Text(
+                    '${(h.backSessions / 5).round()} tuần trước ${h.previous} (${d! >= 0 ? '+' : '−'}${d.abs()})',
+                    style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ],
+              ],
+            ),
           ),
           const SizedBox(height: 10),
           for (final p in h.parts)
