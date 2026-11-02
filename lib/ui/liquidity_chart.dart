@@ -352,6 +352,9 @@ class _LiquidityPainter extends CustomPainter {
           path.moveTo(o.dx, y(0));
           path.lineTo(o.dx, o.dy);
         } else {
+          // Đường bậc thang: giữ nguyên giá trị cũ tới phút có lệnh kế tiếp rồi mới nhảy lên, khớp đúng số hiển thị khi rê chuột
+          // (quãng thiếu dữ liệu, ví dụ trước ATC, không bị nối chéo làm chấm lệch khỏi đường).
+          path.lineTo(o.dx, y(s.points[i - 1].$2));
           path.lineTo(o.dx, o.dy);
         }
       }
