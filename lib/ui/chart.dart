@@ -49,6 +49,16 @@ enum Indicator {
 
 const _up = Color(0xFF26A69A), _down = Color(0xFFEF5350);
 
+/// Đường ngang tại một mức giá (hỗ trợ, kháng cự, Fibonacci) vẽ trên khung giá, kèm nhãn ở mép trái.
+class ChartLevel {
+  final double price; // nghìn đồng
+  final String label;
+  final Color color;
+  final bool dashed;
+  final double? priceTo; // có giá trị thì vẽ cả vùng từ [price] đến [priceTo]
+  const ChartLevel(this.price, this.label, this.color, {this.dashed = true, this.priceTo});
+}
+
 /// Khoảng thời gian gọn cho dashboard (số phiên): 1d ≈ 10 phiên gần nhất.
 const dashboardRanges = [('1d', 10), ('1m', 22), ('3m', 66), ('6m', 130), ('1y', 250), ('3y', 750), ('5y', 1250)];
 
@@ -103,6 +113,9 @@ class StockChart extends StatefulWidget {
   final Set<Indicator>? fixedIndicators;
   final List<(String, int)> rangeList;
   final int initialRange;
+
+  /// Các đường mức giá vẽ thêm trên khung giá (xem [ChartLevel]).
+  final List<ChartLevel> levels;
   const StockChart(this.symbol, this.bars,
       {super.key,
       this.height = 420,
@@ -110,7 +123,8 @@ class StockChart extends StatefulWidget {
       this.onFullscreen,
       this.fixedIndicators,
       this.rangeList = ranges,
-      this.initialRange = 2});
+      this.initialRange = 2,
+      this.levels = const []});
 
   @override
   State<StockChart> createState() => _StockChartState();
@@ -282,6 +296,7 @@ class _StockChartState extends State<StockChart> {
                 cross: _cross,
                 dark: dark,
                 textStyle: text.bodySmall!,
+                levels: widget.levels,
               ),
             ),
           ),
@@ -314,6 +329,7 @@ class _ChartPainter extends CustomPainter {
   final Offset? cross;
   final bool dark;
   final TextStyle textStyle;
+  final List<ChartLevel> levels;
 
   _ChartPainter({
     required this.symbol,
@@ -325,6 +341,7 @@ class _ChartPainter extends CustomPainter {
     required this.cross,
     required this.dark,
     required this.textStyle,
+    this.levels = const [],
   });
 
   static const axisW = 64.0, axisH = 22.0;
@@ -365,6 +382,14 @@ class _ChartPainter extends CustomPainter {
           lo = math.min(lo, v);
           hi = math.max(hi, v);
         }
+      }
+    }
+    // Các mức giá lệch quá xa (hơn 25% ngoài thang) không kéo giãn biểu đồ; mức gần thì được đưa vào thang
+    final span0 = hi - lo;
+    for (final l in levels) {
+      if (l.price > lo - span0 * 0.25 && l.price < hi + span0 * 0.25) {
+        lo = math.min(lo, l.price);
+        hi = math.max(hi, l.price);
       }
     }
     final volOn = indicators.contains(Indicator.volume);
@@ -421,6 +446,20 @@ class _ChartPainter extends CustomPainter {
         band.close();
         canvas.drawPath(band, Paint()..color = Indicator.bollinger.color.withValues(alpha: 0.06));
       }
+    }
+
+    // Vùng giá và đường mức (vẽ dưới nến để không che giá)
+    for (final l in levels) {
+      final py = y(l.price);
+      if (l.priceTo != null) {
+        final py2 = y(l.priceTo!);
+        canvas.drawRect(Rect.fromLTRB(0, math.min(py, py2), plotW, math.max(py, py2)), Paint()..color = l.color.withValues(alpha: 0.12));
+      }
+      if (py < -2 || py > mainH + 2) continue;
+      l.dashed
+          ? _dashed(canvas, Offset(0, py), Offset(plotW, py), l.color.withValues(alpha: 0.85))
+          : canvas.drawLine(Offset(0, py), Offset(plotW, py), Paint()..color = l.color.withValues(alpha: 0.85)..strokeWidth = 1.2);
+      _text(canvas, l.label, Offset(6, py - 14), l.color);
     }
 
     _drawPrice(canvas, bars, from, to, x, y, barW, mainH);
@@ -784,5 +823,6 @@ class _ChartPainter extends CustomPainter {
       o.type != type ||
       o.indicators != indicators ||
       o.data != data ||
-      o.dark != dark;
+      o.dark != dark ||
+      o.levels != levels;
 }

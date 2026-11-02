@@ -13,11 +13,12 @@ import '../services/market.dart';
 import '../state.dart';
 import 'analysis_page.dart';
 import 'chart.dart';
+import 'stock_detail_page.dart';
 import 'liquidity_chart.dart';
 import 'widgets.dart';
 
 /// Mở cửa sổ chi tiết cổ phiếu (pop-up phía trên màn hình hiện tại).
-Future<void> openStock(BuildContext context, String symbol) => showDialog<void>(context: context, builder: (_) => StockDialog(symbol));
+Future<void> openStock(BuildContext context, String symbol) => openStockDetail(context, symbol);
 
 class StockDialog extends StatefulWidget {
   final String symbol;
@@ -139,7 +140,7 @@ class _StockDialogState extends State<StockDialog> {
       diff: diff,
       onAnalyze: () => openAnalysis(context, symbol),
       chart: _ChartPanel(symbol, _bars, _snap, _barsFailed),
-      side: _Sidebar(symbol, _snap, _fund, _row),
+      side: StockSidebar(symbol, _snap, _fund, _row),
     );
   }
 }
@@ -428,12 +429,12 @@ class _ChartPanel extends StatelessWidget {
   }
 }
 
-class _Sidebar extends StatelessWidget {
+class StockSidebar extends StatelessWidget {
   final String symbol;
   final Snapshot? snap;
   final Map<String, dynamic>? fund;
   final BoardRow? row;
-  const _Sidebar(this.symbol, this.snap, this.fund, this.row);
+  const StockSidebar(this.symbol, this.snap, this.fund, this.row, {super.key});
 
   static Color _ceil(BuildContext c) => Theme.of(c).brightness == Brightness.dark ? const Color(0xFFD0A8FF) : const Color(0xFF6A1FB0);
   static Color _floor(BuildContext c) => Theme.of(c).brightness == Brightness.dark ? const Color(0xFF4DD0E1) : const Color(0xFF007082);
@@ -598,7 +599,7 @@ class _Sidebar extends StatelessWidget {
 }
 
 /// Mở cửa sổ chi tiết của một chỉ số (VNINDEX, HNX, UPCOM, VN30, phái sinh, chỉ số thế giới).
-Future<void> openIndex(BuildContext context, IndexMeta meta) => showDialog<void>(context: context, builder: (_) => IndexDialog(meta));
+Future<void> openIndex(BuildContext context, IndexMeta meta) => openIndexDetail(context, meta);
 
 class IndexDialog extends StatefulWidget {
   final IndexMeta meta;
@@ -648,14 +649,14 @@ class _IndexDialogState extends State<IndexDialog> {
       amplitude: diff == null ? null : _amplitude(diff, pct, 2),
       diff: diff,
       chart: _ChartPanel(m.symbol, b, null, _failed),
-      side: _IndexSidebar(b),
+      side: IndexSidebar(b),
     );
   }
 }
 
-class _IndexSidebar extends StatelessWidget {
+class IndexSidebar extends StatelessWidget {
   final List<Bar>? bars;
-  const _IndexSidebar(this.bars);
+  const IndexSidebar(this.bars, {super.key});
 
   @override
   Widget build(BuildContext context) {
