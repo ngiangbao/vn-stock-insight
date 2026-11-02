@@ -139,7 +139,7 @@ class _ActiveFlowState extends State<ActiveFlow> {
     final act = sum.buyVol + sum.sellVol;
     final buyPct = act == 0 ? 0.0 : sum.buyVol / act * 100;
     Widget stat(String label, String value, String sub, {Color? color}) => Container(
-      constraints: const BoxConstraints(minWidth: 150),
+      alignment: Alignment.centerLeft,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         border: Border.all(color: cs.outlineVariant),
@@ -164,22 +164,43 @@ class _ActiveFlowState extends State<ActiveFlow> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            stat(
-              'Tiền lớn · lệnh khớp từ ${fmt(sum.bigThreshold / 1e9, 0)} tỷ',
-              signed(sum.bigNet),
-              'ròng chủ động ${sum.bigNet >= 0 ? '(mua)' : '(bán)'}',
-              color: Tone.of(context, sum.bigNet),
-            ),
-            stat('Mua chủ động lớn', _bn(sum.bigBuyValue), '${sum.bigBuyCount} lệnh', color: up),
-            stat('Bán chủ động lớn', _bn(sum.bigSellValue), '${sum.bigSellCount} lệnh', color: down),
-            stat('Mua chủ động', _vol(sum.buyVol), '${fmt(buyPct, 0)}% · ${_bn(sum.buyValue)}', color: up),
-            stat('Bán chủ động', _vol(sum.sellVol), '${fmt(100 - buyPct, 0)}% · ${_bn(sum.sellValue)}', color: down),
-            stat('Khối lượng khớp', _vol(sum.totalVol), 'gồm ${_vol(sum.otherVol)} ATO/ATC'),
-          ],
+        // Thẻ chỉ số chia đều theo bề rộng biểu đồ bên dưới: 6 cột khi đủ rộng, 3 hoặc 2 cột khi hẹp; thẻ cùng hàng cao bằng nhau.
+        LayoutBuilder(
+          builder: (context, box) {
+            final cards = <Widget>[
+              stat(
+                'Tiền lớn · lệnh khớp từ ${fmt(sum.bigThreshold / 1e9, 0)} tỷ',
+                signed(sum.bigNet),
+                'ròng chủ động ${sum.bigNet >= 0 ? '(mua)' : '(bán)'}',
+                color: Tone.of(context, sum.bigNet),
+              ),
+              stat('Mua chủ động lớn', _bn(sum.bigBuyValue), '${sum.bigBuyCount} lệnh', color: up),
+              stat('Bán chủ động lớn', _bn(sum.bigSellValue), '${sum.bigSellCount} lệnh', color: down),
+              stat('Mua chủ động', _vol(sum.buyVol), '${fmt(buyPct, 0)}% · ${_bn(sum.buyValue)}', color: up),
+              stat('Bán chủ động', _vol(sum.sellVol), '${fmt(100 - buyPct, 0)}% · ${_bn(sum.sellValue)}', color: down),
+              stat('Khối lượng khớp', _vol(sum.totalVol), 'gồm ${_vol(sum.otherVol)} ATO/ATC'),
+            ];
+            final cols = box.maxWidth >= 900 ? 6 : (box.maxWidth >= 480 ? 3 : 2);
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < cards.length; i += cols) ...[
+                  if (i > 0) const SizedBox(height: 10),
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var j = 0; j < cols; j++) ...[
+                          if (j > 0) const SizedBox(width: 10),
+                          Expanded(child: i + j < cards.length ? cards[i + j] : const SizedBox.shrink()),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
         ),
         const SizedBox(height: 14),
         Wrap(

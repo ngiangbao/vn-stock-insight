@@ -45,6 +45,17 @@ void main() {
     });
   }
 
+  testWidgets('6 thẻ chỉ số rộng bằng nhau và trải hết bề rộng', (tester) async {
+    await pumpFlow(tester, 1100);
+    final w = [
+      for (final t in ['Mua chủ động lớn', 'Bán chủ động lớn', 'Khối lượng khớp'])
+        tester.getSize(find.ancestor(of: find.text(t), matching: find.byType(Container)).first).width,
+    ];
+    expect(w.every((x) => (x - w.first).abs() < 0.5), isTrue, reason: '$w');
+    final right = tester.getTopRight(find.text('Khối lượng khớp')).dx;
+    expect(right, greaterThan(1100 - 260), reason: 'thẻ cuối nằm sát mép phải');
+  });
+
   testWidgets('lỗi tải: báo lý do và có nút Thử lại', (tester) async {
     await pumpFlow(tester, 800, loader: (s, p) async => throw Exception('mất mạng'));
     expect(find.textContaining('mất mạng'), findsOneWidget);
