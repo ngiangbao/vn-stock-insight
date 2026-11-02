@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'ai/prompts.dart';
 import 'dashboard.dart';
 import 'ai/providers.dart';
+import 'services/backtest.dart' show BacktestStore;
 import 'services/brokers.dart' show brokerSummary;
 import 'services/cfa.dart' show CfaStore;
 import 'services/fundamentals.dart';
@@ -85,6 +86,17 @@ class AppState extends ChangeNotifier {
   late final LanShare lan;
   late final CfaStore cfa;
   late final PortfolioStore portfolios;
+
+  /// Kiểm định lịch sử điểm sức khỏe và độ rộng thị trường, lưu theo ngày.
+  late BacktestStore backtest;
+
+  /// Thay bộ kiểm định (dùng khi kiểm thử với nguồn giá giả).
+  @visibleForTesting
+  void useBacktest(BacktestStore store) {
+    backtest.removeListener(notifyListeners);
+    backtest = store..addListener(notifyListeners);
+  }
+
   String? embeddedModel; // đường dẫn file GGUF đang dùng
   String? engineStatus;
   double? engineProgress;
@@ -186,8 +198,10 @@ class AppState extends ChangeNotifier {
     cfa = CfaStore(File('${dataDir.path}${Platform.pathSeparator}cfa_reports.json'));
     portfolios = PortfolioStore(File('${dataDir.path}${Platform.pathSeparator}portfolios.json'));
     lan = LanShare(this, _prefs, MacroRepository(cacheFile: File('${dataDir.path}${Platform.pathSeparator}macro_cache.json')));
+    backtest = BacktestStore(_prefs, enabled: startDashboard)..addListener(notifyListeners);
     _autoUpdateEngine();
     if (startDashboard) {
+      backtest.enqueueWatchlist(watchlist); // danh sách theo dõi kiểm định trước
       dash.start();
       // Giá cổ phiếu/chỉ số theo dõi cập nhật trong phiên (bảng giá đã tự làm mới ở dash)
       _liveTimer ??= Timer.periodic(const Duration(seconds: 90), (_) {
@@ -281,7 +295,11 @@ class AppState extends ChangeNotifier {
 
   /// Lưu ConsumerID/ConsumerSecret (két an toàn của hệ điều hành, nếu không có thì cài đặt của app) và bật/tắt nguồn SSI.
   Future<void> setSsi({String? id, String? secret, bool? enabled}) async {
-    SsiSource.instance.configure(id: id == null ? null : cleanApiKey(id), secret: secret == null ? null : cleanApiKey(secret), enable: enabled);
+    SsiSource.instance.configure(
+      id: id == null ? null : cleanApiKey(id),
+      secret: secret == null ? null : cleanApiKey(secret),
+      enable: enabled,
+    );
     if (id != null) await _writeKey('ssi_id', SsiSource.instance.consumerId ?? '');
     if (secret != null) await _writeKey('ssi_secret', SsiSource.instance.consumerSecret ?? '');
     if (enabled != null) await _prefs.setBool('ssiEnabled', enabled);
@@ -312,6 +330,7 @@ class AppState extends ChangeNotifier {
     if (watchlist.contains(symbol)) return;
     watchlist = [...watchlist, symbol];
     await _prefs.setStringList('watchlist', watchlist);
+    backtest.enqueueWatchlist([symbol]);
     notifyListeners();
     if (!stocks.containsKey(symbol)) {
       final bars = await fetchBars(symbol);
@@ -337,11 +356,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       final symbols = {...vn30, ...watchlist};
-      final results = await Future.wait([
-        fetchMany(symbols),
-        fetchBars('VNINDEX', isIndex: true),
-        fetchNews(symbols),
-      ]);
+      final results = await Future.wait([fetchMany(symbols), fetchBars('VNINDEX', isIndex: true), fetchNews(symbols)]);
       stocks = results[0] as Map<String, Snapshot>;
       final idx = results[1] as List<Bar>;
       index = idx.length >= 2 ? analyze('VNINDEX', idx) : null;
@@ -470,8 +485,11 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       final movers = vn30Stocks
-          .map((s) => '${s.symbol}: ${s.close} (${s.data['change_1d']}% hôm nay, ${s.data['change_1m']}% 1 tháng)'
-              '${s.signals.isEmpty ? '' : ', tín hiệu: ${s.signals.join(', ')}'}')
+          .map(
+            (s) =>
+                '${s.symbol}: ${s.close} (${s.data['change_1d']}% hôm nay, ${s.data['change_1m']}% 1 tháng)'
+                '${s.signals.isEmpty ? '' : ', tín hiệu: ${s.signals.join(', ')}'}',
+          )
           .join('\n');
       marketBrief = await generateJson(
         await resolveAiConfig(),
@@ -511,19 +529,12 @@ class AppState extends ChangeNotifier {
       schema: stockSchema,
       schemaName: 'stock_analysis',
     );
-    final record = {
-      'symbol': symbol,
-      'created_at': DateTime.now().toIso8601String(),
-      'ai': aiLabel,
-      'inputs': inputs,
-      'result': result,
-    };
+    final record = {'symbol': symbol, 'created_at': DateTime.now().toIso8601String(), 'ai': aiLabel, 'inputs': inputs, 'result': result};
     analyses = {...analyses, symbol: record};
     rememberAnalysis(symbol, record);
     // Giữ tối đa 100 mã gần nhất; các kết quả được lưu riêng theo người dùng.
     if (analyses.length > 100) {
-      final keep = analyses.entries.toList()
-      ..sort((a, b) => (b.value['created_at'] as String).compareTo(a.value['created_at'] as String));
+      final keep = analyses.entries.toList()..sort((a, b) => (b.value['created_at'] as String).compareTo(a.value['created_at'] as String));
       analyses = Map.fromEntries(keep.take(100));
     }
     await _saveAnalyses();

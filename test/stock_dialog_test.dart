@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -6,6 +9,7 @@ import 'package:path_provider_platform_interface/path_provider_platform_interfac
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vn_stock_insight/dashboard.dart';
 import 'package:vn_stock_insight/main.dart' show appTheme;
+import 'package:vn_stock_insight/services/backtest.dart';
 import 'package:vn_stock_insight/services/market.dart';
 import 'package:vn_stock_insight/state.dart';
 import 'package:vn_stock_insight/ui/stock_dialog.dart';
@@ -161,6 +165,43 @@ void main() {
     expect(find.text('Vùng giá (hỗ trợ/kháng cự)'), findsOneWidget);
     await tester.tap(find.text('Vùng giá (hỗ trợ/kháng cự)'));
     await tester.pump();
+    expect(tester.takeException(), isNull);
+    state.dash.dispose();
+  });
+
+  testWidgets('kiểm định: hiện nhãn Đang kiểm định, xong thì hiện kết quả theo nhóm điểm và dấu hiệu độ rộng', (tester) async {
+    final state = await _state(tester, 1500, 1000);
+    List<Bar> curve(int n, double Function(int) c) => [
+      for (var i = 0; i < n; i++) Bar(1700000000 + i * 86400, c(i), c(i) * 1.01, c(i) * .99, c(i), 1e6),
+    ];
+    final bars = curve(500, (i) => 30 + 10 * math.sin(i / 25));
+    final gate = Completer<void>();
+    state.useBacktest(
+      BacktestStore(
+        await SharedPreferences.getInstance(),
+        fetch: (s, {bool isIndex = false, int days = 1}) async {
+          await gate.future;
+          return s.startsWith('S') ? curve(140, (i) => i < 120 ? 100 - i * .4 : 52 + (i - 120) * 1.5) : bars;
+        },
+        universe: () async => [for (var k = 0; k < 60; k++) 'S$k'],
+      ),
+    );
+    state.stocks = {'FPT': analyze('FPT', series(120, -0.12, 320))};
+    await _open(tester, state, (c) => openStock(c, 'FPT'), 'Mở FPT');
+    expect(find.text('Đang kiểm định'), findsOneWidget);
+    expect(find.textContaining('đang tính độ rộng'), findsOneWidget);
+    gate.complete();
+    await tester.runAsync(() async {
+      for (var i = 0; i < 100 && (state.backtest.stateOf('FPT') != BacktestState.done || state.backtest.breadth == null); i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+    });
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Đang kiểm định'), findsNothing);
+    expect(find.text('Đã kiểm định'), findsOneWidget);
+    expect(find.textContaining('theo nhóm điểm'), findsOneWidget);
+    expect(find.textContaining('mẫu'), findsWidgets);
+    expect(find.textContaining('mã HOSE'), findsOneWidget, reason: 'ghi chú số liệu độ rộng');
     expect(tester.takeException(), isNull);
     state.dash.dispose();
   });

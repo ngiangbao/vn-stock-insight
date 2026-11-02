@@ -15,6 +15,7 @@ import '../services/market.dart';
 import '../state.dart';
 import 'analysis_page.dart';
 import 'chart.dart';
+import '../services/backtest.dart';
 import 'active_flow.dart';
 import 'liquidity_chart.dart';
 import 'stock_dialog.dart' show IndexSidebar, StockSidebar;
@@ -79,7 +80,10 @@ class _StockDetailPageState extends State<StockDetailPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppScope.of(context).backtest.request(widget.symbol, isIndex: !_isStock);
+      _load();
+    });
     _live = Timer.periodic(const Duration(seconds: 30), (_) {
       if (isTradingTime(DateTime.now())) _load(quiet: true);
     });
@@ -265,8 +269,10 @@ class _StockDetailPageState extends State<StockDetailPage> {
       isStock: _isStock,
     );
     final flow = _FlowCard(symbol: widget.symbol, row: _row, meta: m, isStock: _isStock);
-    final health = _health == null ? null : _HealthCard(_health!);
-    final bottom = _BottomCard(_bottom);
+    final bt = state.backtest;
+    final health = _health == null ? null : _HealthCard(_health!, bt.stateOf(widget.symbol), bt.resultOf(widget.symbol), bt.pooled);
+    // Dấu hiệu độ rộng (thứ 5) lấy từ dữ liệu cả sàn HOSE, còn lại tính từ riêng mã này
+    final bottom = _BottomCard([for (var i = 0; i < _bottom.length; i++) i == 4 ? bt.breadthBottomSignal : _bottom[i]]);
     final zones = _pz == null ? null : _ZonesCard(_pz!, _sc!, mult);
     final side = Card(
       child: Padding(
@@ -641,7 +647,10 @@ class _FlowCard extends StatelessWidget {
 
 class _HealthCard extends StatelessWidget {
   final HealthScore h;
-  const _HealthCard(this.h);
+  final BacktestState bt;
+  final HealthBacktest? own;
+  final (HealthBacktest, int)? pooled;
+  const _HealthCard(this.h, this.bt, this.own, this.pooled);
 
   @override
   Widget build(BuildContext context) {
@@ -732,13 +741,139 @@ class _HealthCard extends StatelessWidget {
               ),
             ),
           const SizedBox(height: 6),
+          _BacktestBox(bt, own, pooled),
+          const SizedBox(height: 6),
           Text(
-            'Điểm tổng hợp 4 nhóm theo quy tắc kỹ thuật cố định (xu hướng, động lượng, dòng tiền, sức mạnh so với VN-Index); chưa kiểm định lịch sử.',
+            'Điểm tổng hợp 4 nhóm theo quy tắc kỹ thuật cố định (xu hướng, động lượng, dòng tiền, sức mạnh so với VN-Index).',
             style: text.labelSmall?.copyWith(color: cs.onSurfaceVariant),
           ),
         ],
       ),
-      trailing: const Tag('Chưa kiểm định'),
+      trailing: switch (bt) {
+        BacktestState.queued || BacktestState.running => const _Checking(),
+        BacktestState.done => Tag(own == null && pooled == null ? 'Chưa đủ dữ liệu kiểm định' : 'Đã kiểm định'),
+        BacktestState.failed => const Tag('Chưa kiểm định được'),
+        BacktestState.none => const Tag('Chưa kiểm định'),
+      },
+    );
+  }
+}
+
+/// Nhãn "Đang kiểm định" có vòng quay, có cả chữ nên không chỉ dựa vào hình động.
+class _Checking extends StatelessWidget {
+  const _Checking();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(color: cs.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(99)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary)),
+            const SizedBox(width: 6),
+            Text(
+              'Đang kiểm định',
+              style: TextStyle(color: cs.primary, fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Kết quả kiểm định: lợi suất 20 phiên sau của từng nhóm điểm, của riêng mã này và của mọi mã đã kiểm định hôm nay.
+class _BacktestBox extends StatelessWidget {
+  final BacktestState bt;
+  final HealthBacktest? own;
+  final (HealthBacktest, int)? pooled;
+  const _BacktestBox(this.bt, this.own, this.pooled);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    if (bt == BacktestState.queued || bt == BacktestState.running) {
+      return Text(
+        'Đang chạy lại điểm này trên lịch sử giá để xem nhóm điểm cao có thật sự tăng nhiều hơn nhóm thấp. Mã trong danh sách theo dõi được kiểm định trước.',
+        style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+      );
+    }
+    if (bt == BacktestState.failed) {
+      return Text(
+        'Không tải được lịch sử giá để kiểm định. Mở lại trang để thử lại sau.',
+        style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+      );
+    }
+    final r = own ?? pooled?.$1;
+    if (r == null) {
+      return Text(
+        'Chưa đủ lịch sử giá (cần ít nhất 85 phiên) để kiểm định mã này.',
+        style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+      );
+    }
+    String pct(double? v) => v == null ? '–' : '${v >= 0 ? '+' : '−'}${fmt(v.abs(), 1)}%';
+    final v = r.verdict;
+    final (verdictText, verdictColor) = switch (v) {
+      'ok' => ('Nhóm Mạnh tăng nhiều hơn nhóm Yếu: điểm có giá trị tham khảo.', Tone.up(context)),
+      'fail' => ('Nhóm Mạnh không hơn nhóm Yếu: không nên dựa vào điểm này.', Tone.down(context)),
+      _ => ('Chênh lệch nhỏ hoặc còn ít mẫu: chưa kết luận được.', Tone.flat(context)),
+    };
+    Widget row(String label, BucketStat b) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          Expanded(child: Text(label, style: text.bodySmall)),
+          Text(
+            b.n == 0 ? 'không có mẫu' : '${pct(b.avg)} · thắng ${fmt(b.winRate, 0)}% · ${b.n} mẫu',
+            style: text.bodySmall?.copyWith(fontWeight: FontWeight.w700, fontFeatures: const [FontFeature.tabularFigures()]),
+          ),
+        ],
+      ),
+    );
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: cs.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            own != null
+                ? 'Lợi suất 20 phiên sau, theo nhóm điểm (lịch sử mã này)'
+                : 'Lợi suất 20 phiên sau, theo nhóm điểm (${pooled!.$2} mã đã kiểm định hôm nay)',
+            style: text.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          for (final l in const ['Mạnh', 'Trung tính', 'Yếu']) row(l, r.bucket(l)),
+          const SizedBox(height: 6),
+          Text(
+            verdictText,
+            style: text.bodySmall?.copyWith(fontWeight: FontWeight.w700, color: verdictColor),
+          ),
+          if (own != null && pooled != null && pooled!.$2 > 1) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Toàn bộ ${pooled!.$2} mã đã kiểm định: Mạnh ${pct(pooled!.$1.bucket('Mạnh').avg)}, Yếu ${pct(pooled!.$1.bucket('Yếu').avg)}.',
+              style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
+          ],
+          const SizedBox(height: 4),
+          Text(
+            'Mẫu cách nhau 5 phiên và nhìn trước 20 phiên nên chồng lấp nhau; kết quả quá khứ không bảo đảm tương lai. Tính lại mỗi ngày.',
+            style: text.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -776,7 +911,8 @@ class _BottomCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(s.label, style: text.bodyMedium?.copyWith(height: 1.3)),
-                        if (s.met == null) Text('chưa đủ dữ liệu', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                        if (s.note != null || s.met == null)
+                          Text(s.note ?? 'chưa đủ dữ liệu', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                       ],
                     ),
                   ),

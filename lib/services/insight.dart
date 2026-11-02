@@ -79,6 +79,9 @@ HealthScore? healthScore(List<Bar> bars, List<Bar> index, {int backSessions = 30
   return HealthScore(now.$1, healthLabel(now.$1), now.$2, prev?.$1, backSessions);
 }
 
+/// Điểm tổng 0–100 tại phiên cuối của [bars] (dùng cho kiểm định lịch sử), null nếu dưới 60 phiên.
+int? healthTotal(List<Bar> bars, List<Bar> index) => _score(bars, index)?.$1;
+
 (int, List<HealthPart>)? _score(List<Bar> bars, List<Bar> index) {
   if (bars.length < 60) return null;
   final closes = [for (final b in bars) b.c];
@@ -129,11 +132,14 @@ HealthScore? healthScore(List<Bar> bars, List<Bar> index, {int backSessions = 30
 class BottomSignal {
   final String label;
   final bool? met;
-  const BottomSignal(this.label, this.met);
+
+  /// Ghi chú ngắn dưới nhãn (ví dụ số liệu độ rộng, hoặc "đang tính").
+  final String? note;
+  const BottomSignal(this.label, this.met, {this.note});
 }
 
 /// 6 dấu hiệu tạo đáy theo quy tắc kỹ thuật cố định. [index] là VN-Index (cho dấu hiệu xác nhận đáy toàn thị trường).
-List<BottomSignal> bottomSignals(List<Bar> bars, List<Bar> index) {
+List<BottomSignal> bottomSignals(List<Bar> bars, List<Bar> index, {BottomSignal? breadthSignal}) {
   if (bars.length < 60) return [for (final l in _bottomLabels) BottomSignal(l, null)];
   final closes = [for (final b in bars) b.c];
   final n = bars.length;
@@ -178,8 +184,7 @@ List<BottomSignal> bottomSignals(List<Bar> bars, List<Bar> index) {
     retest = bounce >= 0.05 && nearLow;
   }
 
-  // 5. Độ rộng thị trường hồi từ dưới 20% mã trên MA50: cần dữ liệu toàn thị trường, chưa có nguồn miễn phí nên để trống
-  const bool? breadth = null;
+  // 5. Độ rộng thị trường hồi từ dưới 20% mã trên MA50: tính ở services/backtest.dart từ giá cả sàn HOSE, truyền vào qua [breadthSignal]
 
   // 6. Vượt và giữ MA50 trong 3 phiên liên tiếp
   final m50 = ma50[n - 1];
@@ -190,10 +195,13 @@ List<BottomSignal> bottomSignals(List<Bar> bars, List<Bar> index) {
     BottomSignal(_bottomLabels[1], capitulation),
     BottomSignal(_bottomLabels[2], followThrough),
     BottomSignal(_bottomLabels[3], retest),
-    BottomSignal(_bottomLabels[4], breadth),
+    breadthSignal ?? BottomSignal(_bottomLabels[4], null),
     BottomSignal(_bottomLabels[5], reclaim),
   ];
 }
+
+/// Nhãn dấu hiệu độ rộng thị trường (dấu hiệu thứ 5).
+const breadthLabel = 'Độ rộng hồi từ dưới 20%';
 
 const _bottomLabels = [
   'Phân kỳ dương RSI/MACD',
