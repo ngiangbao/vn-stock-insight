@@ -63,7 +63,8 @@ String _clock(int minute) => '${(minute ~/ 60).toString().padLeft(2, '0')}:${(mi
 
 class LiquidityChart extends StatefulWidget {
   final String symbol;
-  const LiquidityChart(this.symbol, {super.key});
+  final double height;
+  const LiquidityChart(this.symbol, {this.height = 170, super.key});
 
   @override
   State<LiquidityChart> createState() => _LiquidityChartState();
@@ -178,7 +179,7 @@ class _LiquidityChartState extends State<LiquidityChart> {
             LayoutBuilder(
               builder: (context, box) {
                 final w = box.maxWidth;
-                final h = 170.0;
+                final h = widget.height;
                 final m = _hover;
                 return Semantics(
                   label:

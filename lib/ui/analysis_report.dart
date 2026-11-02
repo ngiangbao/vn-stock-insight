@@ -266,7 +266,7 @@ class _Section extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 18),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
           Expanded(child: Text(title.toUpperCase(), style: text.titleSmall?.copyWith(fontWeight: FontWeight.w800, color: Tone.up(context)))),
           if (trailing != null) Text(trailing!, style: text.bodySmall),
         ]),

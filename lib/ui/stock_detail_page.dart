@@ -15,6 +15,7 @@ import '../services/market.dart';
 import '../state.dart';
 import 'analysis_page.dart';
 import 'chart.dart';
+import 'active_flow.dart';
 import 'liquidity_chart.dart';
 import 'stock_dialog.dart' show IndexSidebar, StockSidebar;
 import 'widgets.dart';
@@ -74,7 +75,6 @@ class _StockDetailPageState extends State<StockDetailPage> {
   List<BottomSignal> _bottom = const [];
   PriceZones? _pz;
   Scenarios? _sc;
-  TrendSummary? _trend;
 
   @override
   void initState() {
@@ -98,7 +98,6 @@ class _StockDetailPageState extends State<StockDetailPage> {
     _bottom = bottomSignals(d, _market);
     _pz = priceZones(d);
     _sc = _pz == null ? null : scenarios(d, _pz!);
-    _trend = trendSummary(widget.symbol, d, _health, _pz, _sc);
   }
 
   Future<void> _load({bool quiet = false}) async {
@@ -203,31 +202,40 @@ class _StockDetailPageState extends State<StockDetailPage> {
         runSpacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Wrap(
-            spacing: 12,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.end,
-            children: [
-              Text(m?.name ?? widget.symbol, style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.5)),
-              if (last != null)
-                Text(
-                  fmt(last.c * mult, _isStock ? 0 : 2),
-                  style: text.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: Tone.of(context, diff),
-                    fontFeatures: const [FontFeature.tabularFigures()],
+          // Mã, giá và biến động nằm chung một đường cơ sở chữ để số và nhãn thẳng hàng dù cỡ chữ khác nhau.
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(m?.name ?? widget.symbol, style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+                if (last != null) ...[
+                  const SizedBox(width: 12),
+                  Text(
+                    fmt(last.c * mult, _isStock ? 0 : 2),
+                    style: text.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: Tone.of(context, diff),
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
-                ),
-              if (diff != null && pct != null)
-                Text(
-                  '${diff > 0 ? '▲' : (diff < 0 ? '▼' : '■')} ${diff > 0 ? '+' : ''}${fmt(diff * mult, _isStock ? 0 : 2)} (${pct > 0 ? '+' : ''}${fmt(pct, 2)}%)',
-                  style: text.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: Tone.of(context, diff),
-                    fontFeatures: const [FontFeature.tabularFigures()],
+                ],
+                if (diff != null && pct != null) ...[
+                  const SizedBox(width: 12),
+                  Text(
+                    '${diff > 0 ? '▲' : (diff < 0 ? '▼' : '■')} ${diff > 0 ? '+' : ''}${fmt(diff * mult, _isStock ? 0 : 2)} (${pct > 0 ? '+' : ''}${fmt(pct, 2)}%)',
+                    style: text.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: Tone.of(context, diff),
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
-                ),
-            ],
+                ],
+              ],
+            ),
           ),
           if ((company['ten'] ?? m?.desc) != null)
             Text('${company['ten'] ?? m!.desc}', style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
@@ -237,7 +245,6 @@ class _StockDetailPageState extends State<StockDetailPage> {
       ),
     );
 
-    final summary = _trend == null ? null : _SummaryCard(_trend!, _bottom);
     final chart = _ChartCard(
       symbol: widget.symbol,
       frame: _frame,
@@ -265,7 +272,7 @@ class _StockDetailPageState extends State<StockDetailPage> {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: _isStock
-            ? StockSidebar(widget.symbol, d == null || d.length < 2 ? null : analyze(widget.symbol, d), _fund, _row)
+            ? StockSidebar(widget.symbol, d == null || d.length < 2 ? null : analyze(widget.symbol, d), _fund, _row, showLiquidity: false)
             : IndexSidebar(d),
       ),
     );
@@ -274,7 +281,7 @@ class _StockDetailPageState extends State<StockDetailPage> {
       for (final x in xs.whereType<Widget>()) ...[x, const SizedBox(height: 16)],
     ];
 
-    final left = gap([summary, chart, flow]);
+    final left = gap([chart, flow]);
     final right = gap([health, if (_isStock) bottom, zones, side]);
 
     return Scaffold(
@@ -360,85 +367,6 @@ class _Section extends StatelessWidget {
   );
 }
 
-class _SummaryCard extends StatelessWidget {
-  final TrendSummary t;
-  final List<BottomSignal> bottom;
-  const _SummaryCard(this.t, this.bottom);
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-    final met = bottom.where((b) => b.met == true).length;
-    final tone = t.direction == 'Giảm' ? Tone.down(context) : (t.direction == 'Tăng' ? Tone.up(context) : Tone.flat(context));
-    final healthTone = t.healthTag == 'Mạnh' ? Tone.up(context) : (t.healthTag == 'Yếu' ? Tone.down(context) : Tone.flat(context));
-    Widget kv(String k, String v) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Text(k, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              v,
-              textAlign: TextAlign.end,
-              style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ),
-        ],
-      ),
-    );
-    final left = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(t.headline, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-        const SizedBox(height: 6),
-        Text(t.detail, style: text.bodyMedium),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          children: [
-            // Hướng có biểu tượng mũi tên để không chỉ dựa vào màu
-            Tag(
-              '${t.direction == 'Giảm' ? '↘ ' : (t.direction == 'Tăng' ? '↗ ' : '→ ')}${t.direction == 'Giảm' ? 'Đang giảm' : (t.direction == 'Tăng' ? 'Đang tăng' : 'Đi ngang')}',
-              color: tone,
-            ),
-            Tag('● ${t.healthTag}', color: healthTone),
-          ],
-        ),
-      ],
-    );
-    final right = Column(
-      children: [
-        if (t.week != null) kv('Khung tuần', t.week!.text),
-        if (t.day != null) kv('Khung ngày', t.day!.text),
-        kv('Dấu hiệu tạo đáy', '$met/6'),
-      ],
-    );
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: LayoutBuilder(
-          builder: (context, c) => c.maxWidth >= 640
-              ? Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(flex: 3, child: left),
-                    const SizedBox(width: 20),
-                    SizedBox(width: 240, child: right),
-                  ],
-                )
-              : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [left, const SizedBox(height: 10), right]),
-        ),
-      ),
-    );
-  }
-}
-
 class _ChartCard extends StatelessWidget {
   final String symbol;
   final _Frame frame;
@@ -487,14 +415,63 @@ class _ChartCard extends StatelessWidget {
       _Frame.day => _dayRanges,
       _ => _hourRanges,
     };
-    Widget toggle(String label, Color? color, bool on, VoidCallback onTap) => FilterChip(
-      avatar: color == null ? null : Container(width: 14, height: 3, color: color),
-      label: Text(label),
-      selected: on,
-      showCheckmark: false,
-      onSelected: (_) => onTap(),
-      visualDensity: VisualDensity.compact,
-      materialTapTargetSize: MaterialTapTargetSize.padded,
+    final active = indicators.length + (zones ? 1 : 0) + (fib ? 1 : 0);
+    Widget item(String label, Color? color, bool on) => Row(
+      children: [
+        Icon(on ? Icons.check_box : Icons.check_box_outline_blank, size: 20, color: on ? cs.primary : cs.onSurfaceVariant),
+        const SizedBox(width: 10),
+        if (color != null) ...[Container(width: 14, height: 3, color: color), const SizedBox(width: 8)],
+        Text(label),
+      ],
+    );
+    // Menu chỉ báo: mỗi mục bật/tắt, menu giữ nguyên để chọn nhiều mục liên tiếp.
+    final menu = StatefulBuilder(
+      builder: (context, setMenu) => MenuAnchor(
+        menuChildren: [
+          for (final i in const [Indicator.ma10, Indicator.ma20, Indicator.ma50, Indicator.ma200, Indicator.ema20, Indicator.bollinger])
+            MenuItemButton(
+              closeOnActivate: false,
+              onPressed: () {
+                onToggle(i);
+                setMenu(() {});
+              },
+              child: item(i.label, i.color, indicators.contains(i)),
+            ),
+          const Divider(height: 1),
+          MenuItemButton(
+            closeOnActivate: false,
+            onPressed: () {
+              onZones(!zones);
+              setMenu(() {});
+            },
+            child: item('Vùng giá (hỗ trợ/kháng cự)', null, zones),
+          ),
+          MenuItemButton(
+            closeOnActivate: false,
+            onPressed: () {
+              onFib(!fib);
+              setMenu(() {});
+            },
+            child: item('Fibonacci', null, fib),
+          ),
+          const Divider(height: 1),
+          for (final i in const [Indicator.volume, Indicator.rsi, Indicator.macd, Indicator.stoch, Indicator.mfi])
+            MenuItemButton(
+              closeOnActivate: false,
+              onPressed: () {
+                onToggle(i);
+                setMenu(() {});
+              },
+              child: item(i.label, null, indicators.contains(i)),
+            ),
+        ],
+        builder: (context, controller, _) => OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48), shape: const StadiumBorder()),
+          onPressed: () => controller.isOpen ? controller.close() : controller.open(),
+          icon: const Icon(Icons.tune, size: 20),
+          label: Text('Chỉ báo ($active)'),
+        ),
+      ),
     );
     return Card(
       child: Padding(
@@ -507,6 +484,7 @@ class _ChartCard extends StatelessWidget {
               runSpacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
+                menu,
                 SegmentedButton<_Frame>(
                   showSelectedIcon: false,
                   style: const ButtonStyle(visualDensity: VisualDensity.compact, minimumSize: WidgetStatePropertyAll(Size(48, 40))),
@@ -522,20 +500,6 @@ class _ChartCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                toggle('EMA20', Indicator.ema20.color, indicators.contains(Indicator.ema20), () => onToggle(Indicator.ema20)),
-                toggle('MA50', Indicator.ma50.color, indicators.contains(Indicator.ma50), () => onToggle(Indicator.ma50)),
-                toggle('MA200', Indicator.ma200.color, indicators.contains(Indicator.ma200), () => onToggle(Indicator.ma200)),
-                toggle('Vùng giá', null, zones, () => onZones(!zones)),
-                toggle('Fibonacci', null, fib, () => onFib(!fib)),
-                toggle('Khối lượng', null, indicators.contains(Indicator.volume), () => onToggle(Indicator.volume)),
-                toggle('RSI', null, indicators.contains(Indicator.rsi), () => onToggle(Indicator.rsi)),
-                toggle('MACD', null, indicators.contains(Indicator.macd), () => onToggle(Indicator.macd)),
-              ],
-            ),
             const SizedBox(height: 8),
             if (b == null)
               SizedBox(
@@ -583,6 +547,8 @@ class _FlowCard extends StatelessWidget {
     Widget kv(String k, String v, {Color? color}) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
         children: [
           Expanded(
             child: Text(k, style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
@@ -623,7 +589,7 @@ class _FlowCard extends StatelessWidget {
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (isStock) ...[LiquidityChart(symbol), const SizedBox(height: 14)],
+          if (isStock) ...[ActiveFlow(symbol), const SizedBox(height: 18), LiquidityChart(symbol, height: 300), const SizedBox(height: 14)],
           if (!has)
             Text('Chưa có dữ liệu bảng giá cho nhóm này.', style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant))
           else ...[
@@ -667,11 +633,6 @@ class _FlowCard extends StatelessWidget {
               ),
             ],
           ],
-          const SizedBox(height: 8),
-          Text(
-            'Chưa có dữ liệu lệnh lớn (từ 1 tỷ) và mua/bán chủ động: nguồn dữ liệu miễn phí không cung cấp.',
-            style: text.labelSmall?.copyWith(color: cs.onSurfaceVariant),
-          ),
         ],
       ),
     );
@@ -731,6 +692,8 @@ class _HealthCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
                         children: [
                           Expanded(
                             child: Text.rich(
@@ -807,13 +770,20 @@ class _BottomCard extends StatelessWidget {
                   // Có biểu tượng và chữ cho từng trạng thái, không chỉ dựa vào màu
                   Icon(
                     s.met == true ? Icons.check_circle : (s.met == false ? Icons.radio_button_unchecked : Icons.remove_circle_outline),
-                    size: 18,
+                    size: 20,
                     color: s.met == true ? Tone.up(context) : cs.onSurfaceVariant,
                     semanticLabel: s.met == true ? 'Có' : (s.met == false ? 'Chưa' : 'Chưa đủ dữ liệu'),
                   ),
                   const SizedBox(width: 10),
-                  Expanded(child: Text(s.label, style: text.bodyMedium)),
-                  if (s.met == null) Text('chưa đủ dữ liệu', style: text.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(s.label, style: text.bodyMedium?.copyWith(height: 1.3)),
+                        if (s.met == null) Text('chưa đủ dữ liệu', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -835,36 +805,42 @@ class _ZonesCard extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     String p(double v) => vnNum(v * mult, mult == 1 ? 2 : 0);
     String pr(PriceZone r) => r.high - r.low < 0.05 ? p(r.low) : '${p(r.low)}–${p(r.high)}';
+    // Mỗi dòng: nhãn bên trái, giá trị căn lề phải thẳng một cột; ghi chú nhỏ (số lần chạm) xuống dòng dưới giá trị, cũng căn phải.
+    // Nhãn và giá trị cùng cỡ chữ và cùng bắt đầu từ trên cùng nên dòng đầu của chúng ngang hàng với nhau.
     Widget row(String k, String v, {String? note, bool strong = false}) => Container(
-      padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 8),
-      decoration: strong ? BoxDecoration(color: cs.primary.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(8)) : null,
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+      decoration: BoxDecoration(
+        color: strong ? cs.primary.withValues(alpha: 0.10) : null,
+        borderRadius: strong ? BorderRadius.circular(8) : null,
+        border: strong ? null : Border(bottom: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.6))),
+      ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Text(k, style: text.bodyMedium?.copyWith(fontWeight: strong ? FontWeight.w700 : FontWeight.w400)),
+            child: Text(k, style: text.bodyMedium?.copyWith(fontWeight: strong ? FontWeight.w700 : FontWeight.w400, height: 1.3)),
           ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: v,
-                    style: text.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: strong ? cs.primary : null,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  if (note != null)
-                    TextSpan(
-                      text: ' · $note',
-                      style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                    ),
-                ],
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                v,
+                textAlign: TextAlign.end,
+                style: text.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  height: 1.3,
+                  color: strong ? cs.primary : null,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
-              textAlign: TextAlign.end,
-            ),
+              if (note != null)
+                Text(
+                  note,
+                  textAlign: TextAlign.end,
+                  style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                ),
+            ],
           ),
         ],
       ),

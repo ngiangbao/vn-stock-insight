@@ -434,7 +434,8 @@ class StockSidebar extends StatelessWidget {
   final Snapshot? snap;
   final Map<String, dynamic>? fund;
   final BoardRow? row;
-  const StockSidebar(this.symbol, this.snap, this.fund, this.row, {super.key});
+  final bool showLiquidity;
+  const StockSidebar(this.symbol, this.snap, this.fund, this.row, {this.showLiquidity = true, super.key});
 
   static Color _ceil(BuildContext c) => Theme.of(c).brightness == Brightness.dark ? const Color(0xFFD0A8FF) : const Color(0xFF6A1FB0);
   static Color _floor(BuildContext c) => Theme.of(c).brightness == Brightness.dark ? const Color(0xFF4DD0E1) : const Color(0xFF007082);
@@ -472,6 +473,8 @@ class StockSidebar extends StatelessWidget {
     Widget line(String label, List<InlineSpan> value) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
         children: [
           Expanded(
             child: Text(label, style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
@@ -557,8 +560,7 @@ class StockSidebar extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        LiquidityChart(symbol),
-        const SizedBox(height: 14),
+        if (showLiquidity) ...[LiquidityChart(symbol), const SizedBox(height: 14)],
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(

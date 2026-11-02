@@ -78,9 +78,11 @@ void main() {
       for (final f in ['1 giờ', '4 giờ', 'Ngày', 'Tuần']) {
         expect(find.text(f), findsOneWidget, reason: 'khung $f');
       }
-      for (final t in ['EMA20', 'MA50', 'MA200', 'Vùng giá', 'Fibonacci']) {
-        expect(find.text(t), findsOneWidget, reason: t);
-      }
+      expect(find.textContaining('Chỉ báo ('), findsOneWidget, reason: 'một menu gom mọi chỉ báo');
+      expect(find.textContaining('Đang giảm trên MA200'), findsNothing, reason: 'đã bỏ ô tóm tắt');
+      expect(tester.getSize(find.textContaining('Chỉ báo (')).height, greaterThan(0));
+      // Menu nằm bên trái bộ chọn khung thời gian
+      expect(tester.getTopLeft(find.byType(MenuAnchor)).dx, lessThan(tester.getTopLeft(find.text('1 giờ')).dx));
       expect(find.text('Phân tích AI'), findsWidgets);
       expect(find.byTooltip('Bỏ theo dõi'), findsOneWidget, reason: 'FPT có trong danh sách theo dõi mặc định');
       expect(tester.getSize(find.byTooltip('Bỏ theo dõi')).shortestSide, greaterThanOrEqualTo(44));
@@ -117,11 +119,30 @@ void main() {
     expect(find.textContaining('Chưa có đủ dữ liệu cho khung này'), findsOneWidget);
     await tester.tap(find.text('Ngày'));
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('Fibonacci'));
-    await tester.pump();
-    await tester.tap(find.text('Vùng giá'));
-    await tester.pump();
-    await tester.tap(find.text('MACD'));
+    await tester.tap(find.textContaining('Chỉ báo ('));
+    await tester.pumpAndSettle();
+    for (final t in [
+      'MA 10',
+      'MA 20',
+      'MA 50',
+      'MA 200',
+      'EMA 20',
+      'Bollinger (20, 2)',
+      'Fibonacci',
+      'Khối lượng',
+      'RSI 14',
+      'MACD (12, 26, 9)',
+      'Stochastic (14, 3)',
+      'MFI 14',
+    ]) {
+      expect(find.text(t), findsOneWidget, reason: t);
+    }
+    for (final t in ['Fibonacci', 'MA 10', 'Bollinger (20, 2)', 'Stochastic (14, 3)', 'MFI 14', 'MACD (12, 26, 9)']) {
+      await tester.tap(find.text(t));
+      await tester.pump();
+    }
+    expect(find.text('Vùng giá (hỗ trợ/kháng cự)'), findsOneWidget);
+    await tester.tap(find.text('Vùng giá (hỗ trợ/kháng cự)'));
     await tester.pump();
     expect(tester.takeException(), isNull);
     state.dash.dispose();
