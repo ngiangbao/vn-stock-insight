@@ -12,7 +12,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vn_stock_insight/main.dart' show StockApp, appTheme;
+import 'package:vn_stock_insight/main.dart' show Ds, StockApp, appTheme;
 import 'package:vn_stock_insight/services/macro.dart';
 import 'package:vn_stock_insight/state.dart';
 import 'package:vn_stock_insight/ui/macro_chart.dart';
@@ -381,16 +381,28 @@ void main() {
       test('chế độ ${b == Brightness.dark ? 'tối' : 'sáng'}', () {
         final theme = appTheme(b);
         final cs = theme.colorScheme;
-        final card = theme.cardTheme.color!;
-        expect(contrast(cs.onSurface, card), greaterThanOrEqualTo(4.5), reason: 'chữ chính trên thẻ');
-        expect(contrast(cs.onSurfaceVariant, card), greaterThanOrEqualTo(4.5), reason: 'chữ phụ, nhãn trục trên thẻ');
+        final ends = b == Brightness.dark ? Ds.darkBg : Ds.lightBg;
+        // Thẻ bán trong suốt đặt trên nền gradient: kiểm tra ở mọi điểm của gradient
+        final cards = [for (final bg in ends) Color.alphaBlend(theme.cardTheme.color!, bg)];
+        for (final card in cards) {
+          expect(contrast(cs.onSurface, card), greaterThanOrEqualTo(4.5), reason: 'chữ chính trên thẻ');
+          expect(contrast(cs.onSurfaceVariant, card), greaterThanOrEqualTo(4.5), reason: 'chữ phụ, nhãn trục trên thẻ');
+          expect(contrast(cs.primary, card), greaterThanOrEqualTo(3.0), reason: 'đường biểu đồ và viền focus');
+        }
+        for (final bg in ends) {
+          expect(contrast(cs.onSurface, bg), greaterThanOrEqualTo(4.5), reason: 'chữ chính trực tiếp trên nền gradient');
+          expect(contrast(cs.onSurfaceVariant, bg), greaterThanOrEqualTo(4.5), reason: 'chữ phụ trực tiếp trên nền gradient');
+          expect(contrast(cs.primary, bg), greaterThanOrEqualTo(4.5), reason: 'chữ nhấn (tab, liên kết) trên nền gradient');
+        }
+        expect(contrast(cs.onPrimary, cs.primary), greaterThanOrEqualTo(4.5), reason: 'chữ trên nút chính và mục đang chọn');
         expect(contrast(cs.inverseSurface, cs.onInverseSurface), greaterThanOrEqualTo(4.5), reason: 'chữ trong tooltip');
         expect(contrast(cs.errorContainer, cs.onErrorContainer), greaterThanOrEqualTo(4.5), reason: 'banner lỗi');
-        expect(contrast(cs.primary, card), greaterThanOrEqualTo(3.0), reason: 'đường biểu đồ và viền focus');
         final bar = theme.appBarTheme;
         final titleColor = bar.titleTextStyle?.color;
         expect(titleColor, isNotNull, reason: 'tiêu đề thanh trên phải có màu chữ rõ ràng');
-        expect(contrast(titleColor!, bar.backgroundColor!), greaterThanOrEqualTo(4.5), reason: 'tiêu đề thanh trên');
+        for (final bg in ends) {
+          expect(contrast(titleColor!, bg), greaterThanOrEqualTo(4.5), reason: 'tiêu đề thanh trên (nền trong suốt) trên gradient');
+        }
       });
     }
   });
@@ -414,18 +426,21 @@ void main() {
 
     testWidgets('cửa sổ vừa (900 px): thanh bên có 7 mục tài sản và menu ẩn, chọn Vĩ mô hiện trang Kinh tế vĩ mô', (tester) async {
       await pumpApp(tester, const Size(900, 800));
-      expect(find.byType(NavigationRail), findsOneWidget);
+      expect(find.byType(NavigationRail), findsNothing, reason: 'thanh icon nổi thay NavigationRail');
       for (final l in labels) {
-        expect(find.descendant(of: find.byType(NavigationRail), matching: find.text(l)), findsOneWidget, reason: l);
+        // "Tổng quan" còn là tiêu đề của trang đang mở
+        expect(find.text(l), l == 'Tổng quan' ? findsWidgets : findsOneWidget, reason: l);
       }
-      double y(String l) => tester.getCenter(find.descendant(of: find.byType(NavigationRail), matching: find.text(l))).dy;
+      double y(String l) => tester.getCenter(find.text(l)).dy;
       expect(y('Bộ lọc'), lessThan(y('CFA')));
       expect(y('CFA'), lessThan(y('Trái phiếu')));
-      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('CFA')));
+      // Mỗi mục của thanh icon cao tối thiểu 48 px
+      expect(tester.getSize(find.ancestor(of: find.text('CFA'), matching: find.byType(InkWell)).first).height, greaterThanOrEqualTo(48));
+      await tester.tap(find.text('CFA'));
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('Phân tích theo khung CFA'), findsOneWidget);
       expect(find.text('Chọn cổ phiếu cần phân tích'), findsOneWidget);
-      await tester.tap(find.widgetWithText(TextButton, 'Thêm'));
+      await tester.tap(find.text('Thêm'));
       await tester.pump();
       await tester.tap(find.widgetWithText(MenuItemButton, 'Vĩ mô'));
       await tester.pump();
@@ -440,10 +455,11 @@ void main() {
       for (final l in labels) {
         expect(find.text(l), findsWidgets, reason: l);
       }
-      double x(String l) => tester.getCenter(find.text(l).first).dx;
-      expect(x('Bộ lọc'), lessThan(x('CFA')));
-      expect(x('CFA'), lessThan(x('Trái phiếu')));
-      await tester.tap(find.widgetWithText(TextButton, 'Thêm'));
+      double y(String l) => tester.getCenter(find.text(l).first).dy;
+      expect(y('Bộ lọc'), lessThan(y('CFA')), reason: 'thanh icon xếp dọc, cùng một cột');
+      expect(y('CFA'), lessThan(y('Trái phiếu')));
+      expect(tester.getCenter(find.text('CFA').first).dx, lessThan(120), reason: 'thanh icon nằm sát mép trái');
+      await tester.tap(find.text('Thêm'));
       await tester.pump();
       await tester.tap(find.widgetWithText(MenuItemButton, 'Vĩ mô'));
       await tester.pump();

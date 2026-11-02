@@ -26,22 +26,63 @@ Future<void> main() async {
   state.refresh();
 }
 
+/// Token thiết kế: nền gradient kem hồng (sáng) hoặc xanh rêu đậm (tối), thẻ bo góc lớn bóng mềm, màu nhấn xanh lục đậm.
+/// Cặp màu chữ/nền đều đạt tương phản tối thiểu 4,5:1 trên cả hai đầu của gradient (xem test/theme_test.dart).
+class Ds {
+  static const lightBg = [
+    Color(0xFFF7F1EA),
+    Color(0xFFF2E4DD),
+    Color(0xFFEBD6D0),
+  ];
+  static const darkBg = [
+    Color(0xFF0D1411),
+    Color(0xFF111A16),
+    Color(0xFF16191A),
+  ];
+  static const lightCard = Color(0xFFFFFFFF);
+  static const darkCard = Color(0xFF17221D);
+  static const lightText = Color(0xFF1C2822);
+  static const lightMuted = Color(0xFF55615A);
+  static const darkText = Color(0xFFE8F0EB);
+  static const darkMuted = Color(0xFFA7B6AD);
+  static const lightPrimary = Color(0xFF1E5A3F);
+  static const darkPrimary = Color(0xFF7FD1A4);
+  static const lightOutline = Color(0xFFE6DAD2);
+  static const darkOutline = Color(0xFF28372F);
+  static const radius = 22.0;
+
+  static BoxDecoration background(Brightness b) => BoxDecoration(
+    gradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: b == Brightness.dark ? darkBg : lightBg,
+    ),
+  );
+}
+
 ThemeData _theme(Brightness brightness) {
-  // Navy for navigation and actions; reserve green/red for market movement.
+  // Xanh lục đậm cho điều hướng và hành động; xanh/đỏ dành riêng cho biến động thị trường.
   final dark = brightness == Brightness.dark;
+  final primary = dark ? Ds.darkPrimary : Ds.lightPrimary;
   final scheme =
       ColorScheme.fromSeed(
-        seedColor: const Color(0xFF163A5F),
+        seedColor: Ds.lightPrimary,
         brightness: brightness,
-        surface: dark ? const Color(0xFF111923) : const Color(0xFFF3F6FA),
+        surface: dark ? const Color(0xFF111A16) : const Color(0xFFF6EFE8),
       ).copyWith(
-        primary: dark ? const Color(0xFF82B7E8) : const Color(0xFF163A5F),
-        onPrimary: dark ? const Color(0xFF102033) : Colors.white,
-        secondary: dark ? const Color(0xFF8FAFCB) : const Color(0xFF526B84),
-        surfaceContainerLowest: dark ? const Color(0xFF151F2B) : Colors.white,
+        primary: primary,
+        onPrimary: dark ? const Color(0xFF08261A) : Colors.white,
+        secondary: dark ? const Color(0xFF9CC9B2) : const Color(0xFF4F6B5C),
+        onSurface: dark ? Ds.darkText : Ds.lightText,
+        onSurfaceVariant: dark ? Ds.darkMuted : Ds.lightMuted,
+        surfaceContainerLowest: dark ? Ds.darkCard : Ds.lightCard,
+        surfaceContainerHighest: dark
+            ? const Color(0xFF223029)
+            : const Color(0xFFF0E7E0),
+        outlineVariant: dark ? Ds.darkOutline : Ds.lightOutline,
       );
-  final outline = dark ? const Color(0xFF2B3948) : const Color(0xFFDCE4ED);
-  final card = dark ? const Color(0xFF182331) : Colors.white;
+  final outline = dark ? Ds.darkOutline : Ds.lightOutline;
+  final card = dark ? Ds.darkCard : Ds.lightCard;
   final textTheme = ThemeData(brightness: brightness).textTheme
       .apply(
         bodyColor: scheme.onSurface,
@@ -58,11 +99,21 @@ ThemeData _theme(Brightness brightness) {
         ),
         titleMedium: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
       );
+  final pill = StadiumBorder(side: BorderSide(color: outline));
   return ThemeData(
     colorScheme: scheme,
     textTheme: textTheme,
     useMaterial3: true,
-    scaffoldBackgroundColor: scheme.surface,
+    // Trong suốt để nền gradient của app (xem StockApp.builder) lộ ra phía sau mọi trang, kể cả trang mở bằng Navigator
+    scaffoldBackgroundColor: Colors.transparent,
+    canvasColor: scheme.surface,
+    dialogTheme: DialogThemeData(
+      backgroundColor: card,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Ds.radius),
+      ),
+    ),
     navigationRailTheme: NavigationRailThemeData(
       backgroundColor: card,
       selectedIconTheme: IconThemeData(color: scheme.primary),
@@ -74,7 +125,7 @@ ThemeData _theme(Brightness brightness) {
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: card,
-      indicatorColor: scheme.primary.withValues(alpha: 0.12),
+      indicatorColor: scheme.primary.withValues(alpha: 0.14),
       labelTextStyle: WidgetStateProperty.resolveWith(
         (states) => TextStyle(
           fontSize: 11,
@@ -85,30 +136,71 @@ ThemeData _theme(Brightness brightness) {
       ),
     ),
     appBarTheme: AppBarTheme(
-      backgroundColor: scheme.surface,
+      backgroundColor: Colors.transparent,
+      scrolledUnderElevation: 0,
       // Màu chữ phải đặt rõ ràng: titleLarge của app không có màu nên tiêu đề trắng trên nền sáng (không đọc được)
       foregroundColor: scheme.onSurface,
       surfaceTintColor: Colors.transparent,
       titleTextStyle: textTheme.titleLarge?.copyWith(
-        fontWeight: FontWeight.w700,
+        fontSize: 24,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.5,
         color: scheme.onSurface,
       ),
     ),
     cardTheme: CardThemeData(
-      color: card,
+      color: card.withValues(alpha: dark ? 0.92 : 0.94),
       surfaceTintColor: Colors.transparent,
-      elevation: 0,
+      shadowColor: dark ? Colors.black : const Color(0xFF5A3A2A),
+      elevation: dark ? 0 : 1.5,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: outline),
+        borderRadius: BorderRadius.circular(Ds.radius),
+        side: BorderSide(color: outline.withValues(alpha: 0.7)),
       ),
+    ),
+    chipTheme: ChipThemeData(
+      shape: pill,
+      side: BorderSide(color: outline),
+      backgroundColor: Colors.transparent,
+      selectedColor: scheme.primary.withValues(alpha: 0.14),
+      labelStyle: TextStyle(
+        color: scheme.onSurface,
+        fontWeight: FontWeight.w600,
+        fontSize: 13,
+      ),
+      secondaryLabelStyle: TextStyle(
+        color: scheme.primary,
+        fontWeight: FontWeight.w700,
+        fontSize: 13,
+      ),
+      checkmarkColor: scheme.primary,
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        shape: const StadiumBorder(),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        shape: const StadiumBorder(),
+        side: BorderSide(color: outline),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      ),
+    ),
+    tabBarTheme: TabBarThemeData(
+      indicatorColor: scheme.primary,
+      labelColor: scheme.primary,
+      unselectedLabelColor: scheme.onSurfaceVariant,
+      dividerColor: outline,
+      labelStyle: const TextStyle(fontWeight: FontWeight.w700),
     ),
     dividerTheme: DividerThemeData(color: outline, thickness: 1),
     inputDecorationTheme: InputDecorationTheme(
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide(color: outline),
       ),
       isDense: true,
@@ -147,7 +239,10 @@ class StockApp extends StatelessWidget {
         child: AutoScale(
           enabled: state.autoScale,
           manual: state.uiScale,
-          child: Overlay.wrap(child: FloatingFinanceChat(child: child!)),
+          child: DecoratedBox(
+            decoration: Ds.background(Theme.of(context).brightness),
+            child: Overlay.wrap(child: FloatingFinanceChat(child: child!)),
+          ),
         ),
       ),
       home: const HomeShell(),
@@ -241,59 +336,16 @@ class _HomeShellState extends State<HomeShell> {
     final wide = width >= 760;
     final body = IndexedStack(index: _tab, children: pages);
 
-    if (width >= 1100) {
-      return Scaffold(
-        body: Column(
-          children: [
-            _DesktopHeader(
-              selectedIndex: _tab,
-              onDestinationSelected: _select,
-              destinations: _destinations,
-            ),
-            const Divider(height: 1),
-            Expanded(child: body),
-          ],
-        ),
-      );
-    }
-
     if (wide) {
+      // Thanh icon dọc nổi bên trái (bo góc, bóng mềm) cho mọi cửa sổ từ 760 px trở lên
       return Scaffold(
         body: Row(
           children: [
-            // Cuộn được khi cửa sổ thấp để không tràn khi có nhiều mục
-            LayoutBuilder(
-              builder: (context, c) => SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: c.maxHeight),
-                  child: IntrinsicHeight(
-                    child: NavigationRail(
-                      selectedIndex: _tab < 7 ? _tab : null,
-                      onDestinationSelected: _select,
-                      trailing: AppMoreMenu(
-                        selectedIndex: _tab,
-                        onSelected: _select,
-                        destinations: _destinations,
-                      ),
-                      labelType: NavigationRailLabelType.all,
-                      leading: const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Icon(Icons.show_chart, size: 30),
-                      ),
-                      destinations: [
-                        for (final d in _destinations.take(7))
-                          NavigationRailDestination(
-                            icon: Icon(d.$1),
-                            selectedIcon: Icon(d.$2),
-                            label: Text(d.$3),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+            _FloatingRail(
+              selectedIndex: _tab,
+              onSelected: _select,
+              destinations: _destinations,
             ),
-            const VerticalDivider(width: 1),
             Expanded(child: body),
           ],
         ),
@@ -352,68 +404,87 @@ class _HomeShellState extends State<HomeShell> {
   }
 }
 
-class _DesktopHeader extends StatelessWidget {
+/// Thanh icon dọc nổi: logo, 7 mục chính (icon trên nhãn), menu "Thêm" cho các mục còn lại. Mục đang chọn là viên xanh lục đậm.
+/// Mỗi mục rộng 72 × cao 64 px (≥ 48 px) và cuộn được khi cửa sổ thấp.
+class _FloatingRail extends StatelessWidget {
   final int selectedIndex;
-  final ValueChanged<int> onDestinationSelected;
+  final ValueChanged<int> onSelected;
   final List<(IconData, IconData, String)> destinations;
 
-  const _DesktopHeader({
+  const _FloatingRail({
     required this.selectedIndex,
-    required this.onDestinationSelected,
+    required this.onSelected,
     required this.destinations,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: cs.surfaceContainerLowest,
-      child: SizedBox(
-        height: 62,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          child: Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: cs.primary,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  Icons.show_chart_rounded,
-                  color: cs.onPrimary,
-                  size: 23,
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 0, 16),
+      child: Container(
+        width: 88,
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerLowest.withValues(alpha: dark ? 0.94 : 0.9),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: cs.outlineVariant),
+          boxShadow: [
+            BoxShadow(
+              color: (dark ? Colors.black : const Color(0xFF5A3A2A)).withValues(
+                alpha: dark ? 0.4 : 0.10,
+              ),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: LayoutBuilder(
+          builder: (context, box) => SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: box.maxHeight),
+              child: IntrinsicHeight(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 16),
+                    Semantics(
+                      label: 'VN Stock Insight',
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: cs.primary,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(
+                          Icons.show_chart_rounded,
+                          color: cs.onPrimary,
+                          size: 26,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    for (var i = 0; i < 7; i++)
+                      _RailItem(
+                        icon: selectedIndex == i
+                            ? destinations[i].$2
+                            : destinations[i].$1,
+                        label: destinations[i].$3,
+                        selected: selectedIndex == i,
+                        onTap: () => onSelected(i),
+                      ),
+                    const Spacer(),
+                    AppMoreMenu(
+                      selectedIndex: selectedIndex,
+                      onSelected: onSelected,
+                      destinations: destinations,
+                      vertical: true,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                 ),
               ),
-              const SizedBox(width: 10),
-              Text(
-                'VN Stock Insight',
-                maxLines: 1,
-                style: Theme.of(context).textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(width: 22),
-              const VerticalDivider(width: 1, indent: 14, endIndent: 14),
-              const SizedBox(width: 14),
-              for (var i = 0; i < 7; i++)
-                Expanded(
-                  child: _DesktopNavItem(
-                    icon: selectedIndex == i
-                        ? destinations[i].$2
-                        : destinations[i].$1,
-                    label: destinations[i].$3,
-                    selected: selectedIndex == i,
-                    onTap: () => onDestinationSelected(i),
-                  ),
-                ),
-              AppMoreMenu(
-                selectedIndex: selectedIndex,
-                onSelected: onDestinationSelected,
-                destinations: destinations,
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -421,13 +492,13 @@ class _DesktopHeader extends StatelessWidget {
   }
 }
 
-class _DesktopNavItem extends StatelessWidget {
+class _RailItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
-  const _DesktopNavItem({
+  const _RailItem({
     required this.icon,
     required this.label,
     required this.selected,
@@ -437,40 +508,39 @@ class _DesktopNavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final fg = selected ? cs.onPrimary : cs.onSurfaceVariant;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 8),
-      child: Material(
-        color: selected
-            ? cs.primary.withValues(alpha: 0.09)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icon,
-                  size: 19,
-                  color: selected ? cs.primary : cs.onSurfaceVariant,
-                ),
-                const SizedBox(width: 7),
-                Flexible(
-                  child: Text(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: label,
+        child: Material(
+          color: selected ? cs.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(18),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(18),
+            child: SizedBox(
+              width: 72,
+              height: 64,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 24, color: fg),
+                  const SizedBox(height: 4),
+                  Text(
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: selected ? cs.primary : cs.onSurfaceVariant,
-                      fontSize: 13,
+                      color: fg,
+                      fontSize: 11,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -484,11 +554,15 @@ class AppMoreMenu extends StatefulWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelected;
   final List<(IconData, IconData, String)> destinations;
+
+  /// Hiển thị như một mục của thanh icon dọc (icon trên nhãn).
+  final bool vertical;
   const AppMoreMenu({
     super.key,
     required this.selectedIndex,
     required this.onSelected,
     required this.destinations,
+    this.vertical = false,
   });
 
   @override
@@ -547,18 +621,30 @@ class _AppMoreMenuState extends State<AppMoreMenu> {
     builder: (context, controller, child) => MouseRegion(
       onEnter: (_) => _enter(),
       onExit: (_) => _leave(),
-      child: TextButton.icon(
-        onPressed: () {
-          _closeTimer?.cancel();
-          controller.isOpen ? controller.close() : controller.open();
-        },
-        icon: const Icon(Icons.more_horiz),
-        label: Text(
-          widget.selectedIndex >= 7
-              ? widget.destinations[widget.selectedIndex].$3
-              : 'Thêm',
-        ),
-      ),
+      child: widget.vertical
+          ? _RailItem(
+              icon: Icons.more_horiz,
+              label: widget.selectedIndex >= 7
+                  ? widget.destinations[widget.selectedIndex].$3
+                  : 'Thêm',
+              selected: widget.selectedIndex >= 7,
+              onTap: () {
+                _closeTimer?.cancel();
+                controller.isOpen ? controller.close() : controller.open();
+              },
+            )
+          : TextButton.icon(
+              onPressed: () {
+                _closeTimer?.cancel();
+                controller.isOpen ? controller.close() : controller.open();
+              },
+              icon: const Icon(Icons.more_horiz),
+              label: Text(
+                widget.selectedIndex >= 7
+                    ? widget.destinations[widget.selectedIndex].$3
+                    : 'Thêm',
+              ),
+            ),
     ),
   );
 }

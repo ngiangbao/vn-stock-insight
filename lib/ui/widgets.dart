@@ -199,10 +199,12 @@ class PageFrame extends StatelessWidget {
     );
     return Scaffold(
       appBar: AppBar(
-        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title),
-          if (state.updatedAt != null)
-            Text('Cập nhật lúc ${timeLocal(state.updatedAt!)}', style: Theme.of(context).textTheme.bodySmall),
+        title: Row(children: [
+          Flexible(child: Text(title, overflow: TextOverflow.ellipsis)),
+          if (state.updatedAt != null) ...[
+            const SizedBox(width: 14),
+            Flexible(child: StatusChip('Cập nhật ${timeLocal(state.updatedAt!)}')),
+          ],
         ]),
         actions: [
           ...actions,
@@ -354,6 +356,40 @@ class FlexTable extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               child: SizedBox(width: minWidth, child: table),
             ),
+    );
+  }
+}
+
+/// Chip trạng thái dạng viên thuốc (chấm xanh + chữ), dùng ở tiêu đề trang cho giờ cập nhật, phiên giao dịch...
+class StatusChip extends StatelessWidget {
+  final String label;
+  final bool dot;
+  const StatusChip(this.label, {super.key, this.dot = true});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLowest.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        if (dot) ...[
+          Container(width: 7, height: 7, decoration: BoxDecoration(color: cs.primary, shape: BoxShape.circle)),
+          const SizedBox(width: 7),
+        ],
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant),
+          ),
+        ),
+      ]),
     );
   }
 }
