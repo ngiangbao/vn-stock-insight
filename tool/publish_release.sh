@@ -22,7 +22,10 @@ mapfile -t FILES < <(find "$DIR" -type f | sort)
 (cd "$DIR" && find . -type f ! -name SHA256SUMS.txt -exec sha256sum {} + | sed 's# \./.*/# #; s# \./# #' > "$DIR/SHA256SUMS.txt")
 FILES+=("$DIR/SHA256SUMS.txt")
 
-NOTES="Dashboard mới: thanh chỉ số nhanh, bố cục thị trường gọn hơn và bản đồ nhiệt theo biến động, khối ngoại hoặc thanh khoản.
+# Dòng mở đầu lấy từ tiêu đề commit của tag, nên mỗi bản có mô tả đúng thay đổi của chính nó
+HEADLINE=$(git log -1 --format=%s "$TAG" 2>/dev/null || true)
+[[ -n "$HEADLINE" ]] || HEADLINE="VN Stock Insight $TAG"
+NOTES="$HEADLINE
 
 Tải bản cho máy của bạn:
 - Windows: tải file \`-windows-x64-setup.exe\` và làm theo trình cài đặt, hoặc \`-windows-x64-portable.zip\` để giải nén và chạy trực tiếp. Nếu SmartScreen cảnh báo, xem mục Windows trong README. Mã SHA-256 của từng file nằm trong \`SHA256SUMS.txt\`.

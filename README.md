@@ -17,16 +17,28 @@ Giao diện tối trên Linux, dữ liệu thị trường thật tại thời �
 ## Tính năng
 
 - **Tổng quan:** dashboard thị trường với các chỉ số, biểu đồ, độ rộng thị trường và bản đồ nhiệt có thể xem theo biến động, giao dịch khối ngoại hoặc thanh khoản.
+- **Trang chi tiết cổ phiếu và chỉ số:** bấm vào một mã hoặc một chỉ số để mở trang riêng (nhiều cột trên màn hình rộng, xếp dọc trên điện thoại):
+  - biểu đồ giá các khung 1 giờ, 4 giờ, Ngày, Tuần; **một menu Chỉ báo** gom MA10/20/50/200, EMA20, Bollinger, Khối lượng, RSI, MACD, Stochastic, MFI cùng vùng hỗ trợ/kháng cự và Fibonacci;
+  - **Điểm sức khỏe** 0–100 gồm 4 nhóm (xu hướng, động lượng, dòng tiền, sức mạnh tương đối), kèm **kiểm định lịch sử ngay trong app**: chạy lại điểm trên giá quá khứ rồi so lợi suất 20 phiên sau của nhóm Mạnh, Trung tính, Yếu. Kết quả lưu theo ngày (mỗi ngày tính lại một lần), ưu tiên mã trong danh sách theo dõi rồi mã đang xem, có nhãn *Đang kiểm định*. Kết quả có thể cho thấy điểm **không** có giá trị dự báo; app hiển thị đúng như vậy;
+  - **Dấu hiệu tạo đáy** (6 dấu hiệu, gồm độ rộng thị trường tính từ giá cả sàn HOSE: tỷ lệ mã trên MA50 và việc hồi từ dưới 20%), **vùng giá và kịch bản** theo ngưỡng;
+  - **Dòng tiền trong phiên** từ lệnh khớp: khối lượng, mua chủ động, bán chủ động theo 1/5/15 phút, "tiền lớn" (lệnh từ 1 tỷ đồng), và biểu đồ thanh khoản trong phiên so với phiên trước.
 - **Theo dõi:** tra cứu mã bất kỳ (HOSE, HNX, UPCoM), thêm hoặc gỡ mã khỏi danh sách theo dõi, phân tích chuyên sâu từng mã:
   - luận điểm đầu tư và điều kiện làm luận điểm sai;
   - kết quả kinh doanh 8 quý; với ngân hàng thì xem NIM, nợ xấu, CASA;
   - định giá so với lịch sử, vị thế cạnh tranh;
   - kỹ thuật (MA, RSI, MACD, Bollinger, Stochastic, ATR, khối lượng);
-  - lịch sự kiện sắp tới, 3 kịch bản, bảng chấm điểm 8 tiêu chí.
-- **Bộ lọc:** bảng kỹ thuật VN30 sắp xếp được, có điểm kỹ thuật tổng hợp.
+  - lịch sự kiện sắp tới, 3 kịch bản, bảng chấm điểm 8 tiêu chí, khuyến nghị của các công ty chứng khoán;
+  - các phân tích bổ sung theo yêu cầu: ngành, so sánh cùng ngành, dòng tiền, vĩ mô, tin tức, rủi ro;
+  - xuất báo cáo ra PDF.
+- **CFA:** phân tích theo khung CFA với chỉ số định lượng (Sharpe, Beta, drawdown…), định giá và kịch bản; lưu báo cáo trên máy; **Danh mục** quản lý nhiều danh mục đầu tư và phân tích danh mục theo khung CFA.
+- **Bộ lọc:** bảng giá realtime, tìm nhiều mã cùng lúc, bảng kỹ thuật VN30 sắp xếp được, có điểm kỹ thuật tổng hợp.
+- **Vĩ mô:** dữ liệu vĩ mô theo nhóm, kèm tab lãi suất (lợi suất trái phiếu Chính phủ, lãi suất tiền gửi).
 - **Tin tức:** tin 48 giờ từ CafeF, Vietstock, VnExpress, VnEconomy, Tin nhanh chứng khoán, gắn mã liên quan.
-- **Giao diện sáng/tối** (hoặc theo hệ thống).
-- **Kiểm tra cập nhật** từ GitHub Releases (tự động khi mở app, hoặc bấm trong Cài đặt).
+- **Nguồn giá SSI (tùy chọn):** dùng SSI FastConnect cho giá trong phiên nếu bạn có khóa; lỗi thì tự dùng nguồn mặc định.
+- **Giao diện:** nền gradient, thẻ bo góc, thanh icon nổi bên trái (điện thoại dùng thanh dưới), sáng/tối hoặc theo hệ thống; đổi tab bằng hiệu ứng mờ ngắn, tôn trọng chế độ giảm chuyển động.
+- **Cài đặt** dàn hai cột phủ hết chiều ngang cửa sổ trên màn hình rộng.
+- **Đóng góp ý kiến:** trong Cài đặt có khung soạn báo lỗi, góp ý tính năng hoặc đề xuất sửa mã (pull request). App mở trang GitHub đã điền sẵn để bạn xem lại và gửi bằng tài khoản GitHub của mình (app không giữ khóa GitHub). Issue được rà soát hằng tuần.
+- **Kiểm tra và cập nhật tự động** từ GitHub Releases (xem [Cập nhật tự động](#cập-nhật-tự-động)).
 
 Khung phân tích được chuyển thể từ các plugin **equity-research** và **financial-analysis** của Anthropic ([anthropics/financial-services](https://github.com/anthropics/financial-services), Apache-2.0). Xem [`lib/ai/prompts.dart`](lib/ai/prompts.dart).
 
@@ -92,7 +104,7 @@ Các bản phát hành Windows được ký số: *Free code signing provided by
 
 ## Quyền riêng tư
 
-App chỉ kết nối mạng để thực hiện chức năng bạn dùng: lấy giá và dữ liệu thị trường (DNSE, VNDirect, Vietcap, Yahoo, World Bank, IMF, TradingEconomics qua TradingView, CafeF), tin tức qua RSS, kiểm tra và tải bản cập nhật từ GitHub, và gửi dữ liệu phân tích tới nhà cung cấp AI do bạn chọn (hoặc model chạy trên máy bạn, không gửi đi đâu). Khóa API, danh mục đầu tư và kết quả phân tích lưu trên máy bạn; app không có tài khoản, không thu thập dữ liệu sử dụng và không gửi thông tin cá nhân cho tác giả.
+App chỉ kết nối mạng để thực hiện chức năng bạn dùng: lấy giá và dữ liệu thị trường (DNSE, VNDirect, Vietcap, Yahoo, World Bank, IMF, TradingEconomics qua TradingView, CafeF), tin tức qua RSS, kiểm tra và tải bản cập nhật từ GitHub, mở trang GitHub khi bạn chủ động gửi ý kiến, và gửi dữ liệu phân tích tới nhà cung cấp AI do bạn chọn (hoặc model chạy trên máy bạn, không gửi đi đâu). Khóa API, danh mục đầu tư và kết quả phân tích lưu trên máy bạn; app không có tài khoản, không thu thập dữ liệu sử dụng và không gửi thông tin cá nhân cho tác giả.
 
 ## Phát triển
 
@@ -112,7 +124,7 @@ Muốn APK được ký ổn định (để cài bản mới đè lên bản cũ
 
 ## Nguồn dữ liệu
 
-Giá: DNSE (dự phòng VNDirect). Số liệu tài chính: Vietcap IQ. Tin tức: RSS của các báo nói trên. Đây là các API công khai không chính thức, có thể thay đổi bất cứ lúc nào. App chỉ phục vụ mục đích cá nhân.
+Giá: DNSE (dự phòng VNDirect; SSI nếu bạn bật). Lệnh khớp trong phiên: Vietcap. Số liệu tài chính: Vietcap IQ. Tin tức: RSS của các báo nói trên. Đây là các API công khai không chính thức, có thể thay đổi bất cứ lúc nào. App chỉ phục vụ mục đích cá nhân.
 
 Bản web cũ (GitHub Pages + Supabase) được lưu ở tag [`web-v1`](https://github.com/ngiangbao/vn-stock-insight/tree/web-v1).
 
