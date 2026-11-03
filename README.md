@@ -6,13 +6,13 @@ App phân tích cổ phiếu Việt Nam bằng AI cho **Windows, macOS, Linux v�
 
 ## Ảnh chụp màn hình
 
-Giao diện tối trên Linux, dữ liệu thị trường thật tại thời điểm chụp (ảnh Cài đặt dùng tài khoản minh họa, không phải tài khoản thật).
+Giao diện tối trên Linux (bản 2.16.0), dữ liệu thị trường thật tại thời điểm chụp. Ảnh Cài đặt đã làm mờ thông tin tài khoản và đường dẫn trên máy.
 
-| Tổng quan thị trường | Bảng giá và bộ lọc |
+| Tổng quan thị trường | Chi tiết cổ phiếu |
 |---|---|
-| ![Trang Tổng quan: chỉ số, biểu đồ nến VN-Index và số liệu khối ngoại](docs/screenshots/tong-quan.png) | ![Trang Bộ lọc: bảng giá realtime, tìm nhiều mã cùng lúc và chi tiết từng mã](docs/screenshots/bo-loc.png) |
-| **Claude CLI trong Cài đặt** | **Chọn model của Claude CLI** |
-| ![Cài đặt AI: nhà cung cấp Claude CLI, phiên bản, trạng thái đăng nhập và model](docs/screenshots/claude-cli-settings.png) | ![Danh sách model của Claude CLI: mặc định, Fable, Opus, Sonnet, Haiku hoặc tên đầy đủ](docs/screenshots/claude-cli-models.png) |
+| ![Trang Tổng quan: chỉ số, biểu đồ nến VN-Index và số liệu khối ngoại](docs/screenshots/tong-quan.png) | ![Trang chi tiết cổ phiếu HPG: biểu đồ giá với menu Chỉ báo, điểm sức khỏe kèm kiểm định, dấu hiệu tạo đáy, dòng tiền mua/bán chủ động](docs/screenshots/chi-tiet-co-phieu.png) |
+| **Bảng giá và bộ lọc** | **Cài đặt** |
+| ![Trang Bộ lọc: bảng giá realtime, tìm nhiều mã cùng lúc và chi tiết từng mã](docs/screenshots/bo-loc.png) | ![Trang Cài đặt hai cột: giao diện, AI với Claude CLI, chia sẻ mạng nội bộ, nguồn giá SSI, cập nhật và đóng góp ý kiến](docs/screenshots/cai-dat.png) |
 
 ## Tính năng
 
