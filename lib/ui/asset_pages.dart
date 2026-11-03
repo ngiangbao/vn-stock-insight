@@ -28,7 +28,7 @@ class BondsPage extends StatelessWidget {
           ],
         ),
       ),
-      body: TabBarView(
+      body: SmoothTabView(
         children: [
           CorporateBondsPage(active: active),
           const BondCalculator(),
@@ -179,7 +179,7 @@ class ListedFundsPage extends StatelessWidget {
           ],
         ),
       ),
-      body: TabBarView(
+      body: SmoothTabView(
         children: [
           InstrumentQuotesPage(active: active),
           const FundNavTracker(),

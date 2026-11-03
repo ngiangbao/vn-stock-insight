@@ -393,3 +393,77 @@ class StatusChip extends StatelessWidget {
     );
   }
 }
+
+/// Nội dung của các tab, thay cho TabBarView: mỗi trang chỉ dựng một lần ở lần mở đầu tiên rồi giữ nguyên (không dựng lại, không mất vị trí cuộn
+/// hay dữ liệu đã tải), đổi tab bằng hiệu ứng mờ dần ngắn thay vì trượt cả trang nặng. Trang đang ẩn không vẽ, không chạy hoạt ảnh.
+/// Tôn trọng chế độ giảm chuyển động của hệ thống. Dùng trong DefaultTabController hoặc truyền [controller].
+class SmoothTabView extends StatefulWidget {
+  final TabController? controller;
+  final List<Widget> children;
+  const SmoothTabView({super.key, this.controller, required this.children});
+
+  @override
+  State<SmoothTabView> createState() => _SmoothTabViewState();
+}
+
+class _SmoothTabViewState extends State<SmoothTabView> with SingleTickerProviderStateMixin {
+  late final AnimationController _fade = AnimationController(vsync: this, duration: const Duration(milliseconds: 160), value: 1);
+  TabController? _c;
+  late int _shown;
+  final Set<int> _built = {};
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final c = widget.controller ?? DefaultTabController.of(context);
+    if (!identical(c, _c)) {
+      _c?.removeListener(_onTab);
+      _c = c..addListener(_onTab);
+      _shown = c.index;
+      _built.add(_shown);
+    }
+  }
+
+  void _onTab() {
+    final i = _c!.index;
+    if (i == _shown || !mounted) return;
+    setState(() {
+      _shown = i;
+      _built.add(i);
+    });
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _fade.value = 1;
+    } else {
+      _fade.forward(from: 0.15);
+    }
+  }
+
+  @override
+  void dispose() {
+    _c?.removeListener(_onTab);
+    _fade.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    fit: StackFit.expand,
+    children: [
+      for (var i = 0; i < widget.children.length; i++)
+        if (_built.contains(i))
+          Offstage(
+            key: ValueKey('tab$i'),
+            offstage: i != _shown,
+            child: TickerMode(
+              enabled: i == _shown,
+              child: ExcludeSemantics(
+                excluding: i != _shown,
+                child: RepaintBoundary(
+                  child: FadeTransition(opacity: i == _shown ? _fade : kAlwaysCompleteAnimation, child: widget.children[i]),
+                ),
+              ),
+            ),
+          ),
+    ],
+  );
+}

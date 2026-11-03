@@ -103,9 +103,8 @@ class _CfaPageState extends State<CfaPage> with SingleTickerProviderStateMixin {
               ],
             ),
           ),
-          body: TabBarView(
+          body: SmoothTabView(
             controller: _tabs,
-            physics: const NeverScrollableScrollPhysics(),
             children: [_form(context, state), _saved(context, state, reports), const PortfolioTab()],
           ),
         );

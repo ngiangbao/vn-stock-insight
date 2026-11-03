@@ -191,7 +191,7 @@ class _ScreenerPageState extends State<ScreenerPage> {
           children: [
             _MarketIndexStrip(dash: state.dash),
             Expanded(
-              child: TabBarView(
+              child: SmoothTabView(
                 children: [
                   _RealtimeFilterTab(
                     rows: _visibleRows,

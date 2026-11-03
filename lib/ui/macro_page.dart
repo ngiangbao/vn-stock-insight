@@ -9,7 +9,7 @@ import '../services/macro.dart';
 import '../state.dart';
 import 'macro_chart.dart';
 import 'rates_tab.dart';
-import 'widgets.dart' show fmt, timeLocal;
+import 'widgets.dart' show SmoothTabView, fmt, timeLocal;
 
 const _ranges = [('5 năm', 5), ('10 năm', 10), ('20 năm', 20), ('Toàn bộ', 0)];
 
@@ -140,8 +140,7 @@ class _MacroPageState extends State<MacroPage> {
             ),
           Expanded(
             // Vuốt ngang trên biểu đồ dùng để xem từng kỳ, nên chuyển tab bằng cách bấm vào tab (tránh xung đột cử chỉ)
-            child: TabBarView(
-              physics: const NeverScrollableScrollPhysics(),
+            child: SmoothTabView(
               children: [for (final t in macroTabs) _TabGrid(t, snap, _loading, _years, () => _load(force: true)), const RatesTab()],
             ),
           ),
