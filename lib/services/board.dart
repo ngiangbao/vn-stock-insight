@@ -3,6 +3,8 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -127,11 +129,12 @@ Future<List<BoardRow>> fetchBoard(
   if (resp.statusCode != 200) {
     throw Exception('Bảng giá $group: HTTP ${resp.statusCode}');
   }
-  return parseBoard(
-    jsonDecode(utf8.decode(resp.bodyBytes)) as List,
-    securityTypes: securityTypes,
-  );
+  return parseBoardBytes(resp.bodyBytes, securityTypes: securityTypes);
 }
+
+/// Giải mã JSON và dựng hàng bảng giá. Bảng giá cả sàn rất lớn (~1.500 mã) nên làm trong Isolate riêng, luồng giao diện không bị đứng.
+Future<List<BoardRow>> parseBoardBytes(Uint8List bytes, {Set<String> securityTypes = const {'STOCK'}}) =>
+    Isolate.run(() => parseBoard(jsonDecode(utf8.decode(bytes)) as List, securityTypes: securityTypes));
 
 /// Tổng hợp bảng giá: số mã tăng/giảm/đứng, dòng tiền theo nhóm, tổng KL/giá trị, khối ngoại.
 class BoardStats {

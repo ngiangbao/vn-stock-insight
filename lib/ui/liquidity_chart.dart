@@ -82,7 +82,8 @@ class _LiquidityChartState extends State<LiquidityChart> {
     _load();
     // Cùng nhịp với giá: 30 giây một lần trong giờ giao dịch
     _timer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (isTradingTime(DateTime.now())) _load();
+      // Trang bị che (route khác phủ lên, tab ẩn) thì tạm dừng làm mới
+      if (mounted && TickerMode.valuesOf(context).enabled && isTradingTime(DateTime.now())) _load();
     });
   }
 

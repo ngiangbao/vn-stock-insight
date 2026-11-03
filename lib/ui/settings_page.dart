@@ -197,7 +197,10 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _privacySection(AppState state, TextTheme text, Widget Function(String, List<Widget>) section) {
-    final granted = [for (final p in availableProviders) if (AiConsent.granted.contains(p.id)) p];
+    final granted = [
+      for (final p in availableProviders)
+        if (AiConsent.granted.contains(p.id)) p,
+    ];
     return section('Quyền riêng tư', [
       Text(
         'Tác giả không thu thập dữ liệu của bạn. Khi bạn bấm phân tích hoặc hỏi chat, nội dung (mã cổ phiếu, số liệu, tin tức; với danh mục thì thêm mã, số lượng, '
@@ -226,7 +229,9 @@ class _SettingsPageState extends State<SettingsPage> {
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('Lưu key không mã hóa trên máy này'),
-          subtitle: const Text('Máy không có kho khóa bảo mật. Mặc định app chỉ giữ key trong phiên; bật để lưu key dạng văn bản thường trong cài đặt của app.'),
+          subtitle: const Text(
+            'Máy không có kho khóa bảo mật. Mặc định app chỉ giữ key trong phiên; bật để lưu key dạng văn bản thường trong cài đặt của app.',
+          ),
           value: state.allowPlainKeys,
           onChanged: state.setAllowPlainKeys,
         ),
@@ -239,7 +244,8 @@ class _SettingsPageState extends State<SettingsPage> {
             context: context,
             applicationName: 'VN Stock Insight',
             applicationVersion: _version,
-            applicationLegalese: 'Phát hành theo giấy phép MIT. Khung phân tích AI chuyển thể từ anthropics/financial-services (Apache-2.0).',
+            applicationLegalese:
+                'Phát hành theo giấy phép MIT. Khung phân tích AI chuyển thể từ anthropics/financial-services (Apache-2.0).',
           ),
           icon: const Icon(Icons.description_outlined),
           label: const Text('Giấy phép và ghi công'),
@@ -289,6 +295,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _syncFields(state);
     final p = state.provider;
     final text = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
 
     Widget section(String title, List<Widget> children) => Card(
       child: Padding(
@@ -319,6 +326,28 @@ class _SettingsPageState extends State<SettingsPage> {
           selected: {state.themeMode},
           onSelectionChanged: (s) => state.setTheme(s.first),
         ),
+        const SizedBox(height: 14),
+        Text('Kiểu giao diện', style: text.titleSmall),
+        const SizedBox(height: 6),
+        SegmentedButton<UiStyle>(
+          segments: const [
+            ButtonSegment(value: UiStyle.liquidGlass, icon: Icon(Icons.blur_on), label: Text('Liquid Glass')),
+            ButtonSegment(value: UiStyle.classic, icon: Icon(Icons.layers_outlined), label: Text('Cổ điển')),
+          ],
+          showSelectedIcon: false,
+          style: const ButtonStyle(minimumSize: WidgetStatePropertyAll(Size(0, 48))),
+          selected: {state.uiStyle},
+          onSelectionChanged: (s) => state.setUiStyle(s.first),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          state.uiStyle == UiStyle.liquidGlass
+              ? 'Liquid Glass: bề mặt kính trong mờ, viền sáng, bo góc lớn. Đổi có hiệu lực ngay, không cần khởi động lại.'
+              : 'Cổ điển: nền gradient kem hồng/xanh rêu và thẻ bo góc như các bản trước. Đổi có hiệu lực ngay.',
+          style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+        ),
+        const SizedBox(height: 10),
+        GlassBlurSlider(state: state),
         const SizedBox(height: 14),
         Text('Cỡ giao diện', style: text.titleSmall),
         const SizedBox(height: 6),
@@ -569,6 +598,68 @@ class _SettingsPageState extends State<SettingsPage> {
           'Tin nhanh chứng khoán. $disclaimer',
           style: text.bodySmall,
           textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+}
+
+/// Thanh trượt "Độ blur kính" (0–100%). Kéo tới đâu giao diện đổi tới đó; ở kiểu Cổ điển bị vô hiệu vì kiểu này không dùng kính.
+class GlassBlurSlider extends StatelessWidget {
+  final AppState state;
+  const GlassBlurSlider({super.key, required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final enabled = state.uiStyle == UiStyle.liquidGlass;
+    final percent = (state.glassBlur * 100).round();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(child: Text('Độ blur kính', style: text.titleSmall)),
+            Text(
+              '$percent%',
+              key: const Key('glassBlurValue'),
+              style: text.titleSmall?.copyWith(color: cs.primary),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: enabled && percent != (AppState.defaultGlassBlur * 100).round()
+                  ? () => state.setGlassBlur(AppState.defaultGlassBlur)
+                  : null,
+              style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+              child: const Text('Đặt lại'),
+            ),
+          ],
+        ),
+        Semantics(
+          label: 'Độ blur kính',
+          value: '$percent phần trăm',
+          child: SizedBox(
+            height: 48,
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(tickMarkShape: SliderTickMarkShape.noTickMark),
+              child: Slider(
+                key: const Key('glassBlurSlider'),
+                value: state.glassBlur,
+                min: 0,
+                max: 1,
+                divisions: 100,
+                onChanged: enabled ? (v) => state.setGlassBlur(v, persist: false) : null,
+                onChangeEnd: enabled ? (v) => state.setGlassBlur(v) : null,
+              ),
+            ),
+          ),
+        ),
+        Text(
+          enabled
+              ? 'Kéo sang trái để kính trong và nhẹ hơn, sang phải để mờ và dày hơn. Ở 0% không dùng blur nền (nhẹ nhất cho máy yếu). Chữ luôn đủ tương phản ở mọi mức.'
+              : 'Đang tắt vì kiểu Cổ điển không dùng kính. Chọn Liquid Glass để chỉnh độ blur.',
+          style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
         ),
       ],
     );

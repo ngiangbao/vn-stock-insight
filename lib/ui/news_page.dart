@@ -510,9 +510,11 @@ class _NewsImage extends StatelessWidget {
     final url = item.imageUrl;
     final fallback = _NewsIllustration(title: item.title);
     if (url == null || url.isEmpty) return fallback;
+    // cacheWidth: giải mã ảnh ở kích thước nhỏ (ảnh gốc tin có thể rất lớn) để tiết kiệm bộ nhớ và thời gian giải mã
     return Image.network(
       url,
       fit: fit,
+      cacheWidth: 640,
       semanticLabel: 'Ảnh minh họa: ${item.title}',
       loadingBuilder: (context, child, progress) => progress == null
           ? child

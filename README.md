@@ -6,13 +6,17 @@ App phân tích cổ phiếu Việt Nam bằng AI cho **Windows, macOS, Linux v�
 
 ## Ảnh chụp màn hình
 
-Giao diện tối trên Linux (bản 2.16.0), dữ liệu thị trường thật tại thời điểm chụp. Ảnh Cài đặt đã làm mờ thông tin tài khoản và đường dẫn trên máy.
+Giao diện **Liquid Glass** (mặc định từ bản 3.0.0) trên Linux, dữ liệu thị trường thật tại thời điểm chụp (chụp trong màn hình ảo, không có thông tin cá nhân).
 
-| Tổng quan thị trường | Chi tiết cổ phiếu |
+| Tổng quan thị trường (Liquid Glass, sáng) | Tổng quan (Liquid Glass, tối) |
 |---|---|
-| ![Trang Tổng quan: chỉ số, biểu đồ nến VN-Index và số liệu khối ngoại](docs/screenshots/tong-quan.png) | ![Trang chi tiết cổ phiếu HPG: biểu đồ giá với menu Chỉ báo, điểm sức khỏe kèm kiểm định, dấu hiệu tạo đáy, dòng tiền mua/bán chủ động](docs/screenshots/chi-tiet-co-phieu.png) |
-| **Bảng giá và bộ lọc** | **Cài đặt** |
-| ![Trang Bộ lọc: bảng giá realtime, tìm nhiều mã cùng lúc và chi tiết từng mã](docs/screenshots/bo-loc.png) | ![Trang Cài đặt hai cột: giao diện, AI với Claude CLI, chia sẻ mạng nội bộ, nguồn giá SSI, cập nhật và đóng góp ý kiến](docs/screenshots/cai-dat.png) |
+| ![Trang Tổng quan kiểu Liquid Glass sáng: thanh icon kính bên trái, thẻ kính trong mờ, biểu đồ nến VN-Index](docs/screenshots/tong-quan.png) | ![Trang Tổng quan kiểu Liquid Glass tối](docs/screenshots/tong-quan-toi.png) |
+| **Chi tiết cổ phiếu** | **Bảng giá và bộ lọc** |
+| ![Trang chi tiết cổ phiếu HPG: biểu đồ giá, điểm sức khỏe kèm kiểm định, dấu hiệu tạo đáy, dòng tiền](docs/screenshots/chi-tiet-co-phieu.png) | ![Trang Bộ lọc: bảng giá realtime, tìm nhiều mã cùng lúc](docs/screenshots/bo-loc.png) |
+| **Cài đặt: công tắc kiểu giao diện và thanh trượt Độ blur kính** | **Cổ điển** (gradient kem hồng như các bản trước) |
+| ![Trang Cài đặt hai cột với mục Kiểu giao diện và thanh trượt Độ blur kính 60%](docs/screenshots/cai-dat.png) | ![Trang Tổng quan kiểu Cổ điển](docs/screenshots/co-dien.png) |
+| **Độ blur kính 0%** (không blur nền, nhẹ nhất) | **Độ blur kính 100%** (mờ và dày nhất) |
+| ![Liquid Glass với độ blur 0%](docs/screenshots/blur-0.png) | ![Liquid Glass với độ blur 100%](docs/screenshots/blur-100.png) |
 
 ## Tính năng
 
@@ -35,7 +39,8 @@ Giao diện tối trên Linux (bản 2.16.0), dữ liệu thị trường thật
 - **Vĩ mô:** dữ liệu vĩ mô theo nhóm, kèm tab lãi suất (lợi suất trái phiếu Chính phủ, lãi suất tiền gửi).
 - **Tin tức:** tin 48 giờ từ CafeF, Vietstock, VnExpress, VnEconomy, Tin nhanh chứng khoán, gắn mã liên quan.
 - **Nguồn giá SSI (tùy chọn):** dùng SSI FastConnect cho giá trong phiên nếu bạn có khóa; lỗi thì tự dùng nguồn mặc định.
-- **Giao diện:** nền gradient, thẻ bo góc, thanh icon nổi bên trái (điện thoại dùng thanh dưới), sáng/tối hoặc theo hệ thống; đổi tab bằng hiệu ứng mờ ngắn, tôn trọng chế độ giảm chuyển động.
+- **Giao diện:** **Liquid Glass** (mặc định): bề mặt kính trong mờ với viền sáng mảnh, highlight nhẹ, bóng mềm, thanh icon dọc nổi bên trái và thanh điều hướng dưới dạng kính trên điện thoại, nút dạng viên thuốc, bo góc lớn. Trong Cài đặt đổi qua lại **Liquid Glass / Cổ điển** (gradient kem hồng/xanh rêu như các bản trước) có hiệu lực ngay, không cần khởi động lại. Thanh trượt **Độ blur kính** (0–100%, mặc định 60%) chỉnh đồng thời độ mờ nền và độ đục của kính theo thời gian thực; chữ luôn đạt tương phản ≥ 4,5:1 ở mọi mức (có test quét), ở 0% tắt hẳn blur nền để nhẹ nhất. Sáng/tối hoặc theo hệ thống; khi hệ thống bật giảm chuyển động hoặc tương phản cao thì blur giảm theo. Đổi tab bằng hiệu ứng mờ ngắn.
+- **Hiệu năng:** giải mã bảng giá, kiểm định lịch sử và độ rộng thị trường chạy ở luồng riêng (Isolate) nên giao diện không bị đứng; trang bị che tạm dừng hoạt ảnh và bộ hẹn giờ làm mới; ảnh tin giải mã ở kích thước nhỏ.
 - **Cài đặt** dàn hai cột phủ hết chiều ngang cửa sổ trên màn hình rộng.
 - **Đóng góp ý kiến:** trong Cài đặt có khung soạn báo lỗi, góp ý tính năng hoặc đề xuất sửa mã (pull request). App mở trang GitHub đã điền sẵn để bạn xem lại và gửi bằng tài khoản GitHub của mình (app không giữ khóa GitHub). Issue được rà soát hằng tuần.
 - **Kiểm tra và cập nhật tự động** từ GitHub Releases (xem [Cập nhật tự động](#cập-nhật-tự-động)).

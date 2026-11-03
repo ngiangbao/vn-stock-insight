@@ -8,6 +8,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -102,6 +103,12 @@ List<double> breadthSeries(Iterable<List<Bar>> all, {int days = 60}) {
       if (total[t]! >= 10) above[t]! / total[t]! * 100,
   ];
 }
+
+/// Như [backtestHealth] nhưng chạy trong Isolate riêng (tính cả lịch sử nhiều năm nên nặng), không làm đứng giao diện.
+Future<HealthBacktest?> backtestHealthAsync(List<Bar> bars, List<Bar> index) => Isolate.run(() => backtestHealth(bars, index));
+
+/// Như [breadthSeries] nhưng chạy trong Isolate riêng (hàng trăm mã × MA50).
+Future<List<double>> breadthSeriesAsync(List<List<Bar>> all, {int days = 60}) => Isolate.run(() => breadthSeries(all, days: days));
 
 /// Dấu hiệu "độ rộng hồi từ dưới 20%" từ chuỗi [series] (cũ → mới), null nếu chưa đủ dữ liệu.
 BottomSignal breadthSignal(List<double> series, {int universe = 0}) {
@@ -292,7 +299,7 @@ class BacktestStore extends ChangeNotifier {
       _indexBars ??= await _fetch('VNINDEX', isIndex: true, days: 1500);
       final bars = await _fetch(symbol, isIndex: _isIndex[symbol] ?? false, days: 1500);
       if (bars.isEmpty) throw StateError('không tải được giá');
-      _results[symbol] = backtestHealth(bars, _indexBars!);
+      _results[symbol] = await backtestHealthAsync(bars, _indexBars!);
       _state[symbol] = BacktestState.done;
       await _save();
     } catch (_) {
@@ -325,7 +332,7 @@ class BacktestStore extends ChangeNotifier {
       }
 
       await Future.wait(List.generate(6, (_) => worker()));
-      final series = breadthSeries(all);
+      final series = await breadthSeriesAsync(all);
       if (series.length < 30 || all.length < 50) throw StateError('quá ít mã');
       _breadth = series;
       _breadthUniverse = all.length;

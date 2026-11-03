@@ -11,6 +11,7 @@ import 'services/updater.dart';
 import 'state.dart';
 import 'ui/cfa_page.dart';
 import 'ui/floating_chat.dart';
+import 'ui/glass.dart';
 import 'ui/asset_pages.dart';
 import 'ui/macro_page.dart';
 import 'ui/news_page.dart';
@@ -76,7 +77,7 @@ class Ds {
   );
 }
 
-ThemeData _theme(Brightness brightness) {
+ThemeData _classicTheme(Brightness brightness) {
   // Xanh lục đậm cho điều hướng và hành động; xanh/đỏ dành riêng cho biến động thị trường.
   final dark = brightness == Brightness.dark;
   final primary = dark ? Ds.darkPrimary : Ds.lightPrimary;
@@ -225,43 +226,130 @@ ThemeData _theme(Brightness brightness) {
   );
 }
 
-/// Theme của app (công khai để kiểm thử độ tương phản màu ở cả hai chế độ sáng/tối).
-ThemeData appTheme(Brightness brightness) => _theme(brightness);
+/// Lớp Liquid Glass phủ lên theme cổ điển: thẻ, hộp thoại, menu và bảng chọn bán trong suốt, viền sáng mảnh, bo góc lớn.
+ThemeData _glassTheme(Brightness brightness, GlassTokens g) {
+  final base = _classicTheme(brightness);
+  final dark = brightness == Brightness.dark;
+  final rim = Colors.white.withValues(alpha: dark ? 0.16 : 0.85);
+  const r = 26.0;
+  final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(r), side: BorderSide(color: rim));
+  final overlay = g.fill.withValues(alpha: g.overlayAlpha);
+  return base.copyWith(
+    canvasColor: overlay,
+    cardTheme: CardThemeData(
+      color: g.fill.withValues(alpha: g.cardAlpha),
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: shape,
+    ),
+    dialogTheme: DialogThemeData(backgroundColor: overlay, surfaceTintColor: Colors.transparent, shape: shape),
+    popupMenuTheme: PopupMenuThemeData(color: overlay, surfaceTintColor: Colors.transparent, shape: shape),
+    menuTheme: MenuThemeData(
+      style: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(overlay),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        shape: WidgetStatePropertyAll(shape),
+      ),
+    ),
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: overlay,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(r + 4)),
+        side: BorderSide(color: rim),
+      ),
+    ),
+    // Thanh điều hướng được bọc kính riêng (GlassPanel) nên nền của chính nó trong suốt
+    navigationBarTheme: base.navigationBarTheme.copyWith(backgroundColor: Colors.transparent, elevation: 0),
+    navigationRailTheme: base.navigationRailTheme.copyWith(backgroundColor: Colors.transparent),
+    inputDecorationTheme: base.inputDecorationTheme.copyWith(
+      filled: true,
+      fillColor: g.fill.withValues(alpha: dark ? 0.35 : 0.55),
+    ),
+  );
+}
 
-class StockApp extends StatelessWidget {
+final _themeCache = <String, ThemeData>{};
+
+ThemeData _theme(Brightness brightness, [GlassTokens? glass]) {
+  if (glass == null) return _themeCache.putIfAbsent('classic-${brightness.name}', () => _classicTheme(brightness));
+  final key = 'glass-${brightness.name}-${glass.sigma.toStringAsFixed(1)}-${glass.cardAlpha.toStringAsFixed(3)}';
+  if (_themeCache.length > 24) _themeCache.removeWhere((k, _) => k.startsWith('glass-'));
+  return _themeCache.putIfAbsent(key, () => _glassTheme(brightness, glass));
+}
+
+/// Theme của app (công khai để kiểm thử độ tương phản màu ở cả hai chế độ sáng/tối và hai kiểu giao diện).
+ThemeData appTheme(Brightness brightness, {UiStyle style = UiStyle.classic, double blur = AppState.defaultGlassBlur}) =>
+    _theme(brightness, style == UiStyle.liquidGlass ? GlassTokens.of(brightness, blur) : null);
+
+class StockApp extends StatefulWidget {
   const StockApp({super.key});
 
   @override
+  State<StockApp> createState() => _StockAppState();
+}
+
+class _StockAppState extends State<StockApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // Hệ thống bật/tắt giảm chuyển động hoặc tương phản cao: dựng lại để blur giảm theo
+  @override
+  void didChangeAccessibilityFeatures() => setState(() {});
+
+  @override
   Widget build(BuildContext context) {
-    final state = AppScope.of(context);
+    final state = AppScope.of(context, listen: false);
+    return ListenableBuilder(listenable: state.appearance, builder: (context, _) => _app(state));
+  }
+
+  Widget _app(AppState state) {
+    final glassOn = state.uiStyle == UiStyle.liquidGlass;
+    final feats = WidgetsBinding.instance.platformDispatcher.accessibilityFeatures;
+    GlassTokens? tokens(Brightness b) => glassOn
+        ? GlassTokens.of(b, state.glassBlur, reduceTransparency: feats.highContrast, reduceMotion: feats.disableAnimations || feats.reduceMotion)
+        : null;
     return MaterialApp(
       navigatorKey: rootNavigatorKey,
       title: 'VN Stock Insight',
       debugShowCheckedModeBanner: false,
-      theme: _theme(Brightness.light),
-      darkTheme: _theme(Brightness.dark),
+      theme: _theme(Brightness.light, tokens(Brightness.light)),
+      darkTheme: _theme(Brightness.dark, tokens(Brightness.dark)),
       themeMode: state.themeMode,
       // Ctrl + / Ctrl - để phóng to/thu nhỏ giao diện, Ctrl 0 để trở về tự động
-      builder: (context, child) => CallbackShortcuts(
-        bindings: {
-          const SingleActivator(LogicalKeyboardKey.equal, control: true): () =>
-              state.setUiScale((state.uiScale ?? 1) + 0.1),
-          const SingleActivator(LogicalKeyboardKey.add, control: true): () =>
-              state.setUiScale((state.uiScale ?? 1) + 0.1),
-          const SingleActivator(LogicalKeyboardKey.minus, control: true): () =>
-              state.setUiScale((state.uiScale ?? 1) - 0.1),
-          const SingleActivator(LogicalKeyboardKey.digit0, control: true): () =>
-              state.setUiScale(null),
-        },
-        child: AutoScale(
-          enabled: state.autoScale,
-          manual: state.uiScale,
-          child: DecoratedBox(
-            decoration: Ds.background(Theme.of(context).brightness),
-            child: Overlay.wrap(child: FloatingFinanceChat(child: child!)),
+      builder: (context, child) {
+        final brightness = Theme.of(context).brightness;
+        final g = tokens(brightness);
+        final stack = Overlay.wrap(child: FloatingFinanceChat(child: child!));
+        return CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.equal, control: true): () => state.setUiScale((state.uiScale ?? 1) + 0.1),
+            const SingleActivator(LogicalKeyboardKey.add, control: true): () => state.setUiScale((state.uiScale ?? 1) + 0.1),
+            const SingleActivator(LogicalKeyboardKey.minus, control: true): () => state.setUiScale((state.uiScale ?? 1) - 0.1),
+            const SingleActivator(LogicalKeyboardKey.digit0, control: true): () => state.setUiScale(null),
+          },
+          child: AutoScale(
+            enabled: state.autoScale,
+            manual: state.uiScale,
+            child: GlassScope(
+              tokens: g,
+              child: g == null
+                  ? DecoratedBox(decoration: Ds.background(brightness), child: stack)
+                  : GlassBackground(brightness: brightness, child: stack),
+            ),
           ),
-        ),
-      ),
+        );
+      },
       home: const HomeShell(),
     );
   }
@@ -351,7 +439,11 @@ class _HomeShellState extends State<HomeShell> {
     ];
     final width = MediaQuery.sizeOf(context).width;
     final wide = width >= 760;
-    final body = IndexedStack(index: _tab, children: pages);
+    // Tab ẩn: tắt Ticker (spinner, hoạt ảnh) và để các trang con tạm dừng bộ hẹn giờ
+    final body = IndexedStack(
+      index: _tab,
+      children: [for (var i = 0; i < pages.length; i++) TickerMode(enabled: i == _tab, child: pages[i])],
+    );
 
     if (wide) {
       // Thanh icon dọc nổi bên trái (bo góc, bóng mềm) cho mọi cửa sổ từ 760 px trở lên
@@ -371,7 +463,7 @@ class _HomeShellState extends State<HomeShell> {
     // Điện thoại: 4 mục chính và "Thêm" chứa các thị trường mới cùng tiện ích.
     return Scaffold(
       body: body,
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: _glassBar(context, NavigationBar(
         selectedIndex: _tab < _primaryCount ? _tab : _primaryCount,
         onDestinationSelected: (i) =>
             i < _primaryCount ? _select(i) : _openMore(),
@@ -387,9 +479,14 @@ class _HomeShellState extends State<HomeShell> {
             label: 'Thêm',
           ),
         ],
-      ),
+      )),
     );
   }
+
+  /// Kiểu Liquid Glass: thanh dưới là viên kính nổi cách mép; Cổ điển: giữ nguyên.
+  Widget _glassBar(BuildContext context, Widget bar) => GlassScope.maybeOf(context) == null
+      ? bar
+      : SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 8), child: GlassPanel(radius: BorderRadius.circular(30), child: bar)));
 
   static const _macroTab = 7; // vị trí của 'Vĩ mô' trong _destinations
 
@@ -440,9 +537,9 @@ class _FloatingRail extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 0, 16),
-      child: Container(
+      child: GlassPanel(child: Container(
         width: 88,
-        decoration: BoxDecoration(
+        decoration: GlassScope.maybeOf(context) != null ? null : BoxDecoration(
           color: cs.surfaceContainerLowest.withValues(alpha: dark ? 0.94 : 0.9),
           borderRadius: BorderRadius.circular(28),
           border: Border.all(color: cs.outlineVariant),
@@ -504,7 +601,7 @@ class _FloatingRail extends StatelessWidget {
             ),
           ),
         ),
-      ),
+      )),
     );
   }
 }

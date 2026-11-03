@@ -41,6 +41,13 @@ String _vietnamDayKey(DateTime value) {
   return '${date.year}-$month-$day';
 }
 
+/// Kiểu giao diện: Liquid Glass (mặc định) hoặc Cổ điển (gradient kem hồng/xanh rêu như các bản trước).
+enum UiStyle { liquidGlass, classic }
+
+class _Appearance extends ChangeNotifier {
+  void bump() => notifyListeners();
+}
+
 class AppState extends ChangeNotifier {
   late SharedPreferences _prefs;
   FlutterSecureStorage _secure = const FlutterSecureStorage();
@@ -52,6 +59,15 @@ class AppState extends ChangeNotifier {
 
   // ---------- Cài đặt ----------
   ThemeMode themeMode = ThemeMode.system;
+  UiStyle uiStyle = UiStyle.liquidGlass;
+
+  /// Báo riêng khi đổi giao diện (sáng/tối, kiểu, độ blur, cỡ): StockApp chỉ dựng lại theo cái này,
+  /// không dựng lại mỗi lần giá hoặc tin được làm mới.
+  final appearance = _Appearance();
+
+  /// Độ blur kính, 0..1 (mặc định 0,6): 0 = trong và nhẹ, không blur; 1 = mờ và dày.
+  double glassBlur = defaultGlassBlur;
+  static const defaultGlassBlur = 0.6;
   String providerId = 'anthropic';
   String effort = 'medium';
   bool autoCheckUpdates = true;
@@ -176,6 +192,8 @@ class AppState extends ChangeNotifier {
   Future<void> init({bool startDashboard = true}) async {
     _prefs = await SharedPreferences.getInstance();
     themeMode = ThemeMode.values.byName(_prefs.getString('theme') ?? 'system');
+    uiStyle = UiStyle.values.asNameMap()[_prefs.getString('uiStyle')] ?? UiStyle.liquidGlass;
+    glassBlur = (_prefs.getDouble('glassBlur') ?? defaultGlassBlur).clamp(0.0, 1.0).toDouble();
     providerId = _prefs.getString('provider') ?? 'anthropic';
     effort = _prefs.getString('effort') ?? 'medium';
     autoCheckUpdates = _prefs.getBool('autoUpdate') ?? true;
@@ -299,7 +317,39 @@ class AppState extends ChangeNotifier {
   void setTheme(ThemeMode mode) {
     themeMode = mode;
     _prefs.setString('theme', mode.name);
+    appearance.bump();
     notifyListeners();
+  }
+
+  void setUiStyle(UiStyle style) {
+    if (style == uiStyle) return;
+    uiStyle = style;
+    _prefs.setString('uiStyle', style.name);
+    appearance.bump();
+    notifyListeners();
+  }
+
+  DateTime _blurNotified = DateTime.fromMillisecondsSinceEpoch(0);
+  Timer? _blurTimer;
+
+  /// Đặt độ blur (0..1). Khi đang kéo thanh trượt chỉ cập nhật giao diện tối đa ~20 lần/giây (có lần cuối),
+  /// lưu xuống máy khi [persist] (thả tay) để không ghi đĩa liên tục.
+  void setGlassBlur(double value, {bool persist = true}) {
+    glassBlur = value.clamp(0.0, 1.0).toDouble();
+    if (persist) _prefs.setDouble('glassBlur', glassBlur);
+    _blurTimer?.cancel();
+    final since = DateTime.now().difference(_blurNotified);
+    if (persist || since >= const Duration(milliseconds: 50)) {
+      _blurNotified = DateTime.now();
+      appearance.bump();
+      notifyListeners();
+    } else {
+      _blurTimer = Timer(const Duration(milliseconds: 50) - since, () {
+        _blurNotified = DateTime.now();
+        appearance.bump();
+        notifyListeners();
+      });
+    }
   }
 
   void setProvider(String id) {
@@ -317,6 +367,7 @@ class AppState extends ChangeNotifier {
   void setAutoScale(bool value) {
     autoScale = value;
     _prefs.setBool('autoScale', value);
+    appearance.bump();
     notifyListeners();
   }
 
@@ -326,6 +377,7 @@ class AppState extends ChangeNotifier {
   void setUiScale(double? value) {
     uiScale = value?.clamp(0.6, 1.6).toDouble();
     uiScale == null ? _prefs.remove('uiScale') : _prefs.setDouble('uiScale', uiScale!);
+    appearance.bump();
     notifyListeners();
   }
 
@@ -595,5 +647,8 @@ class AppState extends ChangeNotifier {
 class AppScope extends InheritedNotifier<AppState> {
   const AppScope({super.key, required AppState state, required super.child}) : super(notifier: state);
 
-  static AppState of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<AppScope>()!.notifier!;
+  static AppState of(BuildContext context, {bool listen = true}) => (listen
+      ? context.dependOnInheritedWidgetOfExactType<AppScope>()!
+      : context.getInheritedWidgetOfExactType<AppScope>()!)
+      .notifier!;
 }

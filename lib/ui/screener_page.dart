@@ -508,10 +508,14 @@ class _MultiCodeSearch extends StatelessWidget {
                 children: [
                   const Icon(Icons.manage_search, size: 20),
                   const SizedBox(width: 8),
-                  Text(
-                    'Tìm nhiều mã cùng lúc',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+                  Flexible(
+                    child: Text(
+                      'Tìm nhiều mã cùng lúc',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),

@@ -2,6 +2,7 @@
 // Giá tính theo nghìn đồng (56.2 = 56.200đ).
 
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:math' as math;
 
 import 'package:http/http.dart' as http;
@@ -33,6 +34,11 @@ List<Bar> parseBars(Map<String, dynamic> d) {
   ];
 }
 
+/// Giải mã phản hồi nến. Lịch sử nhiều năm (> 60 KB) làm trong Isolate để không đứng giao diện; phản hồi nhỏ giải mã tại chỗ cho nhanh.
+Future<List<Bar>> decodeBars(String body) => body.length > 60000
+    ? Isolate.run(() => parseBars(jsonDecode(body) as Map<String, dynamic>))
+    : Future.value(parseBars(jsonDecode(body) as Map<String, dynamic>));
+
 /// [kind]: 'stock' (mặc định), 'index' hoặc 'derivative' (VN30F1M). [resolution]: '1D' hoặc số phút ('1').
 Future<List<Bar>> fetchBars(String symbol,
     {int days = 400, bool isIndex = false, String? kind, String resolution = '1D'}) async {
@@ -50,7 +56,7 @@ Future<List<Bar>> fetchBars(String symbol,
     try {
       final resp = await http.get(Uri.parse(url), headers: userAgent).timeout(const Duration(seconds: 20));
       if (resp.statusCode != 200) continue;
-      final bars = parseBars(jsonDecode(resp.body) as Map<String, dynamic>);
+      final bars = await decodeBars(resp.body);
       if (bars.isNotEmpty) return resolution == '1D' ? await withToday(bars, symbol, k) : bars;
     } catch (_) {
       // thử nguồn tiếp theo

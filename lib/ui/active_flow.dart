@@ -52,7 +52,8 @@ class _ActiveFlowState extends State<ActiveFlow> {
     super.initState();
     _load();
     _timer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (isTradingTime(DateTime.now()) && _ticks != null && !_loading) _refresh();
+      // Trang bị che thì tạm dừng làm mới
+      if (mounted && TickerMode.valuesOf(context).enabled && isTradingTime(DateTime.now()) && _ticks != null && !_loading) _refresh();
     });
   }
 

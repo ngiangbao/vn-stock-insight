@@ -191,11 +191,11 @@ void main() {
     expect(find.text('Đang kiểm định'), findsOneWidget);
     expect(find.textContaining('đang tính độ rộng'), findsOneWidget);
     gate.complete();
-    await tester.runAsync(() async {
-      for (var i = 0; i < 100 && (state.backtest.stateOf('FPT') != BacktestState.done || state.backtest.breadth == null); i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-      }
-    });
+    // Việc nặng chạy trong Isolate (cần vòng lặp sự kiện thật), phần tiếp theo chạy trong vùng giả lập: xen kẽ chờ thật và pump
+    for (var i = 0; i < 200 && (state.backtest.stateOf('FPT') != BacktestState.done || state.backtest.breadth == null); i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 25)));
+      await tester.pump();
+    }
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Đang kiểm định'), findsNothing);
     expect(find.text('Đã kiểm định'), findsOneWidget);
