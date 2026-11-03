@@ -4,6 +4,7 @@ import '../ai/providers.dart';
 import '../services/ssi.dart';
 import '../services/updater.dart';
 import '../state.dart';
+import 'feedback_dialog.dart';
 import 'lan_section.dart';
 import 'claude_cli_section.dart';
 import 'local_models_page.dart';
@@ -194,6 +195,24 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Widget _feedbackSection(AppState state, TextTheme text, Widget Function(String, List<Widget>) section) => section('Đóng góp ý kiến', [
+    Text(
+      'Gặp lỗi, muốn thêm tính năng hay có đề xuất sửa mã? Soạn ngay tại đây, app mở sẵn trang GitHub của dự án để bạn gửi issue hoặc tạo pull request. '
+      'Các issue được rà soát hằng tuần.',
+      style: text.bodyMedium,
+    ),
+    const SizedBox(height: 8),
+    Align(
+      alignment: Alignment.centerLeft,
+      child: FilledButton.tonalIcon(
+        style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
+        onPressed: () => openFeedbackDialog(context),
+        icon: const Icon(Icons.rate_review_outlined),
+        label: const Text('Gửi ý kiến lên GitHub'),
+      ),
+    ),
+  ]);
+
   Future<void> _checkUpdate() async {
     setState(() => _checking = true);
     try {
@@ -232,245 +251,264 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
 
-    return PageFrame(
-      title: 'Cài đặt',
-      children: [
-        section('Giao diện', [
-          SegmentedButton<ThemeMode>(
-            segments: const [
-              ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto), label: Text('Hệ thống')),
-              ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode), label: Text('Sáng')),
-              ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode), label: Text('Tối')),
-            ],
-            // Không hiện thêm dấu tick (đã có nền chọn) để vừa màn hình 375 px; chiều cao chạm tối thiểu 48
-            showSelectedIcon: false,
-            style: const ButtonStyle(minimumSize: WidgetStatePropertyAll(Size(0, 48))),
-            selected: {state.themeMode},
-            onSelectionChanged: (s) => state.setTheme(s.first),
-          ),
-          const SizedBox(height: 14),
-          Text('Cỡ giao diện', style: text.titleSmall),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              ChoiceChip(label: const Text('Tự động'), selected: state.uiScale == null, onSelected: (_) => state.setUiScale(null)),
-              for (final s in AutoScale.presets)
-                ChoiceChip(
-                  label: Text('${(s * 100).round()}%'),
-                  selected: state.uiScale != null && (state.uiScale! - s).abs() < 0.01,
-                  onSelected: (_) => state.setUiScale(s),
-                ),
-              if (state.uiScale != null && !AutoScale.presets.any((s) => (state.uiScale! - s).abs() < 0.01))
-                ChoiceChip(label: Text('${(state.uiScale! * 100).round()}%'), selected: true, onSelected: (_) {}),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text('Phím tắt: Ctrl + / Ctrl − để phóng to/thu nhỏ, Ctrl 0 để trở về Tự động.', style: text.bodySmall),
-          if (state.uiScale == null)
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Tự co giãn nhẹ theo chiều rộng cửa sổ'),
-              subtitle: const Text('Ở chế độ Tự động: giao diện co giãn trong khoảng 85–115% khi đổi kích thước cửa sổ'),
-              value: state.autoScale,
-              onChanged: state.setAutoScale,
-            ),
-        ]),
+    // Các mục cài đặt; cửa sổ rộng thì chia hai cột để dàn đều theo chiều ngang như các tab khác
+    final cards = <Widget>[
+      section('Giao diện', [
+        SegmentedButton<ThemeMode>(
+          segments: const [
+            ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto), label: Text('Hệ thống')),
+            ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode), label: Text('Sáng')),
+            ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode), label: Text('Tối')),
+          ],
+          // Không hiện thêm dấu tick (đã có nền chọn) để vừa màn hình 375 px; chiều cao chạm tối thiểu 48
+          showSelectedIcon: false,
+          style: const ButtonStyle(minimumSize: WidgetStatePropertyAll(Size(0, 48))),
+          selected: {state.themeMode},
+          onSelectionChanged: (s) => state.setTheme(s.first),
+        ),
         const SizedBox(height: 14),
-        section('AI', [
-          DropdownButtonFormField<String>(
-            initialValue: state.providerId,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Nhà cung cấp'),
-            items: [
-              for (final x in availableProviders)
-                DropdownMenuItem(
-                  value: x.id,
-                  child: Row(
-                    children: [
-                      Icon(x.style == ApiStyle.claudeCli ? Icons.terminal : (x.local ? Icons.computer : Icons.cloud_outlined), size: 18),
-                      const SizedBox(width: 8),
-                      // Co lại và cắt bằng "…" khi tên dài hoặc màn hình hẹp / cỡ chữ lớn
-                      Expanded(child: Text(x.name, overflow: TextOverflow.ellipsis)),
-                    ],
-                  ),
-                ),
-            ],
-            onChanged: (id) {
-              if (id == null) return;
-              _save(state);
-              state.setProvider(id);
-            },
-          ),
-          if (p.note.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(p.note, style: text.bodySmall),
-            ),
-          if (p.id == 'embedded') ...[
-            const SizedBox(height: 12),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.memory),
-              title: Text(state.embeddedModel?.split(RegExp(r'[/\\]')).last ?? 'Chưa chọn model'),
-              subtitle: const Text('Model GGUF chạy ngay trong app'),
-              trailing: FilledButton.tonal(
-                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LocalModelsPage())),
-                child: Text(state.embeddedModel == null ? 'Tải & chọn model' : 'Đổi model'),
+        Text('Cỡ giao diện', style: text.titleSmall),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            ChoiceChip(label: const Text('Tự động'), selected: state.uiScale == null, onSelected: (_) => state.setUiScale(null)),
+            for (final s in AutoScale.presets)
+              ChoiceChip(
+                label: Text('${(s * 100).round()}%'),
+                selected: state.uiScale != null && (state.uiScale! - s).abs() < 0.01,
+                onSelected: (_) => state.setUiScale(s),
               ),
+            if (state.uiScale != null && !AutoScale.presets.any((s) => (state.uiScale! - s).abs() < 0.01))
+              ChoiceChip(label: Text('${(state.uiScale! * 100).round()}%'), selected: true, onSelected: (_) {}),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text('Phím tắt: Ctrl + / Ctrl − để phóng to/thu nhỏ, Ctrl 0 để trở về Tự động.', style: text.bodySmall),
+        if (state.uiScale == null)
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Tự co giãn nhẹ theo chiều rộng cửa sổ'),
+            subtitle: const Text('Ở chế độ Tự động: giao diện co giãn trong khoảng 85–115% khi đổi kích thước cửa sổ'),
+            value: state.autoScale,
+            onChanged: state.setAutoScale,
+          ),
+      ]),
+      section('AI', [
+        DropdownButtonFormField<String>(
+          initialValue: state.providerId,
+          isExpanded: true,
+          decoration: const InputDecoration(labelText: 'Nhà cung cấp'),
+          items: [
+            for (final x in availableProviders)
+              DropdownMenuItem(
+                value: x.id,
+                child: Row(
+                  children: [
+                    Icon(x.style == ApiStyle.claudeCli ? Icons.terminal : (x.local ? Icons.computer : Icons.cloud_outlined), size: 18),
+                    const SizedBox(width: 8),
+                    // Co lại và cắt bằng "…" khi tên dài hoặc màn hình hẹp / cỡ chữ lớn
+                    Expanded(child: Text(x.name, overflow: TextOverflow.ellipsis)),
+                  ],
+                ),
+              ),
+          ],
+          onChanged: (id) {
+            if (id == null) return;
+            _save(state);
+            state.setProvider(id);
+          },
+        ),
+        if (p.note.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(p.note, style: text.bodySmall),
+          ),
+        if (p.id == 'embedded') ...[
+          const SizedBox(height: 12),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.memory),
+            title: Text(state.embeddedModel?.split(RegExp(r'[/\\]')).last ?? 'Chưa chọn model'),
+            subtitle: const Text('Model GGUF chạy ngay trong app'),
+            trailing: FilledButton.tonal(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LocalModelsPage())),
+              child: Text(state.embeddedModel == null ? 'Tải & chọn model' : 'Đổi model'),
             ),
-          ] else if (p.style == ApiStyle.claudeCli) ...[
+          ),
+        ] else if (p.style == ApiStyle.claudeCli) ...[
+          const SizedBox(height: 12),
+          // Dùng chung ô đường dẫn (_url) và ô model (_model) của trang để nút "Lưu" không ghi đè bằng giá trị cũ
+          ClaudeCliSection(pathController: _url, modelController: _model, onChanged: () => _save(state)),
+        ] else ...[
+          const SizedBox(height: 12),
+          Focus(
+            onFocusChange: (f) => f ? null : _save(state),
+            child: TextField(
+              controller: _url,
+              decoration: const InputDecoration(labelText: 'Địa chỉ API (base URL)'),
+              onEditingComplete: () => _save(state),
+            ),
+          ),
+          if (p.needsKey || p.id == 'custom') ...[
             const SizedBox(height: 12),
-            // Dùng chung ô đường dẫn (_url) và ô model (_model) của trang để nút "Lưu" không ghi đè bằng giá trị cũ
-            ClaudeCliSection(pathController: _url, modelController: _model, onChanged: () => _save(state)),
-          ] else ...[
-            const SizedBox(height: 12),
+            // Lưu cả khi rời ô nhập (bấm ra ngoài, nhấn Tab), không chỉ khi nhấn Enter: dán key rồi bấm ra ngoài vẫn được lưu
             Focus(
               onFocusChange: (f) => f ? null : _save(state),
               child: TextField(
-                controller: _url,
-                decoration: const InputDecoration(labelText: 'Địa chỉ API (base URL)'),
+                controller: _key,
+                obscureText: !_showKey,
+                decoration: InputDecoration(
+                  labelText: p.needsKey ? 'API key' : 'API key (nếu có)',
+                  helperText: p.keyHint.isEmpty ? null : p.keyHint,
+                  suffixIcon: IconButton(
+                    icon: Icon(_showKey ? Icons.visibility_off : Icons.visibility),
+                    tooltip: _showKey ? 'Ẩn API key' : 'Hiện API key',
+                    onPressed: () => setState(() => _showKey = !_showKey),
+                  ),
+                ),
                 onEditingComplete: () => _save(state),
+                onTapOutside: (_) => FocusScope.of(context).unfocus(),
               ),
             ),
-            if (p.needsKey || p.id == 'custom') ...[
-              const SizedBox(height: 12),
-              // Lưu cả khi rời ô nhập (bấm ra ngoài, nhấn Tab), không chỉ khi nhấn Enter: dán key rồi bấm ra ngoài vẫn được lưu
-              Focus(
-                onFocusChange: (f) => f ? null : _save(state),
-                child: TextField(
-                  controller: _key,
-                  obscureText: !_showKey,
-                  decoration: InputDecoration(
-                    labelText: p.needsKey ? 'API key' : 'API key (nếu có)',
-                    helperText: p.keyHint.isEmpty ? null : p.keyHint,
-                    suffixIcon: IconButton(
-                      icon: Icon(_showKey ? Icons.visibility_off : Icons.visibility),
-                      tooltip: _showKey ? 'Ẩn API key' : 'Hiện API key',
-                      onPressed: () => setState(() => _showKey = !_showKey),
-                    ),
-                  ),
-                  onEditingComplete: () => _save(state),
-                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
-                ),
-              ),
-              if (!state.secureStorageOk)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    'Máy này không có kho khóa bảo mật (keyring), API key được lưu trong cài đặt của app.',
-                    style: text.bodySmall?.copyWith(color: Tone.flat(context)),
-                  ),
-                ),
-            ],
-            const SizedBox(height: 12),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Autocomplete<String>(
-                    key: ValueKey('model-${state.providerId}-${_models.length}'),
-                    initialValue: TextEditingValue(text: _model.text),
-                    optionsBuilder: (v) => _models.where((m) => m.toLowerCase().contains(v.text.toLowerCase())),
-                    onSelected: (v) {
-                      _model.text = v;
-                      _save(state);
-                    },
-                    fieldViewBuilder: (context, controller, focus, onSubmit) {
-                      return TextField(
-                        controller: controller,
-                        focusNode: focus,
-                        onChanged: (v) => _model.text = v,
-                        decoration: const InputDecoration(labelText: 'Model', helperText: 'Gõ để tìm, hoặc bấm "Tải danh sách"'),
-                        onEditingComplete: () {
-                          onSubmit();
-                          _save(state);
-                        },
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: _busy
-                      ? const Padding(
-                          padding: EdgeInsets.all(10),
-                          child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                        )
-                      : OutlinedButton(onPressed: () => _loadModels(state), child: const Text('Tải danh sách')),
-                ),
-              ],
-            ),
-            if (_status != null)
+            if (!state.secureStorageOk)
               Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(_status!, style: TextStyle(color: _statusOk ? Tone.up(context) : Tone.down(context))),
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Máy này không có kho khóa bảo mật (keyring), API key được lưu trong cài đặt của app.',
+                  style: text.bodySmall?.copyWith(color: Tone.flat(context)),
+                ),
               ),
-          ],
-          if (p.style == ApiStyle.anthropic || p.style == ApiStyle.claudeCli) ...[
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: state.effort,
-              decoration: const InputDecoration(
-                labelText: 'Mức suy nghĩ (effort)',
-                helperText: 'Cao hơn: phân tích kỹ hơn nhưng lâu và tốn hơn',
-              ),
-              items: const [
-                DropdownMenuItem(value: 'low', child: Text('Thấp')),
-                DropdownMenuItem(value: 'medium', child: Text('Trung bình')),
-                DropdownMenuItem(value: 'high', child: Text('Cao')),
-              ],
-              onChanged: (v) => v == null ? null : state.setEffort(v),
-            ),
           ],
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              FilledButton(
-                onPressed: () async {
-                  await _save(state);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Đã lưu. AI đang dùng: ${state.aiLabel}')));
-                  }
-                },
-                child: const Text('Lưu'),
+              Expanded(
+                child: Autocomplete<String>(
+                  key: ValueKey('model-${state.providerId}-${_models.length}'),
+                  initialValue: TextEditingValue(text: _model.text),
+                  optionsBuilder: (v) => _models.where((m) => m.toLowerCase().contains(v.text.toLowerCase())),
+                  onSelected: (v) {
+                    _model.text = v;
+                    _save(state);
+                  },
+                  fieldViewBuilder: (context, controller, focus, onSubmit) {
+                    return TextField(
+                      controller: controller,
+                      focusNode: focus,
+                      onChanged: (v) => _model.text = v,
+                      decoration: const InputDecoration(labelText: 'Model', helperText: 'Gõ để tìm, hoặc bấm "Tải danh sách"'),
+                      onEditingComplete: () {
+                        onSubmit();
+                        _save(state);
+                      },
+                    );
+                  },
+                ),
               ),
-              OutlinedButton.icon(
-                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LocalModelsPage())),
-                icon: const Icon(Icons.memory),
-                label: const Text('Model trên máy: đánh giá cấu hình & tải model'),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: _busy
+                    ? const Padding(
+                        padding: EdgeInsets.all(10),
+                        child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                      )
+                    : OutlinedButton(onPressed: () => _loadModels(state), child: const Text('Tải danh sách')),
               ),
             ],
           ),
-        ]),
-        const SizedBox(height: 14),
-        const LanSection(),
-        const SizedBox(height: 14),
-        section('Nguồn giá SSI (tùy chọn)', [_ssiSection(state, text)]),
-        const SizedBox(height: 14),
-        section('Cập nhật', [
-          Text('Phiên bản hiện tại: ${_version.isEmpty ? '…' : _version}'),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Tự kiểm tra cập nhật khi mở app'),
-            value: state.autoCheckUpdates,
-            onChanged: state.setAutoCheckUpdates,
-          ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: FilledButton.tonalIcon(
-              onPressed: _checking ? null : _checkUpdate,
-              icon: _checking
-                  ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.system_update),
-              label: const Text('Kiểm tra cập nhật'),
+          if (_status != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(_status!, style: TextStyle(color: _statusOk ? Tone.up(context) : Tone.down(context))),
             ),
+        ],
+        if (p.style == ApiStyle.anthropic || p.style == ApiStyle.claudeCli) ...[
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: state.effort,
+            decoration: const InputDecoration(
+              labelText: 'Mức suy nghĩ (effort)',
+              helperText: 'Cao hơn: phân tích kỹ hơn nhưng lâu và tốn hơn',
+            ),
+            items: const [
+              DropdownMenuItem(value: 'low', child: Text('Thấp')),
+              DropdownMenuItem(value: 'medium', child: Text('Trung bình')),
+              DropdownMenuItem(value: 'high', child: Text('Cao')),
+            ],
+            onChanged: (v) => v == null ? null : state.setEffort(v),
           ),
-        ]),
+        ],
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilledButton(
+              onPressed: () async {
+                await _save(state);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Đã lưu. AI đang dùng: ${state.aiLabel}')));
+                }
+              },
+              child: const Text('Lưu'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LocalModelsPage())),
+              icon: const Icon(Icons.memory),
+              label: const Text('Model trên máy: đánh giá cấu hình & tải model'),
+            ),
+          ],
+        ),
+      ]),
+      const LanSection(),
+      section('Nguồn giá SSI (tùy chọn)', [_ssiSection(state, text)]),
+      section('Cập nhật', [
+        Text('Phiên bản hiện tại: ${_version.isEmpty ? '…' : _version}'),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Tự kiểm tra cập nhật khi mở app'),
+          value: state.autoCheckUpdates,
+          onChanged: state.setAutoCheckUpdates,
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.tonalIcon(
+            onPressed: _checking ? null : _checkUpdate,
+            icon: _checking
+                ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.system_update),
+            label: const Text('Kiểm tra cập nhật'),
+          ),
+        ),
+      ]),
+      _feedbackSection(state, text, section),
+    ];
+    Widget column(List<Widget> items) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < items.length; i++) ...[if (i > 0) const SizedBox(height: 14), items[i]],
+      ],
+    );
+    return PageFrame(
+      title: 'Cài đặt',
+      maxWidth: double.infinity,
+      children: [
+        LayoutBuilder(
+          builder: (context, box) => box.maxWidth >= 900
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: column(cards.sublist(0, 2))),
+                    const SizedBox(width: 14),
+                    Expanded(child: column(cards.sublist(2))),
+                  ],
+                )
+              : column(cards),
+        ),
         const SizedBox(height: 14),
         Text(
           'Dữ liệu giá: DNSE/VNDirect. Số liệu tài chính: Vietcap IQ. Tin tức: CafeF, Vietstock, VnExpress, VnEconomy, '
