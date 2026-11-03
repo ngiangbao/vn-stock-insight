@@ -11,6 +11,7 @@ import '../dashboard.dart';
 import '../services/market.dart' show vnDate;
 import '../services/ticks.dart';
 import 'widgets.dart';
+import 'glass_motion.dart' show AppSegmented;
 
 String _clock(int epoch) {
   final v = DateTime.fromMillisecondsSinceEpoch(epoch * 1000, isUtc: true).add(const Duration(hours: 7));
@@ -212,17 +213,12 @@ class _ActiveFlowState extends State<ActiveFlow> {
             _Key(cs.onSurfaceVariant.withValues(alpha: 0.55), 'Khối lượng (cổ phiếu)', filled: true),
             _Key(up, 'Mua chủ động (cột lên)', filled: true),
             _Key(down, 'Bán chủ động (cột xuống)', filled: true),
-            SegmentedButton<int>(
-              showSelectedIcon: false,
-              style: const ButtonStyle(visualDensity: VisualDensity.compact, minimumSize: WidgetStatePropertyAll(Size(48, 36))),
-              segments: const [
-                ButtonSegment(value: 1, label: Text('1 phút')),
-                ButtonSegment(value: 5, label: Text('5 phút')),
-                ButtonSegment(value: 15, label: Text('15 phút')),
-              ],
-              selected: {_minutes},
-              onSelectionChanged: (s) => setState(() {
-                _minutes = s.first;
+            AppSegmented<int>(
+              height: 40,
+              options: const [(1, '1 phút'), (5, '5 phút'), (15, '15 phút')],
+              selected: _minutes,
+              onChanged: (m) => setState(() {
+                _minutes = m;
                 _hover = null;
               }),
             ),

@@ -20,6 +20,7 @@ import 'active_flow.dart';
 import 'liquidity_chart.dart';
 import 'stock_dialog.dart' show IndexSidebar, StockSidebar;
 import 'widgets.dart';
+import 'glass_motion.dart' show AppSegmented;
 
 /// Mở trang chi tiết cổ phiếu.
 Future<void> openStockDetail(BuildContext context, String symbol) =>
@@ -491,12 +492,11 @@ class _ChartCard extends StatelessWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 menu,
-                SegmentedButton<_Frame>(
-                  showSelectedIcon: false,
-                  style: const ButtonStyle(visualDensity: VisualDensity.compact, minimumSize: WidgetStatePropertyAll(Size(48, 40))),
-                  segments: [for (final f in _Frame.values) ButtonSegment(value: f, label: Text(f.label))],
-                  selected: {frame},
-                  onSelectionChanged: (s) => onFrame(s.first),
+                AppSegmented<_Frame>(
+                  height: 40,
+                  options: [for (final f in _Frame.values) (f, f.label)],
+                  selected: frame,
+                  onChanged: onFrame,
                 ),
                 if (stat != null)
                   Text(

@@ -1,7 +1,7 @@
 // Chuyển động kiểu Liquid Glass khi đổi tab, theo hành vi của thanh tab trên iOS/macOS 26 trở lên:
 // - ô chọn là một "thấu kính" kính trượt giữa các tab bằng lò xo, giãn ra theo hướng di chuyển rồi co lại (squash & stretch);
 // - bấm hoặc kéo thì thấu kính nổi lên (to hơn, sáng hơn) và phóng đại nhẹ nền phía sau như khúc xạ; kéo ngang để chọn tab dưới ngón tay;
-// - nội dung mới hiện ra mờ rồi nét dần, hơi phóng nhẹ, thay vì đổi cứng.
+// - nội dung mới hiện ra mờ dần, hơi phóng nhẹ, thay vì đổi cứng (chỉ dùng biến đổi/độ mờ do GPU ghép lớp, không lọc nhòe cả trang).
 // Tôn trọng chế độ giảm chuyển động của hệ thống (nhảy thẳng tới đích, không hoạt ảnh). Kiểu Cổ điển không dùng các lớp này.
 
 import 'dart:math' as math;
@@ -212,7 +212,186 @@ class _GlassLensMoverState extends State<GlassLensMover> with TickerProviderStat
   );
 }
 
-/// Thanh tab kiểu kính: viên kính chứa các tab, thấu kính trượt theo tab đang chọn; bấm để chọn, kéo ngang để chọn tab dưới ngón tay.
+/// Viên kính chứa một dãy lựa chọn: thấu kính trượt tới lựa chọn đang chọn; bấm để chọn, kéo ngang để chọn dưới ngón tay.
+/// Dùng chung cho thanh tab, nút chọn khu vực và các nút khung thời gian. [expand] chia đều chiều rộng cho các lựa chọn.
+class GlassPill extends StatefulWidget {
+  final List<String> labels;
+  final int selected;
+  final ValueChanged<int> onSelect;
+  final double height;
+  final bool expand;
+  final double itemPad, minItem, fontSize;
+  const GlassPill({
+    super.key,
+    required this.labels,
+    required this.selected,
+    required this.onSelect,
+    this.height = 40,
+    this.expand = false,
+    this.itemPad = 18,
+    this.minItem = 56,
+    this.fontSize = 14,
+  });
+
+  @override
+  State<GlassPill> createState() => _GlassPillState();
+}
+
+class _GlassPillState extends State<GlassPill> {
+  int? _drag; // lựa chọn đang nằm dưới ngón tay khi kéo
+  bool _down = false;
+
+  // Đo chữ tốn kém nên chỉ đo lại khi nhãn, cỡ chữ hoặc tỉ lệ chữ đổi
+  List<double>? _natural;
+  String _naturalKey = '';
+
+  static const _pad = 4.0;
+
+  List<double> _naturalWidths(BuildContext context) {
+    final scaler = MediaQuery.textScalerOf(context);
+    final key = '${widget.labels.join('\u0001')}|${widget.fontSize}|${widget.itemPad}|${widget.minItem}|${scaler.scale(10)}';
+    if (_natural != null && key == _naturalKey) return _natural!;
+    final style = TextStyle(fontSize: widget.fontSize, fontWeight: FontWeight.w700);
+    _naturalKey = key;
+    return _natural = [
+      for (final l in widget.labels)
+        math.max(
+          widget.minItem,
+          (TextPainter(
+                text: TextSpan(text: l, style: style),
+                textDirection: TextDirection.ltr,
+                textScaler: scaler,
+                maxLines: 1,
+              )..layout()).width +
+              widget.itemPad * 2,
+        ),
+    ];
+  }
+
+  int _indexAt(double dx, List<double> widths) {
+    var x = _pad;
+    for (var i = 0; i < widths.length; i++) {
+      if (dx < x + widths[i]) return i;
+      x += widths[i];
+    }
+    return widths.length - 1;
+  }
+
+  void _clear() => setState(() {
+    _down = false;
+    _drag = null;
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.expand) return _build(context, _naturalWidths(context));
+    return LayoutBuilder(
+      builder: (context, box) {
+        final w = box.hasBoundedWidth ? (box.maxWidth - _pad * 2) / widget.labels.length : _naturalWidths(context).reduce(math.max);
+        return _build(context, List.filled(widget.labels.length, w));
+      },
+    );
+  }
+
+  Widget _build(BuildContext context, List<double> widths) {
+    final g = GlassScope.maybeOf(context);
+    final cs = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final h = widget.height;
+    final selected = (_drag ?? widget.selected).clamp(0, widths.length - 1);
+    var left = _pad;
+    final lefts = <double>[];
+    for (final w in widths) {
+      lefts.add(left);
+      left += w;
+    }
+    final total = left + _pad;
+    final target = Rect.fromLTWH(lefts[selected], _pad, widths[selected], h - _pad * 2);
+    final radius = BorderRadius.circular(h / 2);
+
+    return SizedBox(
+      width: total,
+      height: h,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragStart: (_) => setState(() {
+          _down = true;
+          _drag = widget.selected;
+        }),
+        onHorizontalDragUpdate: (d) {
+          final i = _indexAt(d.localPosition.dx, widths);
+          if (i != _drag) setState(() => _drag = i);
+        },
+        onHorizontalDragEnd: (_) {
+          final i = _drag;
+          _clear();
+          if (i != null) widget.onSelect(i);
+        },
+        onHorizontalDragCancel: _clear,
+        // Viên kính và thấu kính nằm trong một lớp riêng: lúc trượt chỉ lớp này vẽ lại, phần còn lại của trang không bị kéo theo
+        child: RepaintBoundary(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              color: (g?.fill ?? cs.surface).withValues(alpha: dark ? 0.32 : 0.38),
+              border: Border.all(color: Colors.white.withValues(alpha: dark ? 0.14 : 0.8)),
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                GlassLensMover(
+                  target: target,
+                  radius: BorderRadius.circular((h - _pad * 2) / 2),
+                  brightness: dark ? Brightness.dark : Brightness.light,
+                  lifted: _down,
+                ),
+                for (var i = 0; i < widget.labels.length; i++)
+                  Positioned(
+                    left: lefts[i],
+                    top: _pad,
+                    width: widths[i],
+                    height: h - _pad * 2,
+                    child: Semantics(
+                      button: true,
+                      selected: i == widget.selected,
+                      label: widget.labels[i],
+                      child: ExcludeSemantics(
+                        child: InkResponse(
+                          radius: 26,
+                          highlightShape: BoxShape.rectangle,
+                          borderRadius: BorderRadius.circular(18),
+                          onTapDown: (_) => setState(() => _down = true),
+                          onTapCancel: () => setState(() => _down = false),
+                          onTap: () {
+                            setState(() => _down = false);
+                            widget.onSelect(i);
+                          },
+                          child: Center(
+                            child: Text(
+                              widget.labels[i],
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: widget.fontSize,
+                                fontWeight: FontWeight.w700,
+                                color: i == selected ? cs.primary : cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Thanh tab kiểu kính: [GlassPill] đặt theo [TabController], cuộn ngang khi hẹp.
 class GlassTabBar extends StatefulWidget implements PreferredSizeWidget {
   final TabController? controller;
   final List<Tab> tabs;
@@ -227,10 +406,9 @@ class GlassTabBar extends StatefulWidget implements PreferredSizeWidget {
 
 class _GlassTabBarState extends State<GlassTabBar> {
   TabController? _c;
-  int? _drag; // tab đang nằm dưới ngón tay khi kéo
-  bool _down = false;
+  int _index = 0;
 
-  static const _pad = 4.0, _itemPad = 18.0, _height = 40.0;
+  static const _height = 40.0;
 
   @override
   void didChangeDependencies() {
@@ -239,11 +417,13 @@ class _GlassTabBarState extends State<GlassTabBar> {
     if (!identical(c, _c)) {
       _c?.removeListener(_onTab);
       _c = c..addListener(_onTab);
+      _index = c.index;
     }
   }
 
+  // Bộ điều khiển báo mỗi khung hình trong lúc chuyển; chỉ dựng lại khi chỉ số thật sự đổi
   void _onTab() {
-    if (mounted) setState(() {});
+    if (mounted && _c!.index != _index) setState(() => _index = _c!.index);
   }
 
   @override
@@ -252,144 +432,21 @@ class _GlassTabBarState extends State<GlassTabBar> {
     super.dispose();
   }
 
-  String _label(Tab t) => t.text ?? '';
-
-  List<double> _widths(BuildContext context) {
-    final style = const TextStyle(fontSize: 14, fontWeight: FontWeight.w700);
-    final scaler = MediaQuery.textScalerOf(context);
-    return [
-      for (final t in widget.tabs)
-        math.max(
-          56.0,
-          (TextPainter(
-                text: TextSpan(text: _label(t), style: style),
-                textDirection: TextDirection.ltr,
-                textScaler: scaler,
-                maxLines: 1,
-              )..layout()).width +
-              _itemPad * 2,
-        ),
-    ];
-  }
-
-  int _indexAt(double dx, List<double> widths) {
-    var x = _pad;
-    for (var i = 0; i < widths.length; i++) {
-      if (dx < x + widths[i]) return i;
-      x += widths[i];
-    }
-    return widths.length - 1;
-  }
-
   @override
-  Widget build(BuildContext context) {
-    final g = GlassScope.maybeOf(context);
-    final cs = Theme.of(context).colorScheme;
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final widths = _widths(context);
-    final selected = _drag ?? _c!.index;
-    var left = _pad;
-    final lefts = <double>[];
-    for (final w in widths) {
-      lefts.add(left);
-      left += w;
-    }
-    final total = left + _pad;
-    final target = Rect.fromLTWH(lefts[selected], _pad, widths[selected], _height - _pad * 2);
-    final radius = BorderRadius.circular(_height / 2);
-
-    final pill = SizedBox(
-      width: total,
-      height: _height,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onHorizontalDragStart: (_) => setState(() {
-          _down = true;
-          _drag = _c!.index;
-        }),
-        onHorizontalDragUpdate: (d) {
-          final i = _indexAt(d.localPosition.dx, widths);
-          if (i != _drag) setState(() => _drag = i);
-        },
-        onHorizontalDragEnd: (_) {
-          final i = _drag;
-          setState(() {
-            _down = false;
-            _drag = null;
-          });
-          if (i != null) _c!.animateTo(i);
-        },
-        onHorizontalDragCancel: () => setState(() {
-          _down = false;
-          _drag = null;
-        }),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: radius,
-            color: (g?.fill ?? cs.surface).withValues(alpha: dark ? 0.32 : 0.38),
-            border: Border.all(color: Colors.white.withValues(alpha: dark ? 0.14 : 0.8)),
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              GlassLensMover(
-                target: target,
-                radius: BorderRadius.circular((_height - _pad * 2) / 2),
-                brightness: dark ? Brightness.dark : Brightness.light,
-                lifted: _down,
-              ),
-              for (var i = 0; i < widget.tabs.length; i++)
-                Positioned(
-                  left: lefts[i],
-                  top: _pad,
-                  width: widths[i],
-                  height: _height - _pad * 2,
-                  child: Semantics(
-                    button: true,
-                    selected: i == _c!.index,
-                    label: _label(widget.tabs[i]),
-                    child: ExcludeSemantics(
-                      child: InkResponse(
-                        radius: 26,
-                        highlightShape: BoxShape.rectangle,
-                        borderRadius: BorderRadius.circular(18),
-                        onTapDown: (_) => setState(() => _down = true),
-                        onTapCancel: () => setState(() => _down = false),
-                        onTap: () {
-                          setState(() => _down = false);
-                          _c!.animateTo(i);
-                        },
-                        child: Center(
-                          child: Text(
-                            _label(widget.tabs[i]),
-                            maxLines: 1,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: i == selected ? cs.primary : cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
+  Widget build(BuildContext context) => SizedBox(
+    height: kTextTabBarHeight,
+    width: double.infinity,
+    child: SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: (kTextTabBarHeight - _height) / 2),
+      child: GlassPill(
+        labels: [for (final t in widget.tabs) t.text ?? ''],
+        selected: _index,
+        height: _height,
+        onSelect: (i) => _c!.animateTo(i),
       ),
-    );
-
-    return SizedBox(
-      height: kTextTabBarHeight,
-      width: double.infinity,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: (kTextTabBarHeight - _height) / 2),
-        child: pill,
-      ),
-    );
-  }
+    ),
+  );
 }
 
 /// Thanh tab của app: kiểu Liquid Glass dùng [GlassTabBar], kiểu Cổ điển giữ nguyên TabBar của Material.
@@ -407,8 +464,60 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
       : GlassTabBar(controller: controller, tabs: tabs);
 }
 
-/// Nội dung mới hiện ra khi [trigger] đổi: kiểu Liquid Glass mờ rồi nét dần và hơi phóng nhẹ, Cổ điển chỉ mờ dần.
-/// Lúc đứng yên không thêm lớp lọc nào nên không tốn hiệu năng. Giảm chuyển động thì không hoạt ảnh.
+/// Nút chọn một trong vài giá trị: kiểu Liquid Glass dùng [GlassPill] có thấu kính trượt, kiểu Cổ điển giữ [SegmentedButton] của Material.
+/// [expand] chia đều chiều rộng khả dụng (như dải khu vực); mặc định rộng vừa nhãn (như khung thời gian).
+class AppSegmented<T> extends StatelessWidget {
+  final List<(T, String)> options;
+  final T selected;
+  final ValueChanged<T> onChanged;
+  final bool expand;
+  final double height;
+  const AppSegmented({
+    super.key,
+    required this.options,
+    required this.selected,
+    required this.onChanged,
+    this.expand = false,
+    this.height = 44,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (GlassScope.maybeOf(context) == null) {
+      return SegmentedButton<T>(
+        showSelectedIcon: false,
+        expandedInsets: expand ? EdgeInsets.zero : null,
+        style: ButtonStyle(
+          visualDensity: expand ? null : VisualDensity.compact,
+          minimumSize: WidgetStatePropertyAll(Size(expand ? 0 : 48, height)),
+          padding: expand ? const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 6)) : null,
+        ),
+        segments: [
+          for (final (v, l) in options)
+            ButtonSegment(
+              value: v,
+              label: Text(l, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+        ],
+        selected: {selected},
+        onSelectionChanged: (s) => onChanged(s.first),
+      );
+    }
+    final i = options.indexWhere((o) => o.$1 == selected).clamp(0, options.length - 1);
+    return GlassPill(
+      labels: [for (final (_, l) in options) l],
+      selected: i,
+      height: height,
+      expand: expand,
+      itemPad: expand ? 6 : 12,
+      minItem: expand ? 0 : 48,
+      onSelect: (k) => onChanged(options[k].$1),
+    );
+  }
+}
+
+/// Nội dung mới hiện ra khi [trigger] đổi: mờ dần và hơi phóng nhẹ. Chỉ dùng biến đổi và độ mờ (do GPU ghép lớp, không vẽ lại trang),
+/// không làm nhòe cả trang vì lọc nhòe trên vùng lớn là thứ gây giật. Lúc đứng yên không thêm lớp nào. Giảm chuyển động thì không hoạt ảnh.
 class GlassReveal extends StatefulWidget {
   final Object? trigger;
   final Widget child;
@@ -422,20 +531,25 @@ class GlassReveal extends StatefulWidget {
 }
 
 class _GlassRevealState extends State<GlassReveal> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 260), value: 1);
-  late final Animation<double> _fade = CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 220), value: 1);
+  late final Animation<double> _t = CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
+  late final Animation<double> _scale = Tween<double>(begin: 0.988, end: 1).animate(_t);
+  bool _mounted = false;
+
+  // Trang mới dựng nặng khung hình đầu; bắt đầu hoạt ảnh sau khung đó để không bị nuốt mất đoạn đầu
+  void _play() {
+    _c.value = 0.15;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _c.forward(from: 0.15);
+    });
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (widget.playOnMount && !_mounted) {
-      _mounted = true;
-      if (!MediaQuery.disableAnimationsOf(context)) _c.forward(from: 0.15);
-    }
+    if (widget.playOnMount && !_mounted && !MediaQuery.disableAnimationsOf(context)) _play();
     _mounted = true;
   }
-
-  bool _mounted = false;
 
   @override
   void didUpdateWidget(GlassReveal old) {
@@ -444,7 +558,7 @@ class _GlassRevealState extends State<GlassReveal> with SingleTickerProviderStat
       if (MediaQuery.disableAnimationsOf(context)) {
         _c.value = 1;
       } else {
-        _c.forward(from: 0.15);
+        _play();
       }
     }
   }
@@ -457,27 +571,12 @@ class _GlassRevealState extends State<GlassReveal> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
+    // Cấu trúc cây giữ nguyên cả lúc đứng yên để trang bên trong không bị dựng lại (mất trạng thái) khi hoạt ảnh kết thúc
     final glass = GlassScope.maybeOf(context) != null;
-    return AnimatedBuilder(
-      animation: _c,
-      child: widget.child,
-      builder: (context, child) {
-        Widget out = child!;
-        if (glass && _c.isAnimating) {
-          final t = Curves.easeOutCubic.transform(_c.value);
-          final sigma = (1 - t) * 7;
-          out = Transform.scale(
-            scale: 0.985 + 0.015 * t,
-            child: sigma > 0.05
-                ? ImageFiltered(
-                    imageFilter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma, tileMode: TileMode.decal),
-                    child: out,
-                  )
-                : out,
-          );
-        }
-        return FadeTransition(opacity: _fade, child: out);
-      },
+    final faded = FadeTransition(
+      opacity: _t,
+      child: RepaintBoundary(child: widget.child),
     );
+    return glass ? ScaleTransition(scale: _scale, child: faded) : faded;
   }
 }

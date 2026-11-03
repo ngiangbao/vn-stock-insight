@@ -44,7 +44,11 @@ void main() {
     expect(find.byType(GlassLens), findsOneWidget);
     final start = lens(tester);
     expect(start.center.dx, closeTo(tester.getCenter(find.text('Một')).dx, 2), reason: 'bắt đầu ở tab đầu');
-    expect(tester.getTopLeft(find.byType(GlassTabBar)).dx + 16 + 4, closeTo(start.left, 3), reason: 'thanh tab nằm sát lề trái như tiêu đề, không bị căn giữa');
+    expect(
+      tester.getTopLeft(find.byType(GlassTabBar)).dx + 16 + 4,
+      closeTo(start.left, 3),
+      reason: 'thanh tab nằm sát lề trái như tiêu đề, không bị căn giữa',
+    );
 
     await tester.tap(find.text('Ba'));
     await tester.pump();
@@ -117,9 +121,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('GlassReveal: nội dung mới mờ rồi nét dần khi đổi trigger; đứng yên không có lớp lọc; giảm chuyển động thì bỏ qua', (
-    tester,
-  ) async {
+  testWidgets('GlassReveal: nội dung mới mờ dần và phóng nhẹ, không dùng lọc nhòe (gây giật); giảm chuyển động thì bỏ qua', (tester) async {
     Widget host(int trigger, {bool reduce = false}) => MaterialApp(
       home: MediaQuery(
         data: MediaQueryData(disableAnimations: reduce),
@@ -129,16 +131,55 @@ void main() {
         ),
       ),
     );
+    double opacity() => tester.widget<FadeTransition>(find.byType(FadeTransition).last).opacity.value;
     await tester.pumpWidget(host(0));
-    expect(find.byType(ImageFiltered), findsNothing, reason: 'đứng yên không tốn lớp lọc');
+    expect(opacity(), 1);
     await tester.pumpWidget(host(1));
+    await tester.pump(); // khung đầu: hoạt ảnh bắt đầu sau khung dựng
     await tester.pump(const Duration(milliseconds: 40));
-    expect(find.byType(ImageFiltered), findsOneWidget, reason: 'đang mờ nét dần');
-    expect(tester.widget<FadeTransition>(find.byType(FadeTransition).last).opacity.value, lessThan(1));
+    expect(find.byType(ImageFiltered), findsNothing, reason: 'không nhòe cả trang');
+    expect(opacity(), lessThan(1));
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byType(ImageFiltered), findsNothing);
+    expect(opacity(), 1);
     await tester.pumpWidget(host(2, reduce: true));
     await tester.pump(const Duration(milliseconds: 20));
-    expect(find.byType(ImageFiltered), findsNothing);
+    expect(opacity(), 1);
+  });
+
+  testWidgets('AppSegmented: kiểu kính có thấu kính trượt tới lựa chọn mới, chia đều khi expand, 375px không tràn', (tester) async {
+    tester.view.physicalSize = const Size(375, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var value = 'vn';
+    late StateSetter set;
+    Widget host(bool glass) => MaterialApp(
+      home: Scaffold(
+        body: StatefulBuilder(
+          builder: (context, s) {
+            set = s;
+            final w = AppSegmented<String>(
+              expand: true,
+              options: const [('vn', 'Việt Nam'), ('us', 'Châu Mỹ'), ('eu', 'Châu Âu'), ('as', 'Châu Á')],
+              selected: value,
+              onChanged: (v) => set(() => value = v),
+            );
+            return glass ? GlassScope(tokens: GlassTokens.of(Brightness.light, 0.6), child: w) : w;
+          },
+        ),
+      ),
+    );
+    await tester.pumpWidget(host(true));
+    expect(find.byType(GlassLensMover), findsOneWidget);
+    final before = tester.getCenter(find.byType(GlassLens)).dx;
+    await tester.tap(find.text('Châu Âu'));
+    for (var i = 0; i < 30; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(value, 'eu');
+    expect(tester.getCenter(find.byType(GlassLens)).dx, greaterThan(before + 100));
+    expect(tester.takeException(), isNull);
+    expect(find.bySemanticsLabel('Châu Âu'), findsOneWidget);
+    await tester.pumpWidget(host(false));
+    expect(find.byType(SegmentedButton<String>), findsOneWidget, reason: 'kiểu cổ điển giữ nguyên nút Material');
   });
 }

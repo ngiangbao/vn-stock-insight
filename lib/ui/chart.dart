@@ -13,6 +13,7 @@ import '../services/indicators.dart';
 import '../services/market.dart';
 import '../state.dart';
 import 'widgets.dart';
+import 'glass_motion.dart' show AppSegmented;
 
 enum ChartType {
   candle('Nến'),
@@ -65,8 +66,11 @@ const dashboardRanges = [('1d', 10), ('1m', 22), ('3m', 66), ('6m', 130), ('1y',
 const ranges = [('1T', 22), ('3T', 66), ('6T', 130), ('1N', 250), ('5N', 1250), ('Tất cả', 0)];
 
 /// Mở biểu đồ toàn màn hình, tải lịch sử dài (5 năm).
-void openChart(BuildContext context, String symbol, {String? title, String? kind}) =>
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChartPage(symbol, title: title, kind: kind)));
+void openChart(BuildContext context, String symbol, {String? title, String? kind}) => Navigator.of(context).push(
+  MaterialPageRoute(
+    builder: (_) => ChartPage(symbol, title: title, kind: kind),
+  ),
+);
 
 class ChartPage extends StatefulWidget {
   final String symbol;
@@ -93,13 +97,13 @@ class _ChartPageState extends State<ChartPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(widget.title ?? 'Biểu đồ ${widget.symbol}')),
-        body: _error != null
-            ? Center(child: Text(_error!))
-            : _bars == null
-                ? const Center(child: CircularProgressIndicator())
-                : Padding(padding: const EdgeInsets.fromLTRB(8, 0, 8, 8), child: StockChart(widget.symbol, _bars!, expand: true)),
-      );
+    appBar: AppBar(title: Text(widget.title ?? 'Biểu đồ ${widget.symbol}')),
+    body: _error != null
+        ? Center(child: Text(_error!))
+        : _bars == null
+        ? const Center(child: CircularProgressIndicator())
+        : Padding(padding: const EdgeInsets.fromLTRB(8, 0, 8, 8), child: StockChart(widget.symbol, _bars!, expand: true)),
+  );
 }
 
 class StockChart extends StatefulWidget {
@@ -116,15 +120,18 @@ class StockChart extends StatefulWidget {
 
   /// Các đường mức giá vẽ thêm trên khung giá (xem [ChartLevel]).
   final List<ChartLevel> levels;
-  const StockChart(this.symbol, this.bars,
-      {super.key,
-      this.height = 420,
-      this.expand = false,
-      this.onFullscreen,
-      this.fixedIndicators,
-      this.rangeList = ranges,
-      this.initialRange = 2,
-      this.levels = const []});
+  const StockChart(
+    this.symbol,
+    this.bars, {
+    super.key,
+    this.height = 420,
+    this.expand = false,
+    this.onFullscreen,
+    this.fixedIndicators,
+    this.rangeList = ranges,
+    this.initialRange = 2,
+    this.levels = const [],
+  });
 
   @override
   State<StockChart> createState() => _StockChartState();
@@ -216,105 +223,121 @@ class _StockChartState extends State<StockChart> {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final text = Theme.of(context).textTheme;
 
-    final toolbar = Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-      for (final (i, r) in widget.rangeList.indexed)
-        ChoiceChip(
-          label: Text(r.$1),
-          selected: _range == i,
-          visualDensity: VisualDensity.compact,
-          onSelected: (_) => _setRange(i),
+    final toolbar = Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        AppSegmented<int>(
+          height: 40,
+          options: [for (final (i, r) in widget.rangeList.indexed) (i, r.$1)],
+          selected: _range,
+          onChanged: _setRange,
         ),
-      if (!compact) const SizedBox(width: 4),
-      if (!compact)
-        PopupMenuButton<ChartType>(
-        tooltip: 'Dạng biểu đồ',
-        initialValue: type,
-        onSelected: state.setChartType,
-        itemBuilder: (_) => [for (final t in ChartType.values) PopupMenuItem(value: t, child: Text(t.label))],
-        child: Chip(avatar: const Icon(Icons.candlestick_chart, size: 18), label: Text(type.label), visualDensity: VisualDensity.compact),
-      ),
-      if (!compact)
-        PopupMenuButton<Indicator>(
-        tooltip: 'Chỉ báo',
-        onSelected: state.toggleIndicator,
-        itemBuilder: (_) => [
-          for (final ind in Indicator.values)
-            CheckedPopupMenuItem(value: ind, checked: active.contains(ind), child: Text(ind.label)),
-        ],
-        child: Chip(
-            avatar: const Icon(Icons.stacked_line_chart, size: 18),
-            label: Text('Chỉ báo (${active.length})'),
-            visualDensity: VisualDensity.compact),
-      ),
-      if (widget.onFullscreen != null)
-        IconButton(onPressed: widget.onFullscreen, icon: const Icon(Icons.open_in_full, size: 20), tooltip: 'Phóng to biểu đồ'),
-    ]);
+        if (!compact) const SizedBox(width: 4),
+        if (!compact)
+          PopupMenuButton<ChartType>(
+            tooltip: 'Dạng biểu đồ',
+            initialValue: type,
+            onSelected: state.setChartType,
+            itemBuilder: (_) => [for (final t in ChartType.values) PopupMenuItem(value: t, child: Text(t.label))],
+            child: Chip(
+              avatar: const Icon(Icons.candlestick_chart, size: 18),
+              label: Text(type.label),
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
+        if (!compact)
+          PopupMenuButton<Indicator>(
+            tooltip: 'Chỉ báo',
+            onSelected: state.toggleIndicator,
+            itemBuilder: (_) => [
+              for (final ind in Indicator.values) CheckedPopupMenuItem(value: ind, checked: active.contains(ind), child: Text(ind.label)),
+            ],
+            child: Chip(
+              avatar: const Icon(Icons.stacked_line_chart, size: 18),
+              label: Text('Chỉ báo (${active.length})'),
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
+        if (widget.onFullscreen != null)
+          IconButton(onPressed: widget.onFullscreen, icon: const Icon(Icons.open_in_full, size: 20), tooltip: 'Phóng to biểu đồ'),
+      ],
+    );
 
-    final chart = LayoutBuilder(builder: (context, c) {
-      const axisW = 64.0;
-      final plotW = c.maxWidth - axisW;
-      return Listener(
-        onPointerSignal: (e) {
-          if (e is PointerScrollEvent) {
-            // Giữ sự kiện cuộn cho biểu đồ để trang chứa nó không cuộn theo
-            GestureBinding.instance.pointerSignalResolver.register(e, (ev) {
-              final s = ev as PointerScrollEvent;
-              _zoom(math.exp(s.scrollDelta.dy / 500), (s.localPosition.dx / plotW).clamp(0, 1));
-            });
-          }
-        },
-        child: MouseRegion(
-          cursor: SystemMouseCursors.precise,
-          onHover: (e) => setState(() => _cross = e.localPosition),
-          onExit: (_) => setState(() => _cross = null),
-          child: GestureDetector(
-            onDoubleTap: () => _setRange(_range),
-            onLongPressStart: (d) => setState(() => _cross = d.localPosition),
-            onLongPressMoveUpdate: (d) => setState(() => _cross = d.localPosition),
-            onTapUp: (d) => setState(() => _cross = _cross == null ? d.localPosition : null),
-            onScaleStart: (_) => _startCount = _count,
-            onScaleUpdate: (d) {
-              setState(() {
-                if (d.pointerCount >= 2 && d.scale != 1) {
-                  _count = _startCount / d.scale;
-                } else {
-                  _end -= d.focalPointDelta.dx / (plotW / _count);
-                }
-                _clampView();
-                if (d.pointerCount == 1 && _cross != null && !_isMouse) _cross = null;
+    final chart = LayoutBuilder(
+      builder: (context, c) {
+        const axisW = 64.0;
+        final plotW = c.maxWidth - axisW;
+        return Listener(
+          onPointerSignal: (e) {
+            if (e is PointerScrollEvent) {
+              // Giữ sự kiện cuộn cho biểu đồ để trang chứa nó không cuộn theo
+              GestureBinding.instance.pointerSignalResolver.register(e, (ev) {
+                final s = ev as PointerScrollEvent;
+                _zoom(math.exp(s.scrollDelta.dy / 500), (s.localPosition.dx / plotW).clamp(0, 1));
               });
-            },
-            child: CustomPaint(
-              size: Size(c.maxWidth, c.maxHeight),
-              painter: _ChartPainter(
-                symbol: widget.symbol,
-                data: _data,
-                type: type,
-                indicators: active,
-                end: _end,
-                count: _count,
-                cross: _cross,
-                dark: dark,
-                textStyle: text.bodySmall!,
-                levels: widget.levels,
+            }
+          },
+          child: MouseRegion(
+            cursor: SystemMouseCursors.precise,
+            onHover: (e) => setState(() => _cross = e.localPosition),
+            onExit: (_) => setState(() => _cross = null),
+            child: GestureDetector(
+              onDoubleTap: () => _setRange(_range),
+              onLongPressStart: (d) => setState(() => _cross = d.localPosition),
+              onLongPressMoveUpdate: (d) => setState(() => _cross = d.localPosition),
+              onTapUp: (d) => setState(() => _cross = _cross == null ? d.localPosition : null),
+              onScaleStart: (_) => _startCount = _count,
+              onScaleUpdate: (d) {
+                setState(() {
+                  if (d.pointerCount >= 2 && d.scale != 1) {
+                    _count = _startCount / d.scale;
+                  } else {
+                    _end -= d.focalPointDelta.dx / (plotW / _count);
+                  }
+                  _clampView();
+                  if (d.pointerCount == 1 && _cross != null && !_isMouse) _cross = null;
+                });
+              },
+              child: CustomPaint(
+                size: Size(c.maxWidth, c.maxHeight),
+                painter: _ChartPainter(
+                  symbol: widget.symbol,
+                  data: _data,
+                  type: type,
+                  indicators: active,
+                  end: _end,
+                  count: _count,
+                  cross: _cross,
+                  dark: dark,
+                  textStyle: text.bodySmall!,
+                  levels: widget.levels,
+                ),
               ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: widget.expand ? MainAxisSize.max : MainAxisSize.min, children: [
-      toolbar,
-      const SizedBox(height: 6),
-      if (widget.expand) Expanded(child: chart) else SizedBox(height: widget.height, child: chart),
-      if (!compact)
-        Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Text('Kéo để di chuyển · cuộn chuột hoặc chụm 2 ngón để phóng to · rê chuột/nhấn giữ để xem chi tiết · nhấp đúp để đặt lại',
-            style: text.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-      ),
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: widget.expand ? MainAxisSize.max : MainAxisSize.min,
+      children: [
+        toolbar,
+        const SizedBox(height: 6),
+        if (widget.expand) Expanded(child: chart) else SizedBox(height: widget.height, child: chart),
+        if (!compact)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'Kéo để di chuyển · cuộn chuột hoặc chụm 2 ngón để phóng to · rê chuột/nhấn giữ để xem chi tiết · nhấp đúp để đặt lại',
+              style: text.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+          ),
+      ],
+    );
   }
 
   bool get _isMouse => RendererBinding.instance.mouseTracker.mouseIsConnected;
@@ -357,7 +380,10 @@ class _ChartPainter extends CustomPainter {
     final n = bars.length;
     if (n < 2) return;
     final plotW = size.width - axisW;
-    final panes = [for (final i in Indicator.values) if (i.pane && indicators.contains(i)) i];
+    final panes = [
+      for (final i in Indicator.values)
+        if (i.pane && indicators.contains(i)) i,
+    ];
     final paneH = panes.isEmpty ? 0.0 : math.min(110.0, (size.height - axisH) * 0.2);
     final mainH = size.height - axisH - paneH * panes.length;
     final barW = plotW / count;
@@ -425,8 +451,10 @@ class _ChartPainter extends CustomPainter {
       for (var i = from; i <= to; i++) {
         final b = data.raw[i];
         final h = maxV == 0 ? 0.0 : b.v / maxV * mainH * 0.16;
-        canvas.drawRect(Rect.fromLTWH(x(i) - barW * 0.4, mainH - h, math.max(barW * 0.8, 1), h),
-            Paint()..color = (b.c >= b.o ? _up : _down).withValues(alpha: 0.35));
+        canvas.drawRect(
+          Rect.fromLTWH(x(i) - barW * 0.4, mainH - h, math.max(barW * 0.8, 1), h),
+          Paint()..color = (b.c >= b.o ? _up : _down).withValues(alpha: 0.35),
+        );
       }
     }
 
@@ -434,7 +462,10 @@ class _ChartPainter extends CustomPainter {
     if (indicators.contains(Indicator.bollinger)) {
       final band = Path();
       final up = data.s['bbUp']!, lo2 = data.s['bbLo']!;
-      final pts = [for (var i = from; i <= to; i++) if (up[i] != null) i];
+      final pts = [
+        for (var i = from; i <= to; i++)
+          if (up[i] != null) i,
+      ];
       if (pts.isNotEmpty) {
         band.moveTo(x(pts.first), y(up[pts.first]!));
         for (final i in pts) {
@@ -458,7 +489,13 @@ class _ChartPainter extends CustomPainter {
       if (py < -2 || py > mainH + 2) continue;
       l.dashed
           ? _dashed(canvas, Offset(0, py), Offset(plotW, py), l.color.withValues(alpha: 0.85))
-          : canvas.drawLine(Offset(0, py), Offset(plotW, py), Paint()..color = l.color.withValues(alpha: 0.85)..strokeWidth = 1.2);
+          : canvas.drawLine(
+              Offset(0, py),
+              Offset(plotW, py),
+              Paint()
+                ..color = l.color.withValues(alpha: 0.85)
+                ..strokeWidth = 1.2,
+            );
       _text(canvas, l.label, Offset(6, py - 14), l.color);
     }
 
@@ -485,7 +522,13 @@ class _ChartPainter extends CustomPainter {
     // ---------- Khung chỉ báo dao động ----------
     for (final (pi, p) in panes.indexed) {
       final top = mainH + pi * paneH;
-      canvas.drawLine(Offset(0, top), Offset(size.width, top), Paint()..color = _grid..strokeWidth = 1.5);
+      canvas.drawLine(
+        Offset(0, top),
+        Offset(size.width, top),
+        Paint()
+          ..color = _grid
+          ..strokeWidth = 1.5,
+      );
       _pane(canvas, p, top, paneH, plotW, from, to, x, idx);
     }
 
@@ -499,8 +542,10 @@ class _ChartPainter extends CustomPainter {
       final label = '${_two(d.day)}/${_two(d.month)}/${d.year}';
       final tp = _layout(label, Colors.white);
       final bx = (cx - tp.width / 2 - 6).clamp(0.0, plotW - tp.width - 12);
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(bx, size.height - axisH + 2, tp.width + 12, axisH - 4), const Radius.circular(3)),
-          Paint()..color = _labelBg);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromLTWH(bx, size.height - axisH + 2, tp.width + 12, axisH - 4), const Radius.circular(3)),
+        Paint()..color = _labelBg,
+      );
       tp.paint(canvas, Offset(bx + 6, size.height - axisH + 4));
     }
     _legend(canvas, idx, plotW);
@@ -508,29 +553,37 @@ class _ChartPainter extends CustomPainter {
   }
 
   List<String> get _overlayKeys => [
-        if (indicators.contains(Indicator.ma10)) 'ma10',
-        if (indicators.contains(Indicator.ma20)) 'ma20',
-        if (indicators.contains(Indicator.ma50)) 'ma50',
-        if (indicators.contains(Indicator.ma200)) 'ma200',
-        if (indicators.contains(Indicator.ema20)) 'ema20',
-        if (indicators.contains(Indicator.bollinger)) ...['bbUp', 'bbLo'],
-      ];
+    if (indicators.contains(Indicator.ma10)) 'ma10',
+    if (indicators.contains(Indicator.ma20)) 'ma20',
+    if (indicators.contains(Indicator.ma50)) 'ma50',
+    if (indicators.contains(Indicator.ma200)) 'ma200',
+    if (indicators.contains(Indicator.ema20)) 'ema20',
+    if (indicators.contains(Indicator.bollinger)) ...['bbUp', 'bbLo'],
+  ];
 
   List<(String, Color)> get _overlayLines => [
-        if (indicators.contains(Indicator.bollinger)) ...[
-          ('bbUp', Indicator.bollinger.color),
-          ('bbMid', Indicator.bollinger.color.withValues(alpha: 0.6)),
-          ('bbLo', Indicator.bollinger.color),
-        ],
-        if (indicators.contains(Indicator.ma10)) ('ma10', Indicator.ma10.color),
-        if (indicators.contains(Indicator.ma20)) ('ma20', Indicator.ma20.color),
-        if (indicators.contains(Indicator.ma50)) ('ma50', Indicator.ma50.color),
-        if (indicators.contains(Indicator.ma200)) ('ma200', Indicator.ma200.color),
-        if (indicators.contains(Indicator.ema20)) ('ema20', Indicator.ema20.color),
-      ];
+    if (indicators.contains(Indicator.bollinger)) ...[
+      ('bbUp', Indicator.bollinger.color),
+      ('bbMid', Indicator.bollinger.color.withValues(alpha: 0.6)),
+      ('bbLo', Indicator.bollinger.color),
+    ],
+    if (indicators.contains(Indicator.ma10)) ('ma10', Indicator.ma10.color),
+    if (indicators.contains(Indicator.ma20)) ('ma20', Indicator.ma20.color),
+    if (indicators.contains(Indicator.ma50)) ('ma50', Indicator.ma50.color),
+    if (indicators.contains(Indicator.ma200)) ('ma200', Indicator.ma200.color),
+    if (indicators.contains(Indicator.ema20)) ('ema20', Indicator.ema20.color),
+  ];
 
-  void _drawPrice(Canvas canvas, List<Bar> bars, int from, int to, double Function(int) x, double Function(double) y,
-      double barW, double mainH) {
+  void _drawPrice(
+    Canvas canvas,
+    List<Bar> bars,
+    int from,
+    int to,
+    double Function(int) x,
+    double Function(double) y,
+    double barW,
+    double mainH,
+  ) {
     switch (type) {
       case ChartType.candle || ChartType.hollow || ChartType.heikinAshi:
         final bodyW = math.max(barW * 0.7, 1.0);
@@ -547,12 +600,19 @@ class _ChartPainter extends CustomPainter {
           final rect = Rect.fromLTRB(cx - bodyW / 2, top, cx + bodyW / 2, math.max(bottom, top + 1));
           final hollowUp = type == ChartType.hollow && upBar;
           canvas.drawRect(
+            rect,
+            Paint()
+              ..color = hollowUp ? (dark ? const Color(0xFF131722) : Colors.white) : color
+              ..style = PaintingStyle.fill,
+          );
+          if (hollowUp) {
+            canvas.drawRect(
               rect,
               Paint()
-                ..color = hollowUp ? (dark ? const Color(0xFF131722) : Colors.white) : color
-                ..style = PaintingStyle.fill);
-          if (hollowUp) {
-            canvas.drawRect(rect, Paint()..color = color..style = PaintingStyle.stroke..strokeWidth = 1);
+                ..color = color
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = 1,
+            );
           }
         }
       case ChartType.ohlc:
@@ -578,10 +638,13 @@ class _ChartPainter extends CustomPainter {
               ..lineTo(x(from), mainH)
               ..close();
             canvas.drawPath(
-                path,
-                Paint()
-                  ..shader = ui.Gradient.linear(Offset(0, 0), Offset(0, mainH),
-                      [lineColor.withValues(alpha: 0.35), lineColor.withValues(alpha: 0.02)]));
+              path,
+              Paint()
+                ..shader = ui.Gradient.linear(Offset(0, 0), Offset(0, mainH), [
+                  lineColor.withValues(alpha: 0.35),
+                  lineColor.withValues(alpha: 0.02),
+                ]),
+            );
           }
           _line(canvas, closes, from, to, x, y, lineColor, 2);
         } else if (type == ChartType.baseline) {
@@ -611,8 +674,7 @@ class _ChartPainter extends CustomPainter {
     }
   }
 
-  void _pane(Canvas canvas, Indicator p, double top, double h, double plotW, int from, int to, double Function(int) x,
-      int idx) {
+  void _pane(Canvas canvas, Indicator p, double top, double h, double plotW, int from, int to, double Function(int) x, int idx) {
     final inner = Rect.fromLTWH(0, top + 18, plotW, h - 24);
     List<double?> a;
     List<double?>? b, hist;
@@ -656,7 +718,10 @@ class _ChartPainter extends CustomPainter {
     canvas.save();
     canvas.clipRect(Rect.fromLTWH(0, top, plotW, h));
     if (p == Indicator.rsi || p == Indicator.mfi) {
-      canvas.drawRect(Rect.fromLTRB(0, y(p == Indicator.mfi ? 80 : 70), plotW, y(p == Indicator.mfi ? 20 : 30)), Paint()..color = p.color.withValues(alpha: 0.07));
+      canvas.drawRect(
+        Rect.fromLTRB(0, y(p == Indicator.mfi ? 80 : 70), plotW, y(p == Indicator.mfi ? 20 : 30)),
+        Paint()..color = p.color.withValues(alpha: 0.07),
+      );
     }
     if (hist != null) {
       final barW = plotW / count;
@@ -665,8 +730,10 @@ class _ChartPainter extends CustomPainter {
         if (v == null) continue;
         final prev = i > 0 ? hist[i - 1] ?? 0 : 0;
         final color = v >= 0 ? (v >= prev ? _up : _up.withValues(alpha: 0.5)) : (v <= prev ? _down : _down.withValues(alpha: 0.5));
-        canvas.drawRect(Rect.fromLTRB(x(i) - barW * 0.35, math.min(y(v), y(0)), x(i) + barW * 0.35, math.max(y(v), y(0))),
-            Paint()..color = color);
+        canvas.drawRect(
+          Rect.fromLTRB(x(i) - barW * 0.35, math.min(y(v), y(0)), x(i) + barW * 0.35, math.max(y(v), y(0))),
+          Paint()..color = color,
+        );
       }
     }
     final mainColor = p == Indicator.rsi || p == Indicator.mfi ? p.color : const Color(0xFF2962FF);
@@ -675,13 +742,31 @@ class _ChartPainter extends CustomPainter {
     if (b != null) _line(canvas, b, from, to, x, y, secondColor, 1.4);
     canvas.restore();
 
-    _rich(canvas, [
-      TextSpan(text: '${p.label}  ', style: TextStyle(color: _textColor)),
-      TextSpan(text: fmt(a[idx], 2), style: TextStyle(color: mainColor)),
-      if (b != null) TextSpan(text: '  ${fmt(b[idx], 2)}', style: const TextStyle(color: secondColor)),
-      if (hist != null && hist[idx] != null)
-        TextSpan(text: '  ${fmt(hist[idx], 2)}', style: TextStyle(color: hist[idx]! >= 0 ? _up : _down)),
-    ], Offset(6, top + 3), plotW - 12);
+    _rich(
+      canvas,
+      [
+        TextSpan(
+          text: '${p.label}  ',
+          style: TextStyle(color: _textColor),
+        ),
+        TextSpan(
+          text: fmt(a[idx], 2),
+          style: TextStyle(color: mainColor),
+        ),
+        if (b != null)
+          TextSpan(
+            text: '  ${fmt(b[idx], 2)}',
+            style: const TextStyle(color: secondColor),
+          ),
+        if (hist != null && hist[idx] != null)
+          TextSpan(
+            text: '  ${fmt(hist[idx], 2)}',
+            style: TextStyle(color: hist[idx]! >= 0 ? _up : _down),
+          ),
+      ],
+      Offset(6, top + 3),
+      plotW - 12,
+    );
   }
 
   void _legend(Canvas canvas, int i, double plotW) {
@@ -690,30 +775,55 @@ class _ChartPainter extends CustomPainter {
     final chg = (b.c / prev - 1) * 100;
     final color = b.c >= prev ? _up : _down;
     final spans = <InlineSpan>[
-      TextSpan(text: '$symbol · 1D  ', style: TextStyle(color: _textColor, fontWeight: FontWeight.w700)),
+      TextSpan(
+        text: '$symbol · 1D  ',
+        style: TextStyle(color: _textColor, fontWeight: FontWeight.w700),
+      ),
       for (final (k, v) in [('M', b.o), ('C', b.h), ('T', b.l), ('Đ', b.c)]) ...[
-        TextSpan(text: '$k ', style: TextStyle(color: _textColor)),
-        TextSpan(text: '${fmt(v, 2)}  ', style: TextStyle(color: color)),
+        TextSpan(
+          text: '$k ',
+          style: TextStyle(color: _textColor),
+        ),
+        TextSpan(
+          text: '${fmt(v, 2)}  ',
+          style: TextStyle(color: color),
+        ),
       ],
-      TextSpan(text: '${chg >= 0 ? '+' : ''}${fmt(chg, 2)}%  ', style: TextStyle(color: color)),
+      TextSpan(
+        text: '${chg >= 0 ? '+' : ''}${fmt(chg, 2)}%  ',
+        style: TextStyle(color: color),
+      ),
       if (indicators.contains(Indicator.volume)) ...[
-        TextSpan(text: 'KL ', style: TextStyle(color: _textColor)),
-        TextSpan(text: _short(b.v), style: TextStyle(color: color)),
+        TextSpan(
+          text: 'KL ',
+          style: TextStyle(color: _textColor),
+        ),
+        TextSpan(
+          text: _short(b.v),
+          style: TextStyle(color: color),
+        ),
       ],
     ];
     _rich(canvas, spans, const Offset(6, 6), plotW - 12);
     final lines = _overlayLines.where((e) => e.$1 != 'bbMid' && e.$1 != 'bbLo').toList();
     if (lines.isNotEmpty) {
-      _rich(canvas, [
-        for (final (key, c) in lines) ...[
-          TextSpan(text: '${key == 'bbUp' ? 'BB' : key.toUpperCase()} ', style: TextStyle(color: c)),
-          TextSpan(
-              text: key == 'bbUp'
-                  ? '${fmt(data.s['bbUp']![i], 2)} / ${fmt(data.s['bbLo']![i], 2)}   '
-                  : '${fmt(data.s[key]![i], 2)}   ',
-              style: TextStyle(color: c)),
+      _rich(
+        canvas,
+        [
+          for (final (key, c) in lines) ...[
+            TextSpan(
+              text: '${key == 'bbUp' ? 'BB' : key.toUpperCase()} ',
+              style: TextStyle(color: c),
+            ),
+            TextSpan(
+              text: key == 'bbUp' ? '${fmt(data.s['bbUp']![i], 2)} / ${fmt(data.s['bbLo']![i], 2)}   ' : '${fmt(data.s[key]![i], 2)}   ',
+              style: TextStyle(color: c),
+            ),
+          ],
         ],
-      ], const Offset(6, 24), plotW - 12);
+        const Offset(6, 24),
+        plotW - 12,
+      );
     }
   }
 
@@ -726,8 +836,12 @@ class _ChartPainter extends CustomPainter {
       if (px < 20 || px > plotW - 20) continue;
       canvas.drawLine(Offset(px, 0), Offset(px, size.height - axisH), Paint()..color = _grid);
       final d = _date(data.raw[i].t);
-      _text(canvas, long ? '${_two(d.month)}/${d.year}' : '${_two(d.day)}/${_two(d.month)}', Offset(px - 16, size.height - axisH + 4),
-          _textColor);
+      _text(
+        canvas,
+        long ? '${_two(d.month)}/${d.year}' : '${_two(d.day)}/${_two(d.month)}',
+        Offset(px - 16, size.height - axisH + 4),
+        _textColor,
+      );
     }
   }
 
@@ -770,9 +884,13 @@ class _ChartPainter extends CustomPainter {
     }
   }
 
-  TextPainter _layout(String s, Color c) =>
-      TextPainter(text: TextSpan(text: s, style: textStyle.copyWith(color: c, fontSize: 11)), textDirection: TextDirection.ltr)
-        ..layout();
+  TextPainter _layout(String s, Color c) => TextPainter(
+    text: TextSpan(
+      text: s,
+      style: textStyle.copyWith(color: c, fontSize: 11),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
 
   void _text(Canvas canvas, String s, Offset o, Color c) => _layout(s, c).paint(canvas, o);
 
@@ -782,8 +900,7 @@ class _ChartPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
       maxLines: 1,
       ellipsis: '…',
-    )..layout(maxWidth: math.max(maxW, 10)))
-        .paint(canvas, o);
+    )..layout(maxWidth: math.max(maxW, 10))).paint(canvas, o);
   }
 
   void _tag(Canvas canvas, String s, Offset at, Color bg) {
@@ -798,10 +915,10 @@ class _ChartPainter extends CustomPainter {
   static String _short(double v) => v >= 1e9
       ? '${fmt(v / 1e9, 2)}B'
       : v >= 1e6
-          ? '${fmt(v / 1e6, 2)}M'
-          : v >= 1e3
-              ? '${fmt(v / 1e3, 1)}K'
-              : fmt(v, 0);
+      ? '${fmt(v / 1e6, 2)}M'
+      : v >= 1e3
+      ? '${fmt(v / 1e3, 1)}K'
+      : fmt(v, 0);
 
   /// Mốc chia đẹp (1, 2, 5 × 10^k) cho trục giá.
   static List<double> _ticks(double lo, double hi, int target) {

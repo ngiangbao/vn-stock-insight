@@ -13,6 +13,7 @@ import 'chart.dart';
 import 'dash_widgets.dart';
 import 'stock_dialog.dart';
 import 'widgets.dart';
+import 'glass_motion.dart' show AppSegmented;
 
 class OverviewPage extends StatelessWidget {
   const OverviewPage({super.key});
@@ -328,28 +329,11 @@ class _RegionBar extends StatelessWidget {
     child: LayoutBuilder(
       builder: (context, c) {
         // Bốn nút cùng chiều rộng, không đổi kích thước khi được chọn (không có dấu tick)
-        final selector = SegmentedButton<String>(
-          showSelectedIcon: false,
-          expandedInsets: EdgeInsets.zero,
-          style: const ButtonStyle(
-            minimumSize: WidgetStatePropertyAll(Size(0, 44)),
-            padding: WidgetStatePropertyAll(
-              EdgeInsets.symmetric(horizontal: 6),
-            ),
-          ),
-          segments: [
-            for (final (id, label) in indexRegions)
-              ButtonSegment(
-                value: id,
-                label: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-          ],
-          selected: {dash.region},
-          onSelectionChanged: (v) => dash.setRegion(v.first),
+        final selector = AppSegmented<String>(
+          expand: true,
+          options: [for (final (id, label) in indexRegions) (id, label)],
+          selected: dash.region,
+          onChanged: dash.setRegion,
         );
         final label = Text(
           'Thị trường',
