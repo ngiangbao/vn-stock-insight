@@ -10,6 +10,7 @@ import '../services/instruments.dart';
 import '../services/market.dart';
 import 'chart.dart';
 import 'corporate_bonds_page.dart';
+import 'glass_motion.dart' show AppTabBar;
 import 'widgets.dart';
 
 class BondsPage extends StatelessWidget {
@@ -21,7 +22,7 @@ class BondsPage extends StatelessWidget {
     child: Scaffold(
       appBar: AppBar(
         title: const Text('Trái phiếu'),
-        bottom: const TabBar(
+        bottom: const AppTabBar(
           tabs: [
             Tab(text: 'Doanh nghiệp'),
             Tab(text: 'Định giá & tra cứu'),
@@ -172,7 +173,7 @@ class ListedFundsPage extends StatelessWidget {
     child: Scaffold(
       appBar: AppBar(
         title: const Text('Quỹ'),
-        bottom: const TabBar(
+        bottom: const AppTabBar(
           tabs: [
             Tab(text: 'Quỹ niêm yết / ETF'),
             Tab(text: 'Quỹ mở / NAV'),

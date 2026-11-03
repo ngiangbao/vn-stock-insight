@@ -3,6 +3,7 @@ import 'dart:ui' show AppExitResponse;
 
 import 'ai/consent.dart';
 import 'ui/ai_consent_dialog.dart';
+import 'ui/glass_motion.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show LicenseEntryWithLineBreaks, LicenseRegistry;
 import 'package:flutter/services.dart' show LogicalKeyboardKey, rootBundle;
@@ -440,9 +441,12 @@ class _HomeShellState extends State<HomeShell> {
     final width = MediaQuery.sizeOf(context).width;
     final wide = width >= 760;
     // Tab ẩn: tắt Ticker (spinner, hoạt ảnh) và để các trang con tạm dừng bộ hẹn giờ
-    final body = IndexedStack(
-      index: _tab,
-      children: [for (var i = 0; i < pages.length; i++) TickerMode(enabled: i == _tab, child: pages[i])],
+    final body = GlassReveal(
+      trigger: _tab,
+      child: IndexedStack(
+        index: _tab,
+        children: [for (var i = 0; i < pages.length; i++) TickerMode(enabled: i == _tab, child: pages[i])],
+      ),
     );
 
     if (wide) {
@@ -558,7 +562,17 @@ class _FloatingRail extends StatelessWidget {
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: box.maxHeight),
               child: IntrinsicHeight(
-                child: Column(
+                child: Stack(
+                  children: [
+                    // Thấu kính kính trượt tới mục đang chọn (kiểu Liquid Glass); Cổ điển vẫn dùng viên xanh trong từng mục
+                    if (GlassScope.maybeOf(context) != null)
+                      GlassLensMover(
+                        target: Rect.fromLTWH(8, 74.0 + selectedIndex.clamp(0, 6) * 68 + 2, 72, 64),
+                        radius: BorderRadius.circular(18),
+                        brightness: dark ? Brightness.dark : Brightness.light,
+                        visible: selectedIndex < 7,
+                      ),
+                    Column(
                   children: [
                     const SizedBox(height: 16),
                     Semantics(
@@ -597,6 +611,8 @@ class _FloatingRail extends StatelessWidget {
                     const SizedBox(height: 12),
                   ],
                 ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -622,7 +638,9 @@ class _RailItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final fg = selected ? cs.onPrimary : cs.onSurfaceVariant;
+    // Kiểu Liquid Glass: thấu kính phía sau đã làm nền ô chọn, nên ô không tự tô và chữ dùng màu nhấn
+    final glass = GlassScope.maybeOf(context) != null;
+    final fg = selected ? (glass ? cs.primary : cs.onPrimary) : cs.onSurfaceVariant;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: Semantics(
@@ -630,7 +648,7 @@ class _RailItem extends StatelessWidget {
         selected: selected,
         label: label,
         child: Material(
-          color: selected ? cs.primary : Colors.transparent,
+          color: selected && !glass ? cs.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(18),
           child: InkWell(
             onTap: onTap,

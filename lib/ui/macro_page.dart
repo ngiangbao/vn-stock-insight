@@ -9,6 +9,7 @@ import '../services/macro.dart';
 import '../state.dart';
 import 'macro_chart.dart';
 import 'rates_tab.dart';
+import 'glass_motion.dart' show AppTabBar;
 import 'widgets.dart' show SmoothTabView, fmt, timeLocal;
 
 const _ranges = [('5 năm', 5), ('10 năm', 10), ('20 năm', 20), ('Toàn bộ', 0)];
@@ -95,9 +96,7 @@ class _MacroPageState extends State<MacroPage> {
                   ),
             const SizedBox(width: 8),
           ],
-          bottom: TabBar(
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
+          bottom: AppTabBar(
             tabs: [for (final t in macroTabs) Tab(text: t.title), const Tab(text: 'Lãi suất hằng ngày')],
           ),
         ),

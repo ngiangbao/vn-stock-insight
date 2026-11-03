@@ -8,6 +8,7 @@ import '../services/board.dart';
 import '../services/market.dart';
 import '../state.dart';
 import 'stock_dialog.dart';
+import 'glass_motion.dart' show AppTabBar;
 import 'widgets.dart';
 
 /// Accepts comma, semicolon, space, or line separated symbols and removes duplicates.
@@ -179,8 +180,7 @@ class _ScreenerPageState extends State<ScreenerPage> {
                     tooltip: 'Làm mới bảng giá',
                   ),
           ],
-          bottom: const TabBar(
-            isScrollable: true,
+          bottom: const AppTabBar(
             tabs: [
               Tab(text: 'Bảng giá realtime'),
               Tab(text: 'Bộ lọc kỹ thuật'),

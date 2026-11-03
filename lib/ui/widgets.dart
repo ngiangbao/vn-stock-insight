@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../state.dart';
+import 'glass_motion.dart' show GlassReveal;
 
 /// Màu tăng/giảm/đứng giá, đổi theo chế độ sáng/tối.
 class Tone {
@@ -406,10 +407,10 @@ class SmoothTabView extends StatefulWidget {
   State<SmoothTabView> createState() => _SmoothTabViewState();
 }
 
-class _SmoothTabViewState extends State<SmoothTabView> with SingleTickerProviderStateMixin {
-  late final AnimationController _fade = AnimationController(vsync: this, duration: const Duration(milliseconds: 160), value: 1);
+class _SmoothTabViewState extends State<SmoothTabView> {
   TabController? _c;
   late int _shown;
+  late final int _initial;
   final Set<int> _built = {};
 
   @override
@@ -420,6 +421,7 @@ class _SmoothTabViewState extends State<SmoothTabView> with SingleTickerProvider
       _c?.removeListener(_onTab);
       _c = c..addListener(_onTab);
       _shown = c.index;
+      _initial = _shown;
       _built.add(_shown);
     }
   }
@@ -431,17 +433,11 @@ class _SmoothTabViewState extends State<SmoothTabView> with SingleTickerProvider
       _shown = i;
       _built.add(i);
     });
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _fade.value = 1;
-    } else {
-      _fade.forward(from: 0.15);
-    }
   }
 
   @override
   void dispose() {
     _c?.removeListener(_onTab);
-    _fade.dispose();
     super.dispose();
   }
 
@@ -459,7 +455,7 @@ class _SmoothTabViewState extends State<SmoothTabView> with SingleTickerProvider
               child: ExcludeSemantics(
                 excluding: i != _shown,
                 child: RepaintBoundary(
-                  child: FadeTransition(opacity: i == _shown ? _fade : kAlwaysCompleteAnimation, child: widget.children[i]),
+                  child: GlassReveal(trigger: i == _shown, playOnMount: i != _initial, child: widget.children[i]),
                 ),
               ),
             ),

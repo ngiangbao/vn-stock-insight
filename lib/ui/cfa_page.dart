@@ -12,6 +12,7 @@ import '../state.dart';
 import 'cfa_report.dart';
 import 'pdf_capture.dart';
 import 'portfolio_page.dart';
+import 'glass_motion.dart' show AppTabBar;
 import 'widgets.dart';
 
 class CfaPage extends StatefulWidget {
@@ -92,10 +93,8 @@ class _CfaPageState extends State<CfaPage> with SingleTickerProviderStateMixin {
                 Text('${reports.length} bản phân tích, ${state.portfolios.portfolios.length} danh mục lưu trên máy', style: text.bodySmall),
               ],
             ),
-            bottom: TabBar(
+            bottom: AppTabBar(
               controller: _tabs,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
               tabs: const [
                 Tab(text: 'Phân tích mới'),
                 Tab(text: 'Đã lưu'),
