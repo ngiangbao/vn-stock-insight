@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:qr/qr.dart';
 
 import '../state.dart';
+import 'glass_motion.dart' show AppSegmented;
 
 /// Vẽ mã QR. Mã QR luôn đen trên nền trắng (bắt buộc để máy quét đọc được ở cả giao diện tối).
 class QrView extends StatelessWidget {
@@ -190,12 +191,12 @@ class _LanSectionState extends State<LanSection> {
                   Text('Giao diện mạng', style: text.titleSmall),
                   const SizedBox(height: 6),
                   Wrap(spacing: 6, runSpacing: 6, children: [
-                    for (final a in addrs)
-                      ChoiceChip(
-                        label: Text('${a.$1} · ${a.$2}'),
-                        selected: a.$2 == ip,
-                        onSelected: (_) => setState(() => _selected = a.$2),
-                      ),
+                    AppSegmented<String>(
+                      chips: true,
+                      options: [for (final a in addrs) (a.$2, '${a.$1} · ${a.$2}')],
+                      selected: ip ?? '',
+                      onChanged: (v) => setState(() => _selected = v),
+                    ),
                   ]),
                   const SizedBox(height: 12),
                 ],

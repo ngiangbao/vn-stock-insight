@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/feedback.dart';
 import '../services/updater.dart';
+import 'glass_motion.dart' show AppSegmented;
 
 Future<void> openFeedbackDialog(BuildContext context) => showDialog<void>(context: context, builder: (_) => const FeedbackDialog());
 
@@ -84,15 +85,15 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final k in FeedbackKind.values)
-                    ChoiceChip(
-                      label: Text(k.label),
-                      selected: _kind == k,
-                      onSelected: (_) => setState(() {
-                        _kind = k;
-                        _error = null;
-                      }),
-                    ),
+                  AppSegmented<FeedbackKind>(
+                    chips: true,
+                    options: [for (final k in FeedbackKind.values) (k, k.label)],
+                    selected: _kind,
+                    onChanged: (k) => setState(() {
+                      _kind = k;
+                      _error = null;
+                    }),
+                  ),
                 ],
               ),
               const SizedBox(height: 14),

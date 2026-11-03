@@ -11,6 +11,7 @@ import 'claude_cli_section.dart';
 import 'local_models_page.dart';
 import 'update_dialog.dart';
 import 'widgets.dart';
+import 'glass_motion.dart' show AppSegmented;
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -314,30 +315,20 @@ class _SettingsPageState extends State<SettingsPage> {
     // Các mục cài đặt; cửa sổ rộng thì chia hai cột để dàn đều theo chiều ngang như các tab khác
     final cards = <Widget>[
       section('Giao diện', [
-        SegmentedButton<ThemeMode>(
-          segments: const [
-            ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto), label: Text('Hệ thống')),
-            ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode), label: Text('Sáng')),
-            ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode), label: Text('Tối')),
-          ],
-          // Không hiện thêm dấu tick (đã có nền chọn) để vừa màn hình 375 px; chiều cao chạm tối thiểu 48
-          showSelectedIcon: false,
-          style: const ButtonStyle(minimumSize: WidgetStatePropertyAll(Size(0, 48))),
-          selected: {state.themeMode},
-          onSelectionChanged: (s) => state.setTheme(s.first),
+        AppSegmented<ThemeMode>(
+          height: 48,
+          options: const [(ThemeMode.system, 'Hệ thống'), (ThemeMode.light, 'Sáng'), (ThemeMode.dark, 'Tối')],
+          selected: state.themeMode,
+          onChanged: state.setTheme,
         ),
         const SizedBox(height: 14),
         Text('Kiểu giao diện', style: text.titleSmall),
         const SizedBox(height: 6),
-        SegmentedButton<UiStyle>(
-          segments: const [
-            ButtonSegment(value: UiStyle.liquidGlass, icon: Icon(Icons.blur_on), label: Text('Liquid Glass')),
-            ButtonSegment(value: UiStyle.classic, icon: Icon(Icons.layers_outlined), label: Text('Cổ điển')),
-          ],
-          showSelectedIcon: false,
-          style: const ButtonStyle(minimumSize: WidgetStatePropertyAll(Size(0, 48))),
-          selected: {state.uiStyle},
-          onSelectionChanged: (s) => state.setUiStyle(s.first),
+        AppSegmented<UiStyle>(
+          height: 48,
+          options: const [(UiStyle.liquidGlass, 'Liquid Glass'), (UiStyle.classic, 'Cổ điển')],
+          selected: state.uiStyle,
+          onChanged: state.setUiStyle,
         ),
         const SizedBox(height: 4),
         Text(
@@ -351,20 +342,22 @@ class _SettingsPageState extends State<SettingsPage> {
         const SizedBox(height: 14),
         Text('Cỡ giao diện', style: text.titleSmall),
         const SizedBox(height: 6),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            ChoiceChip(label: const Text('Tự động'), selected: state.uiScale == null, onSelected: (_) => state.setUiScale(null)),
-            for (final s in AutoScale.presets)
-              ChoiceChip(
-                label: Text('${(s * 100).round()}%'),
-                selected: state.uiScale != null && (state.uiScale! - s).abs() < 0.01,
-                onSelected: (_) => state.setUiScale(s),
-              ),
-            if (state.uiScale != null && !AutoScale.presets.any((s) => (state.uiScale! - s).abs() < 0.01))
-              ChoiceChip(label: Text('${(state.uiScale! * 100).round()}%'), selected: true, onSelected: (_) {}),
-          ],
+        Builder(
+          builder: (context) {
+            // Giá trị -1 là "Tự động"; cỡ tùy chỉnh ngoài các mức có sẵn (đặt bằng phím tắt) hiện thêm một lựa chọn
+            final cur = state.uiScale;
+            final custom = cur != null && !AutoScale.presets.any((s) => (cur - s).abs() < 0.01);
+            return AppSegmented<double>(
+              chips: true,
+              options: [
+                (-1, 'Tự động'),
+                for (final s in AutoScale.presets) (s, '${(s * 100).round()}%'),
+                if (custom) (cur, '${(cur * 100).round()}%'),
+              ],
+              selected: cur == null ? -1 : AutoScale.presets.firstWhere((s) => (cur - s).abs() < 0.01, orElse: () => cur),
+              onChanged: (v) => state.setUiScale(v < 0 ? null : v),
+            );
+          },
         ),
         const SizedBox(height: 4),
         Text('Phím tắt: Ctrl + / Ctrl − để phóng to/thu nhỏ, Ctrl 0 để trở về Tự động.', style: text.bodySmall),

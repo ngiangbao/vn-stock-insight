@@ -14,6 +14,7 @@ import '../state.dart';
 import 'pdf_capture.dart';
 import 'portfolio_report.dart';
 import 'widgets.dart';
+import 'glass_motion.dart' show AppSegmented;
 
 String _two(int x) => x.toString().padLeft(2, '0');
 String _vnDay(DateTime t) {
@@ -744,13 +745,12 @@ class _PortfolioDetailPageState extends State<PortfolioDetailPage> {
                       ),
                       if (analyses.length > 1)
                         Text('Lịch sử ${analyses.length} lần:', style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
-                      for (final a in analyses)
-                        ChoiceChip(
-                          label: Text(timeVN(DateTime.parse(a['created_at']))),
-                          selected: a['id'] == picked?['id'],
-                          onSelected: (_) => setState(() => _pickedId = a['id'] as String),
-                          materialTapTargetSize: MaterialTapTargetSize.padded,
-                        ),
+                      AppSegmented<String>(
+                        chips: true,
+                        options: [for (final a in analyses) (a['id'] as String, timeVN(DateTime.parse(a['created_at'])))],
+                        selected: (picked?['id'] ?? '') as String,
+                        onChanged: (id) => setState(() => _pickedId = id),
+                      ),
                     ],
                   ),
                   if (_running)

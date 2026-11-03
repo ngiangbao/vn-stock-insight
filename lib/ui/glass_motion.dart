@@ -284,7 +284,20 @@ class _GlassPillState extends State<GlassPill> {
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.expand) return _build(context, _naturalWidths(context));
+    if (!widget.expand) {
+      final widths = _naturalWidths(context);
+      final total = widths.fold<double>(_pad * 2, (a, b) => a + b);
+      // Dãy nhãn dài hơn chỗ chứa (điện thoại 375 px) thì cuộn ngang thay vì tràn
+      return LayoutBuilder(
+        builder: (context, box) => box.hasBoundedWidth && total > box.maxWidth
+            ? SizedBox(
+                width: box.maxWidth,
+                height: widget.height,
+                child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: _build(context, widths)),
+              )
+            : _build(context, widths),
+      );
+    }
     return LayoutBuilder(
       builder: (context, box) {
         final w = box.hasBoundedWidth ? (box.maxWidth - _pad * 2) / widget.labels.length : _naturalWidths(context).reduce(math.max);
@@ -472,6 +485,9 @@ class AppSegmented<T> extends StatelessWidget {
   final ValueChanged<T> onChanged;
   final bool expand;
   final double height;
+
+  /// Kiểu Cổ điển vẽ thành hàng chip (ChoiceChip) thay vì SegmentedButton, để giữ nguyên hình dạng cũ của chỗ đó.
+  final bool chips;
   const AppSegmented({
     super.key,
     required this.options,
@@ -479,10 +495,19 @@ class AppSegmented<T> extends StatelessWidget {
     required this.onChanged,
     this.expand = false,
     this.height = 44,
+    this.chips = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (GlassScope.maybeOf(context) == null && chips) {
+      return Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [for (final (v, l) in options) ChoiceChip(label: Text(l), selected: v == selected, onSelected: (_) => onChanged(v))],
+      );
+    }
     if (GlassScope.maybeOf(context) == null) {
       return SegmentedButton<T>(
         showSelectedIcon: false,

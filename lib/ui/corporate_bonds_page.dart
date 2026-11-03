@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/corporate_bonds.dart';
 import '../state.dart';
 import 'widgets.dart';
+import 'glass_motion.dart' show AppSegmented;
 
 class CorporateBondsPage extends StatefulWidget {
   final bool active;
@@ -202,20 +203,15 @@ class _CorporateBondsPageState extends State<CorporateBondsPage> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final filter in [
-              'Chưa đáo hạn',
-              'Tất cả từ nguồn',
-              'Đã đến hạn',
-              'Thiếu ngày đáo hạn',
-            ])
-              ChoiceChip(
-                label: Text(filter),
-                selected: filter == _filter,
-                onSelected: (_) => setState(() {
-                  _filter = filter;
-                  _page = 0;
-                }),
-              ),
+            AppSegmented<String>(
+              chips: true,
+              options: [for (final f in ['Chưa đáo hạn', 'Tất cả từ nguồn', 'Đã đến hạn', 'Thiếu ngày đáo hạn']) (f, f)],
+              selected: _filter,
+              onChanged: (filter) => setState(() {
+                _filter = filter;
+                _page = 0;
+              }),
+            ),
           ],
         ),
         if (_loading) const LinearProgressIndicator(),

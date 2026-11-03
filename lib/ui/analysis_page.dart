@@ -7,6 +7,7 @@ import 'pdf_capture.dart';
 
 import '../state.dart';
 import 'analysis_report.dart';
+import 'glass_motion.dart' show AppSegmented;
 
 void openAnalysis(BuildContext context, String symbol) =>
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => AnalysisPage(symbol)));
@@ -294,14 +295,14 @@ class _DayColumn extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final (k, _) in days)
-                ChoiceChip(
-                  label: Text(dayLabel(k, todayKey) == 'Hôm qua' ? 'Hôm qua · ${vn(k).substring(0, 5)}' : vn(k).substring(0, 5)),
-                  selected: k == selected,
-                  onSelected: (_) => onPick?.call(k),
-                  materialTapTargetSize: MaterialTapTargetSize.padded,
-                  visualDensity: VisualDensity.standard,
-                ),
+              AppSegmented<String>(
+                chips: true,
+                options: [
+                  for (final (k, _) in days) (k, dayLabel(k, todayKey) == 'Hôm qua' ? 'Hôm qua · ${vn(k).substring(0, 5)}' : vn(k).substring(0, 5)),
+                ],
+                selected: selected ?? '',
+                onChanged: (k) => onPick?.call(k),
+              ),
             ],
           ),
         ],

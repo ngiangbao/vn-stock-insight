@@ -8,7 +8,7 @@ import '../services/board.dart';
 import '../services/market.dart';
 import '../state.dart';
 import 'stock_dialog.dart';
-import 'glass_motion.dart' show AppTabBar;
+import 'glass_motion.dart' show AppSegmented, AppTabBar;
 import 'widgets.dart';
 
 /// Accepts comma, semicolon, space, or line separated symbols and removes duplicates.
@@ -617,13 +617,12 @@ class _QuoteFilters extends StatelessWidget {
       runSpacing: 6,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        for (final option in ['Tất cả', 'HOSE', 'HNX', 'UPCOM', 'VN30'])
-          ChoiceChip(
-            label: Text(option),
-            selected: exchange == option,
-            onSelected: (_) => onExchangeChanged(option),
-            visualDensity: VisualDensity.compact,
-          ),
+        AppSegmented<String>(
+          chips: true,
+          options: [for (final o in ['Tất cả', 'HOSE', 'HNX', 'UPCOM', 'VN30']) (o, o)],
+          selected: exchange,
+          onChanged: onExchangeChanged,
+        ),
         const SizedBox(width: 6),
         DropdownButton<String>(
           value: move,
@@ -997,33 +996,11 @@ class _SelectedQuotePanelState extends State<_SelectedQuotePanel> {
           // Bốn lựa chọn cùng chiều rộng, trải đều trong khung; không đổi kích thước khi chọn (không có dấu tick)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: SegmentedButton<int>(
-              showSelectedIcon: false,
-              expandedInsets: EdgeInsets.zero,
-              style: const ButtonStyle(
-                minimumSize: WidgetStatePropertyAll(Size(0, 44)),
-                padding: WidgetStatePropertyAll(
-                  EdgeInsets.symmetric(horizontal: 4),
-                ),
-              ),
-              segments: [
-                for (final (i, label) in [
-                  'Tổng hợp',
-                  'Sổ lệnh',
-                  'Mức giá',
-                  'Thống kê',
-                ].indexed)
-                  ButtonSegment(
-                    value: i,
-                    label: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-              ],
-              selected: {_tab},
-              onSelectionChanged: (v) => setState(() => _tab = v.first),
+            child: AppSegmented<int>(
+              expand: true,
+              options: [for (final (i, label) in ['Tổng hợp', 'Sổ lệnh', 'Mức giá', 'Thống kê'].indexed) (i, label)],
+              selected: _tab,
+              onChanged: (v) => setState(() => _tab = v),
             ),
           ),
           const Divider(height: 1),

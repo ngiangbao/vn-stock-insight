@@ -9,7 +9,7 @@ import '../services/macro.dart';
 import '../state.dart';
 import 'macro_chart.dart';
 import 'rates_tab.dart';
-import 'glass_motion.dart' show AppTabBar;
+import 'glass_motion.dart' show AppSegmented, AppTabBar;
 import 'widgets.dart' show SmoothTabView, fmt, timeLocal;
 
 const _ranges = [('5 năm', 5), ('10 năm', 10), ('20 năm', 20), ('Toàn bộ', 0)];
@@ -107,12 +107,12 @@ class _MacroPageState extends State<MacroPage> {
               alignment: Alignment.centerLeft,
               child: Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
                 Text('Khoảng thời gian', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-                for (final (label, years) in _ranges)
-                  ChoiceChip(
-                    label: Text(label),
-                    selected: _years == years,
-                    onSelected: (_) => setState(() => _years = years),
-                  ),
+                AppSegmented<int>(
+                  chips: true,
+                  options: [for (final (label, years) in _ranges) (years, label)],
+                  selected: _years,
+                  onChanged: (years) => setState(() => _years = years),
+                ),
               ]),
             ),
           ),
