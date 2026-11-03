@@ -81,6 +81,9 @@ void main() {
     final rightCard = tester.getRect(find.ancestor(of: find.text('Đóng góp ý kiến'), matching: find.byType(Card)).first);
     expect(rightCard.right, closeTo(1600 - 16, 2));
     expect(find.text('Gửi ý kiến lên GitHub'), findsOneWidget);
+    expect(find.text('Quyền riêng tư'), findsOneWidget);
+    expect(find.text('Giấy phép và ghi công'), findsOneWidget);
+    expect(find.textContaining('Chưa đồng ý gửi dữ liệu tới nhà cung cấp đám mây nào'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

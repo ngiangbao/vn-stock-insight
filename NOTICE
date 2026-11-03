@@ -1,0 +1,14 @@
+VN Stock Insight
+Phát hành theo giấy phép MIT (xem LICENSE).
+
+Thành phần của bên thứ ba
+-------------------------
+Khung phân tích AI trong lib/ai/prompts.dart (luận điểm đầu tư, phân tích kết quả kinh doanh, lịch sự kiện, định giá so sánh, vị thế cạnh tranh)
+được chuyển thể từ các skill của plugin "equity-research" và "financial-analysis" trong kho anthropics/financial-services
+(https://github.com/anthropics/financial-services), phát hành theo Apache License 2.0. Bản sao giấy phép nằm ở LICENSES/Apache-2.0.txt.
+
+Các thay đổi so với bản gốc: viết lại bằng tiếng Việt, rút gọn cho cổ phiếu Việt Nam, thêm ràng buộc đầu ra (không ra lệnh mua/bán, không bịa số liệu)
+và schema JSON riêng. Bảng chấm điểm 8 tiêu chí là phần riêng của dự án này. Phần chuyển thể này vẫn tuân theo các điều khoản của Apache License 2.0
+(giữ nguyên thông báo bản quyền và ghi nhận nguồn gốc, nêu rõ thay đổi); phần mã còn lại của dự án theo giấy phép MIT.
+
+Các thư viện Dart/Flutter được dùng theo giấy phép riêng của từng thư viện; xem danh sách trong app: Cài đặt → Quyền riêng tư → Giấy phép và ghi công.

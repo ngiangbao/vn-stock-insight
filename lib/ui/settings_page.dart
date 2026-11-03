@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../ai/consent.dart';
 import '../ai/providers.dart';
 import '../services/ssi.dart';
 import '../services/updater.dart';
@@ -195,6 +196,58 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Widget _privacySection(AppState state, TextTheme text, Widget Function(String, List<Widget>) section) {
+    final granted = [for (final p in availableProviders) if (AiConsent.granted.contains(p.id)) p];
+    return section('Quyền riêng tư', [
+      Text(
+        'Tác giả không thu thập dữ liệu của bạn. Khi bạn bấm phân tích hoặc hỏi chat, nội dung (mã cổ phiếu, số liệu, tin tức; với danh mục thì thêm mã, số lượng, '
+        'mục tiêu và mức chấp nhận rủi ro bạn nhập) được gửi trực tiếp từ máy bạn tới nhà cung cấp AI bạn chọn, theo chính sách của họ. '
+        'App hỏi xác nhận một lần cho từng nhà cung cấp đám mây. Model chạy trên máy (LM Studio, Ollama) không gửi gì ra ngoài.',
+        style: text.bodyMedium,
+      ),
+      const SizedBox(height: 10),
+      if (granted.isEmpty)
+        Text('Chưa đồng ý gửi dữ liệu tới nhà cung cấp đám mây nào.', style: text.bodySmall)
+      else
+        for (final p in granted)
+          Row(
+            children: [
+              const Icon(Icons.check_circle_outline, size: 18),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Đã đồng ý gửi dữ liệu tới ${p.name}', style: text.bodyMedium)),
+              TextButton(
+                style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                onPressed: () => AiConsent.revoke(p.id),
+                child: const Text('Thu hồi'),
+              ),
+            ],
+          ),
+      if (!state.secureStorageOk)
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Lưu key không mã hóa trên máy này'),
+          subtitle: const Text('Máy không có kho khóa bảo mật. Mặc định app chỉ giữ key trong phiên; bật để lưu key dạng văn bản thường trong cài đặt của app.'),
+          value: state.allowPlainKeys,
+          onChanged: state.setAllowPlainKeys,
+        ),
+      const SizedBox(height: 6),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48)),
+          onPressed: () => showLicensePage(
+            context: context,
+            applicationName: 'VN Stock Insight',
+            applicationVersion: _version,
+            applicationLegalese: 'Phát hành theo giấy phép MIT. Khung phân tích AI chuyển thể từ anthropics/financial-services (Apache-2.0).',
+          ),
+          icon: const Icon(Icons.description_outlined),
+          label: const Text('Giấy phép và ghi công'),
+        ),
+      ),
+    ]);
+  }
+
   Widget _feedbackSection(AppState state, TextTheme text, Widget Function(String, List<Widget>) section) => section('Đóng góp ý kiến', [
     Text(
       'Gặp lỗi, muốn thêm tính năng hay có đề xuất sửa mã? Soạn ngay tại đây, app mở sẵn trang GitHub của dự án để bạn gửi issue hoặc tạo pull request. '
@@ -376,7 +429,7 @@ class _SettingsPageState extends State<SettingsPage> {
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
-                  'Máy này không có kho khóa bảo mật (keyring), API key được lưu trong cài đặt của app.',
+                  'Máy này không có kho khóa bảo mật (keyring): API key chỉ được giữ trong phiên này và mất khi đóng app. Muốn lưu lại, bật "Lưu key không mã hóa" ở mục Quyền riêng tư.',
                   style: text.bodySmall?.copyWith(color: Tone.flat(context)),
                 ),
               ),
@@ -485,6 +538,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ),
       ]),
+      _privacySection(state, text, section),
       _feedbackSection(state, text, section),
     ];
     Widget column(List<Widget> items) => Column(

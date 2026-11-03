@@ -12,6 +12,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'ai/consent.dart';
 import 'ai/prompts.dart';
 import 'dashboard.dart';
 import 'ai/providers.dart';
@@ -42,7 +43,11 @@ String _vietnamDayKey(DateTime value) {
 
 class AppState extends ChangeNotifier {
   late SharedPreferences _prefs;
-  final _secure = const FlutterSecureStorage();
+  FlutterSecureStorage _secure = const FlutterSecureStorage();
+
+  /// Thay kho khóa (kiểm thử mô phỏng máy không có keyring).
+  @visibleForTesting
+  void useSecureStorage(FlutterSecureStorage s) => _secure = s;
   bool secureStorageOk = true;
 
   // ---------- Cài đặt ----------
@@ -186,6 +191,14 @@ class AppState extends ChangeNotifier {
     }
     final ssiId = await _readKey('ssi_id'), ssiSecret = await _readKey('ssi_secret');
     SsiSource.instance.configure(id: ssiId ?? '', secret: ssiSecret ?? '', enable: _prefs.getBool('ssiEnabled') ?? false);
+    allowPlainKeys = _prefs.getBool('allowPlainKeys') ?? false;
+    AiConsent.granted
+      ..clear()
+      ..addAll(_prefs.getStringList('aiConsent') ?? const []);
+    AiConsent.onChanged = () {
+      _prefs.setStringList('aiConsent', AiConsent.granted.toList());
+      notifyListeners();
+    };
     watchlist = _prefs.getStringList('watchlist') ?? [...defaultWatchlist];
     chartType = ChartType.values.asNameMap()[_prefs.getString('chartType')] ?? ChartType.candle;
     final inds = _prefs.getStringList('chartIndicators');
@@ -235,7 +248,41 @@ class AppState extends ChangeNotifier {
       await _prefs.remove('key_$id'); // két an toàn đã giữ key: bỏ bản sao trong cài đặt
     } catch (_) {
       secureStorageOk = false;
-      await _prefs.setString('key_$id', value);
+      // Không tự ý ghi key không mã hóa ra đĩa: chỉ giữ trong bộ nhớ của phiên này, trừ khi người dùng chủ động cho phép
+      if (allowPlainKeys) {
+        await _prefs.setString('key_$id', value);
+      } else {
+        await _prefs.remove('key_$id');
+      }
+    }
+  }
+
+  /// Người dùng cho phép lưu key không mã hóa khi máy không có kho khóa (mặc định tắt).
+  bool allowPlainKeys = false;
+
+  Future<void> setAllowPlainKeys(bool v) async {
+    allowPlainKeys = v;
+    await _prefs.setBool('allowPlainKeys', v);
+    if (v) {
+      // Bật: ghi các key đang giữ trong phiên (chỉ những key kho khóa không lưu được)
+      for (final e in _keys.entries) {
+        if (e.value.isNotEmpty && !await _inSecure(e.key)) await _prefs.setString('key_${e.key}', e.value);
+      }
+    } else {
+      // Tắt: xóa mọi bản sao không mã hóa khỏi đĩa
+      for (final k in _prefs.getKeys().where((k) => k.startsWith('key_')).toList()) {
+        await _prefs.remove(k);
+      }
+    }
+    notifyListeners();
+  }
+
+  Future<bool> _inSecure(String id) async {
+    try {
+      final v = await _secure.read(key: 'key_$id');
+      return v != null && v.isNotEmpty;
+    } catch (_) {
+      return false;
     }
   }
 

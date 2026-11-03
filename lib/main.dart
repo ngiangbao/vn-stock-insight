@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:ui' show AppExitResponse;
 
+import 'ai/consent.dart';
+import 'ui/ai_consent_dialog.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show LogicalKeyboardKey;
+import 'package:flutter/foundation.dart' show LicenseEntryWithLineBreaks, LicenseRegistry;
+import 'package:flutter/services.dart' show LogicalKeyboardKey, rootBundle;
 
 import 'services/updater.dart';
 import 'state.dart';
@@ -18,10 +21,23 @@ import 'ui/update_dialog.dart';
 import 'ui/watchlist_page.dart';
 import 'ui/widgets.dart';
 
+/// Để hiện hộp thoại xác nhận từ bất kỳ đâu (kể cả khi lệnh gọi AI xuất phát từ dịch vụ không có giao diện).
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final state = AppState();
   await state.init();
+  // Ghi công thành phần Apache-2.0 trong trang Giấy phép của app
+  LicenseRegistry.addLicense(() async* {
+    final notice = await rootBundle.loadString('NOTICE');
+    final apache = await rootBundle.loadString('LICENSES/Apache-2.0.txt');
+    yield LicenseEntryWithLineBreaks(['Khung phân tích AI (chuyển thể từ anthropics/financial-services)'], '$notice\n\n$apache');
+  });
+  AiConsent.requester = (c) {
+    final ctx = rootNavigatorKey.currentContext;
+    return ctx == null ? Future.value(false) : askAiConsent(ctx, c);
+  };
   runApp(AppScope(state: state, child: const StockApp()));
   state.refresh();
 }
@@ -219,6 +235,7 @@ class StockApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     return MaterialApp(
+      navigatorKey: rootNavigatorKey,
       title: 'VN Stock Insight',
       debugShowCheckedModeBanner: false,
       theme: _theme(Brightness.light),

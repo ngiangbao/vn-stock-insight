@@ -29,26 +29,46 @@ List<int> planCuts(int total, int pageH, List<(double, double)> atomic) {
   return cuts;
 }
 
+/// Nhãn in ở chân mỗi trang để báo cáo xuất ra vẫn cho thấy nội dung do AI tạo, kể cả khi trang bị tách khỏi phần còn lại.
+const pdfAiLabel = 'Nội dung do AI tạo, có thể sai, chỉ để tham khảo, không phải khuyến nghị đầu tư · VN Stock Insight';
+
 /// Cắt ảnh dài [image] thành các trang A4 (chừa lề) và ghép thành PDF. [atomic] tính theo px của ảnh (xem [planCuts]).
 Future<Uint8List> pdfFromImage(ui.Image image, {String? title, String? author, List<(double, double)> atomic = const []}) async {
   const margin = 24.0;
   final format = PdfPageFormat.a4;
   final contentW = format.width - 2 * margin, contentH = format.height - 2 * margin;
-  final sliceH = (image.width * contentH / contentW).floor();
-  final doc = pw.Document(title: title, author: author, creator: 'VN Stock Insight');
+  // Chừa một dải ở chân mỗi trang cho nhãn AI (px của ảnh; tỉ lệ theo bề rộng để cỡ chữ ổn định)
+  final footerH = (image.width * 0.045).ceil();
+  final sliceH = (image.width * contentH / contentW).floor() - footerH;
+  final doc = pw.Document(
+    title: title,
+    author: author,
+    creator: 'VN Stock Insight',
+    subject: 'Nội dung do AI tạo, chỉ để tham khảo, không phải khuyến nghị đầu tư',
+    keywords: 'AI-generated, VN Stock Insight',
+  );
   final cuts = planCuts(image.height, sliceH, atomic);
   for (var k = 0; k + 1 < cuts.length; k++) {
     final top = cuts[k];
     final h = cuts[k + 1] - top;
     if (h <= 0) continue;
     final recorder = ui.PictureRecorder();
-    ui.Canvas(recorder).drawImageRect(
+    final canvas = ui.Canvas(recorder);
+    canvas.drawImageRect(
       image,
       ui.Rect.fromLTWH(0, top.toDouble(), image.width.toDouble(), h.toDouble()),
       ui.Rect.fromLTWH(0, 0, image.width.toDouble(), h.toDouble()),
       ui.Paint()..filterQuality = ui.FilterQuality.high,
     );
-    final piece = await recorder.endRecording().toImage(image.width, h);
+    // Nhãn AI và số trang ở chân trang, nền trắng để đọc được trên mọi nền báo cáo
+    canvas.drawRect(ui.Rect.fromLTWH(0, h.toDouble(), image.width.toDouble(), footerH.toDouble()), ui.Paint()..color = const ui.Color(0xFFFFFFFF));
+    final para = (ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: ui.TextAlign.center, maxLines: 1, ellipsis: '…'))
+          ..pushStyle(ui.TextStyle(color: const ui.Color(0xFF444444), fontSize: footerH * 0.42))
+          ..addText('$pdfAiLabel · trang ${k + 1}/${cuts.length - 1}'))
+        .build()
+      ..layout(ui.ParagraphConstraints(width: image.width.toDouble()));
+    canvas.drawParagraph(para, ui.Offset(0, h + (footerH - para.height) / 2));
+    final piece = await recorder.endRecording().toImage(image.width, h + footerH);
     final png = (await piece.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List();
     final img = pw.MemoryImage(png);
     doc.addPage(
@@ -57,7 +77,7 @@ Future<Uint8List> pdfFromImage(ui.Image image, {String? title, String? author, L
         margin: const pw.EdgeInsets.all(margin),
         build: (_) => pw.Align(
           alignment: pw.Alignment.topCenter,
-          child: pw.Image(img, width: contentW, height: contentW * h / image.width, fit: pw.BoxFit.fill),
+          child: pw.Image(img, width: contentW, height: contentW * (h + footerH) / image.width, fit: pw.BoxFit.fill),
         ),
       ),
     );

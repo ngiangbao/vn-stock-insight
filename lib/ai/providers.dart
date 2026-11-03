@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../services/claude_cli.dart';
+import 'consent.dart';
 
 enum ApiStyle { anthropic, openai, claudeCli }
 
@@ -244,6 +245,7 @@ Future<Map<String, dynamic>> generateJson(
   String schemaName = 'result',
   int maxTokens = 16000,
 }) async {
+  await AiConsent.ensure(c); // nhà cung cấp đám mây phải được người dùng đồng ý trước khi gửi bất cứ nội dung nào
   if (c.preset.style == ApiStyle.claudeCli) return _claudeCli(c, system, prompt, schema);
   if (c.model.isEmpty) throw AiException('Chưa chọn model. Vào Cài đặt → AI để chọn model.');
   if (c.preset.needsKey && c.apiKey.isEmpty) throw AiException('Chưa nhập API key cho ${c.preset.name}.');

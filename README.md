@@ -1,6 +1,6 @@
 # VN Stock Insight
 
-App phân tích cổ phiếu Việt Nam bằng AI cho **Windows, macOS, Linux và Android**. App tự lấy giá, chỉ báo kỹ thuật, số liệu tài chính và tin tức, rồi dùng AI do bạn chọn để phân tích chuyên sâu. AI có thể chạy qua API hoặc ngay trên máy bạn. Không cần tài khoản, không có máy chủ trung gian: mọi dữ liệu và API key nằm trên máy bạn.
+App phân tích cổ phiếu Việt Nam bằng AI cho **Windows, macOS, Linux và Android**. App tự lấy giá, chỉ báo kỹ thuật, số liệu tài chính và tin tức, rồi dùng AI do bạn chọn để phân tích chuyên sâu. AI có thể chạy qua API hoặc ngay trên máy bạn. Không cần tài khoản, không có máy chủ trung gian: app không gửi dữ liệu nào cho tác giả. Danh mục, kết quả phân tích và API key lưu trên máy bạn; riêng nội dung bạn nhờ AI phân tích sẽ được gửi tới nhà cung cấp AI bạn chọn (xem [Quyền riêng tư](#quyền-riêng-tư)), trừ khi bạn dùng model chạy ngay trên máy.
 
 > Công cụ tham khảo. App **không đặt lệnh**, và phân tích của AI **không phải khuyến nghị đầu tư**.
 
@@ -104,7 +104,16 @@ Các bản phát hành Windows được ký số: *Free code signing provided by
 
 ## Quyền riêng tư
 
-App chỉ kết nối mạng để thực hiện chức năng bạn dùng: lấy giá và dữ liệu thị trường (DNSE, VNDirect, Vietcap, Yahoo, World Bank, IMF, TradingEconomics qua TradingView, CafeF), tin tức qua RSS, kiểm tra và tải bản cập nhật từ GitHub, mở trang GitHub khi bạn chủ động gửi ý kiến, và gửi dữ liệu phân tích tới nhà cung cấp AI do bạn chọn (hoặc model chạy trên máy bạn, không gửi đi đâu). Khóa API, danh mục đầu tư và kết quả phân tích lưu trên máy bạn; app không có tài khoản, không thu thập dữ liệu sử dụng và không gửi thông tin cá nhân cho tác giả.
+Tác giả không vận hành máy chủ, không có tài khoản và không thu thập dữ liệu sử dụng: app không gửi thông tin nào cho tác giả. App chỉ kết nối mạng để thực hiện chức năng bạn dùng:
+
+- **Dữ liệu thị trường và tin tức:** DNSE, VNDirect, Vietcap, SSI (nếu bạn bật), Yahoo, World Bank, IMF, TradingEconomics qua TradingView, CafeF và các RSS báo chí. Các nguồn này nhận địa chỉ IP và mã cổ phiếu bạn xem.
+- **Cập nhật và đóng góp ý kiến:** kiểm tra và tải bản mới từ GitHub; mở trang GitHub khi bạn chủ động gửi issue (nội dung đăng công khai, app không giữ khóa GitHub).
+- **Nhà cung cấp AI do bạn chọn:** khi bạn bấm phân tích hoặc hỏi chat, app gửi trực tiếp từ máy bạn tới nhà cung cấp đó (Anthropic, OpenAI, Google, OpenRouter, Groq, Mistral, DeepSeek, xAI, Together, hoặc Claude CLI qua tài khoản Claude của bạn) các thông tin sau: mã cổ phiếu và số liệu giá, chỉ báo, số liệu tài chính, tiêu đề và tóm tắt tin tức liên quan; với phân tích danh mục thì thêm các mã, số lượng, giá vốn, mục tiêu đầu tư, khung thời gian và mức chấp nhận rủi ro bạn nhập; với chat thì thêm câu hỏi và tối đa sáu lượt hội thoại gần nhất. Dữ liệu được nhà cung cấp xử lý theo chính sách của họ (có thể nằm ở nước ngoài); tác giả không nhận và không lưu bản sao. App hỏi bạn xác nhận một lần cho từng nhà cung cấp đám mây trước khi gửi, và bạn thu hồi được trong **Cài đặt → Quyền riêng tư**.
+- **Không muốn gửi dữ liệu ra ngoài:** dùng model chạy trên máy (LM Studio, Ollama; xem [Model trên máy](#model-trên-máy)); khi đó nội dung không rời khỏi máy bạn.
+
+Khóa API được lưu trong kho khóa bảo mật của hệ điều hành. Nếu máy không có kho khóa, mặc định app chỉ giữ khóa trong phiên làm việc và không ghi ra đĩa; bạn có thể chủ động cho phép lưu không mã hóa trong Cài đặt. Danh mục đầu tư, mục tiêu đầu tư và kết quả phân tích lưu trên máy bạn; hãy cân nhắc trước khi nhập thông tin có thể nhận diện được bạn vào ô tự do hoặc câu hỏi chat.
+
+Chia sẻ trong mạng nội bộ (mặc định tắt) dùng HTTP, bảo vệ bằng token ngẫu nhiên; chỉ bật trong mạng bạn tin tưởng.
 
 ## Phát triển
 
