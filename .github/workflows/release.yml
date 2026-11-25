@@ -108,7 +108,7 @@ jobs:
           path: build/windows/x64/runner/Release/vn_stock_insight.exe
       - name: Ký file chạy bằng SignPath
         if: ${{ env.SIGNPATH_TOKEN != '' }}
-        uses: signpath/github-action-submit-signing-request@v2
+        uses: signpath/github-action-submit-signing-request@v3
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
@@ -140,7 +140,7 @@ jobs:
           path: dist/*-setup.exe
       - name: Ký bộ cài bằng SignPath
         if: ${{ env.SIGNPATH_TOKEN != '' }}
-        uses: signpath/github-action-submit-signing-request@v2
+        uses: signpath/github-action-submit-signing-request@v3
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
